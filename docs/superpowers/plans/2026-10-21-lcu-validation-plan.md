@@ -36,7 +36,7 @@
 
 ## 파일 구조와 인터페이스
 
-아래 파일은 이 계획 실행 시 생성한다. 지금은 서비스·수집 프로그램을 만들지 않는다.
+V1 도구와 V2 기록 양식을 준비한다. 실제 Windows 측정과 본 서비스·수집 프로그램 구현은 아직 수행하지 않는다.
 
 | 파일 | 책임 |
 | --- | --- |
@@ -57,15 +57,17 @@ LCU 연결은 `127.0.0.1`로 제한하고, lockfile에 외부 주소나 임의 �
 
 ## V1. 읽기 전용 검증 도구
 
+**진행 기록 (2026-10-21):** Node.js 24.22.1 / macOS arm64에서 실제 루프백 HTTPS 가상 서버 테스트 수행. Windows LCU 실측 결과가 아니며 V2 gate는 HOLD다. 실행 방법은 [도구 README](../../../tools/lcu-probe/README.md)를 따른다.
+
 **Files:** Create 위 표의 `tools/lcu-probe/*`; Modify/Create `.gitignore`; Test `tools/lcu-probe/probe.test.mjs`.
 
 **Interfaces:** Consumes 사용자가 지정한 LoL lockfile 경로와 읽기 전용 조회 옵션. Produces 원본 JSON·HTTP 상태·수집 시각·클라이언트 버전 manifest; 네트워크 실패와 정상 빈 응답을 별도 상태로 반환한다.
 
-- [ ] **1. 연결과 기록 보호 테스트를 작성한다.** `rejectNonLoopback`, `reloadChangedLockfile`, `preserveMissingVersusZero`, `redactSecretsAndStableIdentifiers`, `historyOnlyOnExplicitCommand`를 검증한다. 핵심 assertion은 `assert.equal(output.stats.visionScore, 0)`, `assert.equal('objectiveDamage' in output.stats, false)`, `assert.equal(log.includes(testPassword), false)`, `assert.equal(historyRequestsBeforeCommand, 0)`이며, 실제 계정 가명이 서로 다른 경기에서도 유지되어야 한다.
-- [ ] **2. 실패를 확인한다.** `node --test tools/lcu-probe/probe.test.mjs` → 구현 모듈 부재 또는 assertion으로 실패. 문법·테스트 환경 오류를 기능 실패로 간주하지 않는다.
-- [ ] **3. 명시적으로 지정한 경로에서 연결 정보를 읽는 CLI를 구현한다.** 기본 명령은 `node tools/lcu-probe/probe.mjs --lockfile "C:\Riot Games\League of Legends\lockfile" --out .private/lcu/run-01`이다. 이 명령은 1회 조회한다. 여기에 `--interactive`를 붙이면 Node 내장 readline으로 `history` 입력 때만 조회하는 대기 모드를 제공한다. 경로는 사용자 설치 위치에 맞게 바꾼다. POST/게임 조작·채팅 조회는 구현하지 않는다. 종료된 클라이언트와 응답 없는 LCU를 구분한다.
-- [ ] **4. 테스트와 가상 서버 실행을 확인한다.** 위 테스트 명령 → 전부 PASS. 테스트 암호·실제 lockfile 내용이 stdout, 오류 스택, 저장된 HTTP 메타데이터 어디에도 나오지 않아야 한다. fixture에 실제 자료를 넣기 전 이 테스트를 통과한다.
-- [ ] **5. 검증 도구만 커밋한다.** `git add .gitignore tools/lcu-probe` 후 `git diff --cached --check`, `git commit -m "test: add read-only Windows LCU probe"`. 실제 응답은 커밋하지 않는다.
+- [x] **1. 연결과 기록 보호 테스트를 작성한다.** `rejectNonLoopback`, `reloadChangedLockfile`, `preserveMissingVersusZero`, `redactSecretsAndStableIdentifiers`, `historyOnlyOnExplicitCommand`를 검증한다. 핵심 assertion은 `assert.equal(output.stats.visionScore, 0)`, `assert.equal('objectiveDamage' in output.stats, false)`, `assert.equal(log.includes(testPassword), false)`, `assert.equal(historyRequestsBeforeCommand, 0)`이며, 실제 계정 가명이 서로 다른 경기에서도 유지되어야 한다.
+- [x] **2. 실패를 확인한다.** `node --test tools/lcu-probe/probe.test.mjs` → 구현 모듈 부재 또는 assertion으로 실패. 문법·테스트 환경 오류를 기능 실패로 간주하지 않는다.
+- [x] **3. 명시적으로 지정한 경로에서 연결 정보를 읽는 CLI를 구현한다.** 기본 명령은 `node tools/lcu-probe/probe.mjs --lockfile "C:\Riot Games\League of Legends\lockfile" --out .private/lcu/run-01`이다. 이 명령은 1회 조회한다. `--out`은 프로젝트 루트의 `.private/lcu/` 아래 새 실행 폴더여야 하며 기존 실행을 덮어쓰지 않는다. 여기에 `--interactive`를 붙이면 Node 내장 readline으로 `history` 입력 때만 조회하는 대기 모드를 제공한다. 경로는 사용자 설치 위치에 맞게 바꾼다. POST/게임 조작·채팅 조회는 구현하지 않는다. 종료된 클라이언트와 응답 없는 LCU를 구분한다.
+- [x] **4. 테스트와 가상 서버 실행을 확인한다.** 위 테스트 명령 → 전부 PASS. 테스트 암호·실제 lockfile 내용이 stdout, 오류 스택, 저장된 HTTP 메타데이터 어디에도 나오지 않아야 한다. fixture에 실제 자료를 넣기 전 이 테스트를 통과한다.
+- [x] **5. 검증 도구만 커밋한다.** `git add .gitignore tools/lcu-probe` 후 `git diff --cached --check`, `git commit -m "test: add read-only Windows LCU probe"`. 실제 응답은 커밋하지 않는다.
 
 ### 조회 후보
 

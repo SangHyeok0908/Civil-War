@@ -2,11 +2,41 @@
 
 Node.js 24로 실제 Windows LoL 클라이언트의 과거 경기 조회 가능 범위를 조사한다. 외부 npm 패키지, 빌드, 서버 설치, Riot 개발자 API 키는 필요하지 않다. 인증은 명시적으로 지정한 로컬 LoL lockfile에서 읽으며 화면이나 파일에 출력하지 않는다.
 
-**준비 상태:** macOS에서 합성 응답을 제공하는 실제 루프백 HTTPS 서버로 도구 테스트를 통과했다. Windows 호환성과 실제 LCU 데이터 제공 여부는 아직 검증하지 않았다. 전체 판정은 HOLD다.
+**버전 1.0.2:** 1.0.1 Windows 실행으로 과거 사용자 설정 경기 3건의 목록·상세 수집과 통계 필드 존재를 확인했다. 친구 응답에서 확인한 도전과제 토큰 필드의 오탐을 좁은 경로·숫자 형식에 한해 보완했다. 1.0.2는 macOS 합성 HTTPS 테스트 26/26 통과, Windows 친구 재조회는 대기 중이다. 결과 화면·두 PC 대조 등은 남아 있으며 전체 판정은 HOLD다.
 
 - [검증 계획](../../docs/superpowers/plans/2026-10-21-lcu-validation-plan.md)
 - [실측 보고서](../../docs/validation/lcu-report.md)
 - [필드 맵](../../docs/validation/lcu-field-map.md)
+
+## 0. 이번 수정본 재검증 — 친구 목록만 다시 조회
+
+새 압축 파일을 별도 폴더에 풀고 **그 폴더를 PowerShell의 현재 디렉터리로 지정**한다. LoL 클라이언트에 로그인한 상태에서 아래 블록을 실행한다. 기존 결과를 덮어쓰지 않도록 실행 시각으로 새 폴더 이름을 만든다. 새 내전은 필요하지 않다.
+
+~~~powershell
+node --version
+node --test tools/lcu-probe/probe.test.mjs
+node tools/lcu-probe/probe.mjs --help
+$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$friendsOut = ".private/lcu/pc-a-friends-$stamp"
+$historyOut = $null
+node tools/lcu-probe/probe.mjs --lockfile 'C:\Riot Games\League of Legends\lockfile' --out $friendsOut --region KR --friends
+~~~
+
+- `--help` 첫 줄에서 `1.0.2`를 확인한다. Node 버전은 24.x, 테스트는 26개가 통과해야 한다.
+- 친구 목록의 목표 결과는 `requests=1, errors=0, history=n/a`와 `001-friends.json` 생성이다. JSON의 친구 식별 자료를 확인하기 전까지 회원 사전 등록 PASS로 판단하지 않는다.
+- 친구 목록이 다시 `SENSITIVE_RESPONSE`이면 다음 출력과 manifest의 `sensitivity`를 함께 보존한다. 실제 응답에 허용 형식 밖의 값이나 다른 token 키가 있는지는 아직 모른다.
+- 기존 경기 조회는 1.0.1에서 성공했다. 과거 사용자 설정 경기의 참가자 10명·통계 JSON을 확보했으나, 결과 화면·종료 직후 반영·두 PC 대조는 이번 친구 조회에서 검증하지 않는다. 정상 응답이어도 `gate=HOLD`는 유지된다.
+- 실행한 키트 폴더를 `.private` 숨김 폴더까지 포함해 다시 압축한다. LoL 설치 폴더의 lockfile을 넣지 않는다.
+
+경기 목록도 다시 확인하려면 아래 선택 블록을 실행한다. 목록의 최대 3개 경기 상세를 자동 수집하므로 실제 ID를 직접 입력할 필요가 없다.
+
+~~~powershell
+$historyStamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$historyOut = ".private/lcu/pc-a-history-$historyStamp"
+node tools/lcu-probe/probe.mjs --lockfile 'C:\Riot Games\League of Legends\lockfile' --out $historyOut --region KR --label existing-history --count 3
+~~~
+
+아래 1~8절은 전체 검증 절차와 선택적 조회 설명이다. **이번에는 첫 블록의 친구 조회만 필수다.**
 
 ## 1. Windows 준비
 
@@ -39,7 +69,7 @@ Windows 버전·빌드, CPU 아키텍처, 지역, 클라이언트 표시 버전,
 node tools/lcu-probe/probe.mjs --lockfile 'C:\Riot Games\League of Legends\lockfile' --out .private/lcu/pc-a-after-game-01 --region KR --label after-game
 ~~~
 
-현재 계정, 게임 패치 후보 경로, 최근 경기 한 페이지와 그 페이지의 경기 상세를 순서대로 GET 조회한다. 기본 범위는 beginIndex=0, endIndex=19이며 사용자 설정·솔로랭크 여부를 임의로 필터링하지 않는다. 알려진 목록 구조가 아니면 원본을 보존하고 unknown-schema로 기록한다.
+현재 계정, 게임 패치 후보 경로, 최근 경기 한 페이지와 그 페이지의 경기 상세를 순서대로 GET 조회한다. 기본 요청은 `begIndex=0&endIndex=19`이며 사용자 설정·솔로랭크 여부를 임의로 필터링하지 않는다. `--begin`이라는 CLI 옵션명은 그대로다. 1.0.1 Windows에서 `begIndex=0&endIndex=2`에 3건이 반환되는 것은 확인했지만 다른 범위·최대 페이지는 아직 미확인이다. 알려진 목록 구조가 아니면 원본을 보존하고 unknown-schema로 기록한다. 인자 이름은 [클라이언트 Swagger 기반 문서](https://lcu.kebs.dev/)와 첫 Windows 400 응답을 대조해 수정했다.
 
 명령 실행 자체가 명시적 조회 요청이다. 자동 폴링·재시도·자동 페이지 순회는 없다. 종료 직후 목록에 경기가 없으면 필요한 시점에 새 실행 폴더를 지정하여 다시 실행한다. 예: pc-a-after-1m-01, pc-a-after-5m-01, pc-a-after-15m-01. 관찰 시간은 보장 기한이 아니다.
 
@@ -53,23 +83,19 @@ node tools/lcu-probe/probe.mjs --lockfile 'C:\Riot Games\League of Legends\lockf
 node tools/lcu-probe/probe.mjs --lockfile 'C:\Riot Games\League of Legends\lockfile' --out .private/lcu/pc-a-interactive-01 --interactive
 ~~~
 
-READY가 표시된 시점에는 LCU 요청이 0건이다. 각 명령은 한 번의 수집을 수행하며, 완료 후 다시 대기한다.
+READY가 표시된 시점에는 LCU 요청이 0건이다. **이 프로세스를 켠 상태에서 다음 명령을 한 줄씩 입력**한다. PowerShell의 `PS ...>` 프롬프트가 보인다면 대기 모드가 종료된 것이므로 다시 시작한다. 각 명령은 한 번의 수집을 수행하며, 완료 후 다시 대기한다. 종료는 `quit`을 입력한다.
 
 ~~~text
 history
-history 20 20
-game 1234567890
 friends
-player REPLACE_WITH_PUUID
-timeline 1234567890
 quit
 ~~~
 
 - history: 기본 최근 20경기 페이지. history 20 20은 20번 인덱스부터 20개를 요청한다. --begin과 --count로 기본값도 지정할 수 있다.
-- game: 목록에 나온 경기 ID의 상세 재조회. 예시 ID를 실제 값으로 바꾼다.
+- game: `game 실제경기ID` 형식으로 목록에 나온 경기 ID의 상세를 재조회한다. 기본 history가 이미 상세를 수집한다.
 - friends: 참가자 사전 등록용 식별 자료 확인. 대화·메시지 조회는 지원하지 않는다.
-- player: 다른 참가자의 기록 접근 가능 범위 확인. 확보한 PUUID를 사용하며, 솔로랭크 여부와 역할 힌트는 원본을 보고 판정한다.
-- timeline: 선택적 타임라인 조회. 실패하거나 없어도 기본 수집 PASS를 단독으로 막지 않는다.
+- player: `player 실제PUUID` 형식으로 다른 참가자의 기록 접근 가능 범위를 확인한다. 확보한 PUUID를 사용하며, 솔로랭크 여부와 역할 힌트는 원본을 보고 판정한다.
+- timeline: `timeline 실제경기ID` 형식의 선택적 타임라인 조회. 실패하거나 없어도 기본 수집 PASS를 단독으로 막지 않는다.
 - help, quit: 도움말과 종료.
 
 대기 중 클라이언트를 재시작한 뒤 history 또는 game을 다시 실행하면 현재 lockfile을 새로 읽는다. 같은 경기의 키·핵심 기록을 재시작 전후 및 종료 후 첫 조회 결과와 대조한다.
@@ -78,12 +104,41 @@ quit
 
 ## 4. 단일 조회 옵션
 
+기본 history가 목록과 경기 상세를 함께 수집하므로 별도 `--game`은 재조회할 때만 필요하다. 아래 블록은 **0절의 선택 history 조회를 실행한 동일 PowerShell 창에서만** 사용한다. manifest의 요청 경로에서 실제 경기 ID를 문자열로 가져오므로 큰 정수 식별자의 반올림을 피한다. 목록이 비었거나 실패했다면 game/timeline을 건너뛴다.
+
 ~~~powershell
-node tools/lcu-probe/probe.mjs --lockfile 'C:\Riot Games\League of Legends\lockfile' --out .private/lcu/pc-a-friends-01 --friends
-node tools/lcu-probe/probe.mjs --lockfile 'C:\Riot Games\League of Legends\lockfile' --out .private/lcu/pc-a-game-01 --game 1234567890
-node tools/lcu-probe/probe.mjs --lockfile 'C:\Riot Games\League of Legends\lockfile' --out .private/lcu/pc-a-player-01 --player REPLACE_WITH_PUUID --begin 0 --count 20
-node tools/lcu-probe/probe.mjs --lockfile 'C:\Riot Games\League of Legends\lockfile' --out .private/lcu/pc-a-timeline-01 --timeline 1234567890
+$gameId = $null
+$sessionPath = if ($historyOut) { Join-Path $historyOut 'session.json' } else { $null }
+if ($sessionPath -and (Test-Path -LiteralPath $sessionPath)) {
+    $session = Get-Content -Raw -LiteralPath $sessionPath | ConvertFrom-Json
+    if ($session.captures.Count -gt 0) {
+        $capturePath = Join-Path $historyOut $session.captures[-1]
+        $manifestPath = Join-Path $capturePath 'manifest.json'
+        $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
+        $gameRequest = $manifest.responses | Where-Object { $_.kind -eq 'game' } | Select-Object -First 1
+        if ($null -ne $gameRequest) { $gameId = ($gameRequest.path -split '/')[-1] }
+    }
+}
+if ($gameId) {
+    $detailStamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    node tools/lcu-probe/probe.mjs --lockfile 'C:\Riot Games\League of Legends\lockfile' --out ".private/lcu/pc-a-game-$detailStamp" --game $gameId
+    node tools/lcu-probe/probe.mjs --lockfile 'C:\Riot Games\League of Legends\lockfile' --out ".private/lcu/pc-a-timeline-$detailStamp" --timeline $gameId
+} else {
+    Write-Host '목록에서 실제 경기 ID를 확보하지 못해 game/timeline 조회를 건너뜁니다.'
+}
 ~~~
+
+다른 참가자 기록은 실제 친구 PUUID를 확보했을 때만 조회한다. Riot ID의 이름/태그와 PUUID는 다르다. 친구 본문이 차단되어 PUUID를 확보하지 못했다면 이 단계는 생략한다. 본인 `002-current-summoner.json`의 PUUID를 사용하면 본인 경로 검증만 되며 다른 참가자의 접근 가능 여부는 확인되지 않는다.
+
+~~~powershell
+$playerPuuid = (Read-Host '확보한 실제 친구 PUUID를 입력하세요. 없으면 Enter로 생략').Trim()
+if ($playerPuuid) {
+    $playerStamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    node tools/lcu-probe/probe.mjs --lockfile 'C:\Riot Games\League of Legends\lockfile' --out ".private/lcu/pc-a-player-$playerStamp" --player $playerPuuid --begin 0 --count 3
+}
+~~~
+
+이전 문서의 `1234567890`과 `REPLACE_WITH_PUUID`는 실제 계정의 값이 아니다. `REPLACE_WITH_PUUID`는 이제 요청 전에 `INVALID_PUUID`로 거절한다.
 
 --game, --friends, --player, --timeline, --interactive는 함께 사용하지 않는다. 모든 조회 명령에 --client-version, --region, --label을 추가할 수 있다. 메타데이터에는 인증 정보나 실명을 넣지 않고 수집자·PC 가명을 사용한다.
 
@@ -102,10 +157,10 @@ node tools/lcu-probe/probe.mjs --lockfile 'C:\Riot Games\League of Legends\lockf
 ~~~
 
 - session.json: 시작·종료 시각, 요청 수, 명령별 캡처 폴더 목록. 대기 시작 시 요청 수는 0이다.
-- manifest.json: OS·런타임·수동 클라이언트 버전, 조회 조건, 요청별 시각·HTTP 상태·오류·원본 파일명, historyState.
+- manifest.json: OS·런타임·수동 클라이언트 버전, 조회 조건, 요청별 시각·HTTP 상태·오류·원본 파일명, historyState. 1.0.1부터 민감 응답 차단 시 `responses[].sensitivity`에 아래 고정 분류를 추가한다.
 - 응답 파일: 인증 정보가 검출되지 않은 유효 JSON 응답 텍스트를 그대로 저장한다. 게임 ID를 포함한 숫자와 누락·0·null을 재직렬화하지 않는다. 비어 있는 응답은 빈 .txt 파일로 구분한다.
 - 분석 시 큰 정수 식별자는 Node 24의 JSON reviver source로 문자열 보존한다. 경기 ID를 JavaScript Number로 먼저 변환해 비교하지 않는다.
-- 인증 정보가 포함된 응답, 파싱 불가능한 비어 있지 않은 응답, 크기 제한을 넘은 응답은 본문을 저장하지 않는다. 가능한 경우 HTTP 상태와 차단 사유만 기록한다.
+- 인증 정보가 포함된 응답, 파싱 불가능한 비어 있지 않은 응답, 중복 객체 키가 있는 JSON, 크기 제한을 넘은 응답은 본문을 저장하지 않는다. 가능한 경우 HTTP 상태와 차단 사유만 기록한다.
 
 historyState의 available은 알려진 목록 구조에서 경기 ID를 읽었다는 뜻이다. 참가자 10명이나 필수 통계가 확인됐다는 의미가 아니다. empty는 정상 목록 배열이 비어 있다는 뜻이며, unknown-schema·request-failed와 구분한다. HTTP 200과 도구 종료 코드 0도 실기 PASS가 아니다.
 
@@ -123,10 +178,22 @@ historyState의 available은 알려진 목록 구조에서 경기 ID를 읽었�
 | http-error 및 401/403 | 인증·세션 상태 확인. 현재 lockfile을 읽는 새 명령으로 재조회한다. |
 | http-error 및 404 | 경로 또는 해당 경기의 제공 여부가 미확인이다. 다른 실행 조건과 수동 결과 화면을 대조한다. |
 | SENSITIVE_RESPONSE | 인증 정보로 의심되는 데이터가 검출되어 본문을 저장하지 않았다. |
+| INVALID_PUUID | 실제 PUUID가 아닌 예시 문자열, 빈 값 또는 허용 형식 밖의 입력. 실제 PUUID를 확보한 뒤 조회한다. |
 | NON_JSON_RESPONSE / RESPONSE_TOO_LARGE | 본문 미보관. HTTP 상태와 오류만 기록하여 원인을 조사한다. |
+| DUPLICATE_JSON_KEYS | 같은 객체에 중복 키가 있어 본문 미보관. 파싱 시 가려지는 값이 인증 검사를 우회하지 않도록 이스케이프 동등 키도 거절한다. |
 | OUTPUT_ALREADY_USED | 새로운 --out 폴더를 사용한다. 기존 결과를 지우지 않는다. |
 | OUTPUT_MUST_BE_PRIVATE / UNSAFE_OUTPUT | .private/lcu/ 아래 실제 디렉터리를 지정한다. |
 | IO_OR_ARGUMENT_ERROR / CAPTURE_WRITE_FAILED | 인자, 저장 공간과 파일 권한을 확인한다. 원시 예외에는 민감한 값이 있을 수 있어 출력하지 않는다. |
+
+`SENSITIVE_RESPONSE`의 `sensitivity`는 원문을 포함하지 않는 진단이다.
+
+- `rules`: `credential-value`는 현재 lockfile 암호/인증 문자열과 일치, `credential-marker`는 Authorization/Bearer 표식, `sensitive-key`는 민감 키 이름 검사에 걸렸다는 뜻이다.
+- `keyCategories`: `password`, `authorization`, `token`, `secret`, `cookie`, `lockfile` 중 해당 분류만 기록한다. 실제 키 이름과 값은 기록하지 않는다.
+- `recognizedFields`: 사전 지정한 `challengeTokensSelected`, `challengeTokenNamesSelected`가 키 이름 검사에 걸린 경우에만 해당 고정 이름을 기록한다. 1.0.2에서 허용 경로·형식 예외에 해당한 필드는 여기에 포함하지 않는다. 임의 JSON 경로나 필드명을 출력하지 않으며, 이 목록으로 다른 인증 필드가 없다고 판단하지 않는다.
+
+1.0.1의 실제 Windows 친구 응답에서는 `sensitive-key/token/challengeTokensSelected`가 확인됐다. 이는 키 이름 검사에 해당 필드가 걸렸다는 뜻이며, 다른 token 키가 없다는 보장은 아니다. 해당 응답의 값·정확한 위치는 원문 미보관으로 미확인이다.
+
+1.0.2는 `/lol-chat/v1/friends` 응답 배열의 `[].lol.challengeTokensSelected`에만 예외를 적용한다. 값은 빈 문자열 또는 쉼표로 구분된 숫자 ID 최대 3개(각 1~10자리)여야 한다. 도전과제의 표시용 토큰을 위한 형식 제한이며 인증값 일치 검사와 다른 민감 키 차단은 계속 적용한다. 다른 경로·형식·`challengeTokenNamesSelected` 등은 계속 차단한다. [Riot 도전과제 설명](https://www.leagueoflegends.com/en-au/news/game-updates/challenges-walkthrough/)과 [직접 LCU 타입 정의](https://github.com/Its-Haze/lcu-gopher/blob/master/types.go)를 대조했으며, 사용자 응답의 이 형식 충족 여부는 재조회로 확인한다.
 
 ## 7. 가명화 후보 준비
 
