@@ -4,7 +4,7 @@
 
 **Goal:** 등록된 친구들의 내전을 Windows에서 수집하여 공개 웹사이트에서 전적·활약 랭킹·팀 추천을 제공하고 집 서버에서 운영한다.
 
-**Architecture:** Windows 수집기는 LCU 조회·확인·로컬 등록 대기를 담당하고, 서버가 인증·등록 검증·통계·평가의 기준이 된다. 웹과 API는 같은 출처로 제공하며 PostgreSQL에 원본·확인된 포지션·평가 버전을 보관한다. 첫 단계인 실제 LCU 검증을 통과한 뒤 데이터 계약과 제품 구현을 시작한다.
+**Architecture:** Windows 수집기는 ‘과거 경기 조회’ 버튼으로 LCU 기록을 가져와 서버에 임시 저장하고, 수집자가 확인한 경기만 별도 등록 확정한다. 서버가 인증·중복 방지·등록 상태·통계·평가의 기준이 된다. 웹과 API는 같은 출처로 제공하며 PostgreSQL에 원본·확인된 포지션·평가 버전을 보관한다. 첫 단계인 실제 LCU 검증을 통과한 뒤 데이터 계약과 제품 구현을 시작한다.
 
 **Tech Stack:** TypeScript, Node.js 24 LTS, pnpm workspace, Fastify 5, PostgreSQL 17/pg, React/Vite, Electron/better-sqlite3, Vitest/Playwright, Docker Compose, Cloudflare Tunnel.
 
@@ -14,12 +14,13 @@
 
 - 개발 환경은 macOS, 수집 프로그램은 Windows만 지원하며 실제 Windows PC에서 검증한다.
 - 약 30명의 등록된 친구 중 10명이 참가하는 소환사의 협곡 5대5 내전만 대상으로 한다. 게스트·복수 계정·시즌은 없다.
-- 한 참가자의 수집으로 등록하며 경기 전에 수집기를 켜지 않았어도 종료 후 수집할 수 있어야 한다.
+- 한 참가자의 수집으로 등록한다. 수집기 실행 시점은 경기 전후와 무관하며, ‘과거 경기 조회’ 버튼을 눌렀을 때 새 기록 조회를 시작한다.
+- 조회한 적격 경기는 즉시 서버 임시 저장을 요청하고, 신규 자료는 확인 대기로 보관한다. 동일 경기 자료 재전송은 기존 상태만 응답하고 덮어쓰기·집계·재계산을 하지 않는다.
 - 명시적으로 등록한 내전만 집계한다. 참가자별 실제 포지션은 팀당 탑·정글·미드·원딜·서포터 한 명씩 확인한다.
 - 공개 조회와 팀 추천은 로그인 없이 제공한다. 온라인 공개 동의 절차는 만들지 않는다.
 - 수집자는 최초 개인별 코드로 등록한 기기 인증을 사용한다. LCU 계정 자동 인식 자체를 서버의 로그인 증명으로 취급하지 않는다.
 - 등록 후 포지션 수정·등록 취소는 운영자만 가능하다. 원본 경기 수치 수동 편집·취소 복원 UI는 만들지 않는다.
-- 등록 대기는 재시작 후에도 유지하고 연결 복구 또는 다음 실행 시 재시도한다. 서버 승인 전에는 집계하지 않는다.
+- 전송 대기와 등록 대기는 재시작 후에도 유지하고 연결 복구 또는 다음 실행 시 재시도한다. 서버 임시 저장은 공개·집계하지 않고 명시적 등록 확정 성공 후에만 반영한다.
 - 경기별 활약은 확정한 포지션별 가중치를 사용한다. 누적 랭킹은 3경기부터, 그전은 ‘평가 중’, 평균 보정은 k=5다.
 - 솔로랭크는 초기 포지션 참고 자료로만, 운영자 초기 실력은 팀 편성에만 사용한다.
 - 평가 기준 변경 시 과거 유효 경기·누적 랭킹을 동일 기준으로 재계산한다. 취소 경기는 모든 집계와 실력 보정에서 제외한다.
@@ -42,7 +43,7 @@
 | --- | --- | --- |
 | 0. LCU 실기 검증 | 별도 계획 V1–V2 | 실제 Windows·완료된 내전 2경기, 10명 기록과 두 수집자의 경기 키 검증, 필드 맵과 PASS 판정 |
 | 1. 기록의 기준 마련 | T01–T04 | 계약·DB·권한·등록·조회·운영자 수정이 통합 테스트로 검증됨 |
-| 2. Windows 수집 흐름 | T05–T07 | 종료 후 조회 → 포지션 확인 → 등록 → 오프라인 재시도 작동 |
+| 2. Windows 수집 흐름 | T05–T07 | 조회 버튼 → 서버 임시 저장 → 내전·포지션 확인 → 등록 확정 및 오프라인 순차 재시도 작동 |
 | 3. 평가·추천·웹 완성 | T08–T12 | 전 경기 재계산, 3경기 랭킹, 팀 추천, 공개/관리 화면 작동 |
 | 4. 설치·배포 | T13–T14 | Windows 설치/업데이트, 외부 HTTPS, 서버 재부팅, 외부 백업 복원 확인 |
 | 5. 실제 시범 운영 | T15 | 실제 내전 3–5경기 대조, 평가 보정 및 운영 절차 확인 |
@@ -62,11 +63,11 @@ TypeScript로 웹·서버·수집기의 계약과 평가 함수를 공유한다.
 | `packages/domain/src/` | 순수 함수: 지표, 점수, 누적, 역할별 실력, 팀 추천 |
 | `apps/server/src/auth/` | 코드·세션·수집기 권한과 인증 폐기 |
 | `apps/server/src/members/` | 참가자와 운영자 지정값, 참고 자료 |
-| `apps/server/src/matches/` | 중복 없는 등록, 원본 보존, 역할 정정·취소·공개 조회 |
+| `apps/server/src/matches/` | 중복 없는 임시 저장·등록 확정, 원본 보존, 역할 정정·취소·권한별 조회 |
 | `apps/server/src/evaluation/` | 버전·재계산 작업·계산 결과의 일괄 공개 |
 | `apps/server/src/db/migrations/` | 버전 관리되는 SQL 스키마 |
 | `apps/web/src/features/` | matches, members, rankings, teams, admin 화면 |
-| `apps/collector/src/main/` | LCU, 인증 정보 보호, SQLite 등록 대기, 서버 전송 |
+| `apps/collector/src/main/` | LCU, 인증 정보 보호, SQLite 전송·등록 요청 큐, 서버 전송 |
 | `apps/collector/src/preload/` | 허용된 IPC만 노출 |
 | `apps/collector/src/renderer/` | 계정·경기·포지션 확인과 등록 상태 표시 |
 | `tests/integration/`, `tests/e2e/` | 실제 DB/API 및 브라우저 사용자 흐름 |
@@ -82,7 +83,10 @@ T01에서 아래 타입과 런타임 스키마를 함께 정의한다. ID는 문
 | `Member` | id, puuid, riotId, displayName, active, primaryRole/secondaryRole(nullable), allowedRoles, seedSkill(0–100), profileRevision |
 | `NormalizedMatch` | schemaVersion, platformId, gameId, startedAtUtc, durationSeconds, mapId, gameType, patch, participants |
 | `ParticipantRecord` | puuid, teamId, win, championId, kills/deaths/assists, championDamage, damageTaken, laneCs/neutralCs, goldEarned, visionScore, objectiveDamage/turretDamage, items |
-| `RegistrationInput` | rawMatch(unknown), rolesByPuuid, clientSubmissionId, schemaVersion. 서버는 rawMatch를 재정규화한다. |
+| `IngestMatchInput` | rawMatch(unknown), clientSubmissionId, schemaVersion. 서버가 재정규화하여 적격 신규 경기를 pending으로 저장; 확정 포지션은 요구하지 않음 |
+| `IngestMatchAck` | matchKey, state(`pending / registered / canceled`), disposition(`created_pending / already_pending / already_registered / already_canceled`) |
+| `ConfirmationInput` | matchKey, rolesByPuuid, clientSubmissionId. 이미 저장된 경기의 내전 여부를 명시적으로 확인하고 실제 포지션을 확정하는 요청 |
+| `CollectorMatch` | matchKey, state, match(NormalizedMatch), confirmedRoles(nullable); 해당 경기 참가자 자격의 수집기와 운영자에게만 제공 |
 | `CollectorPrincipal` | memberId, credentialId, puuid. 서버가 기기 인증에서 도출하고 요청 본문 값을 신뢰하지 않음 |
 | `RegistrationAck` | matchKey, disposition(`created / already_registered`), sourceRevision |
 | `PublicMatch` | 표시용 회원 ID/이름·10명 기록·확인 포지션·평가 상태·기준 버전; PUUID·원본·인증 정보 제외 |
@@ -108,9 +112,11 @@ T01에서 아래 타입과 런타임 스키마를 함께 정의한다. ID는 문
 
 ### 저장과 일관성
 
-`members`, `enrollment_codes`, `admin_sessions`, `collector_credentials`, `matches`, `match_participants`, `role_reference_samples`, `audit_log`, `scoring_versions`, `service_state`, `recalculation_jobs`, `evaluation_generations`와 세대별 점수/통계 테이블을 둔다. 경기 원본과 확인된 포지션을 분리한다. `(platform_id, game_id)`는 DB UNIQUE이며 취소 행도 유지한다.
+`members`, `enrollment_codes`, `admin_sessions`, `collector_credentials`, `matches`, `match_participants`, `role_reference_samples`, `audit_log`, `scoring_versions`, `service_state`, `recalculation_jobs`, `evaluation_generations`와 세대별 점수/통계 테이블을 둔다. 경기 상태는 `pending / registered / canceled`이며 pending의 확정 포지션은 null이다. 경기 원본과 확인된 포지션을 분리한다. `(platform_id, game_id)`는 모든 상태에 걸쳐 DB UNIQUE이며 취소 행도 유지한다.
 
-첫 등록이 확정한 포지션은 중복 요청으로 덮어쓰지 않는다. 등록/수정/취소/평가 기준/팀 실력 입력 변경은 트랜잭션 안에서 `source_revision`을 올리고 재계산 작업을 기록한다. 새 세대 완성 전 공개 점수·누적 통계·팀 추천은 ‘계산 중’으로 응답하며 이전 자료를 새 자료처럼 표시하지 않는다. 원시 전적은 조회 가능하고 취소 경기는 즉시 공개에서 제외한다.
+임시 저장은 원본·정규화 자료·수집자 감사 정보만 기록하고 평가용 `source_revision`을 올리지 않는다. 같은 키의 자료 재전송은 원본·상태·포지션을 변경하지 않고 현재 상태를 응답한다. 실제 포지션과 내전 여부를 명시적으로 확인하는 별도 요청만 pending을 registered로 한 번 전환한다. 참가자 중 인증된 수집자라면 임시 저장한 사람과 달라도 확인할 수 있고, 동시 확정 요청에서는 첫 확정만 적용한다.
+
+등록 확정/운영자 수정/취소/평가 기준/팀 실력 입력 변경은 트랜잭션 안에서 `source_revision`을 올리고 재계산 작업을 기록한다. 중복 자료 전송이나 중복 확정 요청은 revision/job을 추가하지 않는다. 새 세대 완성 전 공개 점수·누적 통계·팀 추천은 ‘계산 중’으로 응답한다. 공개 전적과 모든 집계 입력은 `state=registered`만 선택한다. pending은 해당 경기의 인증된 참가자·운영자만 조회하며, 취소 경기는 즉시 공개에서 제외한다.
 
 ## 4. 작업별 구현 계획
 
@@ -122,7 +128,7 @@ workspace 이름은 `@cw/contracts`, `@cw/lcu`, `@cw/domain`, `@cw/server`, `@cw
 
 **Files:** Create `package.json`, `pnpm-workspace.yaml`, `tsconfig.base.json`, `vitest.config.ts`, `packages/{contracts,lcu,domain}/package.json`, `apps/{server,web,collector}/package.json`; `packages/contracts/src/{match,member,auth,evaluation,team,index}.ts`, `packages/lcu/src/normalize-match.ts`; Test `packages/lcu/src/normalize-match.test.ts`. Modify `.gitignore`.
 
-**Interfaces:** Consumes V2 `fixtures/lcu/verified/*`와 필드 맵. Produces `normalizeMatch(raw: unknown): NormalizedMatch`, `validateRegistration(input: RegistrationInput): ValidationResult`, 위 공통 계약. `ValidationResult={ok:boolean,issues:{path,code}[]}`. 정규화 실패는 같은 issues 구조를 가진 `MatchValidationError`로 반환하고 validator는 이를 결과로 변환한다.
+**Interfaces:** Consumes V2 `fixtures/lcu/verified/*`와 필드 맵. Produces `normalizeMatch(raw: unknown): NormalizedMatch`, `validateIngest(input: IngestMatchInput): ValidationResult`, `validateConfirmation(input: ConfirmationInput, match: NormalizedMatch): ValidationResult`, 위 공통 계약. `ValidationResult={ok:boolean,issues:{path,code}[]}`. 정규화 실패는 같은 issues 구조를 가진 `MatchValidationError`로 반환하고 validator는 이를 결과로 변환한다.
 
 - [ ] **1. 정규화 테스트를 작성한다.** `completeTenPlayers`, `rejectNineOrDuplicatePlayers`, `missingIsNotZero`, `preserveStringGameId`: `expect(match.participants).toHaveLength(10)`, `expect(match.gameId).toBe(rawIdString)`, `expect(missing.issues).toContainEqual({path:'participants.0.visionScore',code:'REQUIRED'})`를 검증한다. 숫자 범위·팀당 5명·양 팀 승패 일치·양의 경기 시간을 포함한다.
 - [ ] **2. 최소 workspace/test 설정 후 실패를 확인한다.** `pnpm exec vitest run packages/lcu/src/normalize-match.test.ts` → 미구현 함수로 실패. Node 24, TypeScript strict, Vitest, 스키마 검증 라이브러리 및 pnpm 버전을 고정한다.
@@ -130,15 +136,15 @@ workspace 이름은 `@cw/contracts`, `@cw/lcu`, `@cw/domain`, `@cw/server`, `@cw
 - [ ] **4. 테스트·타입 검사를 통과한다.** 위 Vitest 명령 및 `pnpm typecheck` → PASS. 루트 스크립트 `test`, `test:integration`, `test:e2e`, `build`, `typecheck`를 이후 작업이 사용하는 실행 계약으로 둔다.
 - [ ] **5. 커밋한다.** `feat: define verified match contracts and normalization`.
 
-### T02. PostgreSQL 저장과 중복 없는 경기 등록
+### T02. PostgreSQL 임시 저장·등록 확정과 중복 무반영
 
-**Files:** Create `infra/compose.test.yml`, `apps/server/src/db/{pool,migrate}.ts`, `apps/server/src/db/migrations/001-core.sql`, `apps/server/src/matches/register.ts`, `tests/integration/registration.test.ts`, `tests/integration/setup.ts`.
+**Files:** Create `infra/compose.test.yml`, `apps/server/src/db/{pool,migrate}.ts`, `apps/server/src/db/migrations/001-core.sql`, `apps/server/src/matches/{ingest,register,collector-query}.ts`, `tests/integration/registration.test.ts`, `tests/integration/setup.ts`.
 
-**Interfaces:** Consumes T01 계약/정규화. Produces `registerMatch(input: RegistrationInput, actor: CollectorPrincipal): Promise<RegistrationAck>`, `MatchRepository`와 source revision/outbox job 저장. 테스트 DB 설정은 `setup.ts`에서 로드하며 OS별 쉘 환경변수 문법에 의존하지 않는다.
+**Interfaces:** Consumes T01 계약/정규화. Produces `ingestMatch(input: IngestMatchInput, actor: CollectorPrincipal): Promise<IngestMatchAck>`, `registerMatch(input: ConfirmationInput, actor: CollectorPrincipal): Promise<RegistrationAck>`, `getCollectorMatch(key, actor): Promise<CollectorMatch>`, `MatchRepository`. 테스트 DB 설정은 `setup.ts`에서 로드하며 OS별 쉘 환경변수 문법에 의존하지 않는다.
 
-- [ ] **1. 실제 DB 트랜잭션 테스트를 작성한다.** `concurrentDuplicate`, `retryAfterLostReply`, `retryCannotChangeRoles`, `canceledCannotReturn`, `allTenMustBeMembers`: `expect(await countMatches(key)).toBe(1)`, `expect(saved.roles).toEqual(firstRoles)`, `expect(retry.code).toBe('MATCH_CANCELED')`. 수집자가 경기 참가자가 아닌 경우 거절도 포함한다.
+- [ ] **1. 실제 DB 트랜잭션 테스트를 작성한다.** `pendingExcludedUntilConfirmed`, `concurrentDuplicateIngest`, `concurrentConfirmation`, `retryAfterLostReply`, `duplicateDoesNotRecalculate`, `retryCannotChangeRoles`, `canceledCannotReturn`, `allTenMustBeMembers`: `expect(await countMatches(key)).toBe(1)`, `expect(pendingRevision).toBe(beforeRevision)`, `expect(duplicateRevision).toBe(afterFirstConfirmationRevision)`, `expect(saved.roles).toEqual(firstRoles)`, `expect(canceledIngest.state).toBe('canceled')`. 비참가자의 조회·확정 거절과 다른 인증된 참가자의 확정 허용도 검사한다.
 - [ ] **2. 실패를 확인한다.** `docker compose -f infra/compose.test.yml up -d --wait`, `pnpm test:integration -- tests/integration/registration.test.ts` → 등록 함수 미구현으로 실패. 테스트 DB는 운영 DB와 다른 이름·포트·볼륨을 사용한다.
-- [ ] **3. UNIQUE와 트랜잭션으로 등록을 구현한다.** 원본+정규화 자료+포지션+감사 기록+revision/job을 함께 저장한다. 중복은 승인 응답을 재구성하되 기존 포지션·원본을 덮어쓰지 않는다. 취소된 키는 409 오류를 반환한다. 수집자가 보낸 정규화 값 대신 원본을 서버에서 재검증한다.
+- [ ] **3. UNIQUE와 트랜잭션으로 두 단계를 구현한다.** 신규 ingest는 원본+정규화 자료+pending 상태+감사 이력을 저장하고, 등록 확정은 역할 검증 후 상태 전환+확정 포지션+감사 이력+revision/job을 함께 기록한다. ingest 충돌 시 상태를 읽어 응답하고 UPDATE하지 않는다. registered의 재확정은 already_registered, canceled의 ingest는 already_canceled, canceled의 확정은 409/MATCH_CANCELED다. 서버는 ingest 원본을 검증하며 확정 요청에서는 저장된 원본을 사용한다.
 - [ ] **4. 동시 요청과 롤백을 검증한다.** 동일 명령 → PASS; 중간 저장 오류 시 참가자 일부나 재계산 작업만 남지 않아야 한다.
 - [ ] **5. 커밋한다.** `feat: persist idempotent inhouse registrations`.
 
@@ -146,7 +152,7 @@ workspace 이름은 `@cw/contracts`, `@cw/lcu`, `@cw/domain`, `@cw/server`, `@cw
 
 **Files:** Create `apps/server/src/{app,main}.ts`, `apps/server/src/auth/{codes,admin-session,collector-credential,routes}.ts`, `apps/server/src/cli/admin-code.ts`, `apps/server/src/members/{repository,routes}.ts`; Test `tests/integration/auth-members.test.ts`.
 
-**Interfaces:** Consumes T02 DB. Produces `POST /api/admin/session`, `POST /api/collector/enroll`, `POST /api/admin/codes`, `DELETE /api/admin/sessions/:id`, `DELETE /api/admin/collector-credentials/:id`, `GET/POST/PATCH /api/admin/members[/:id]`, `GET /api/collector/members`, `POST /api/collector/matches`→T02, `POST /api/admin/logout`. `requireAdmin()`/`requireCollector()`가 검증한 principal을 반환한다. 수집기 enroll은 `{code,currentPuuid}`를 받아 `{token,memberId,credentialId,puuid}`를 반환한다. 인증된 수집기의 회원 조회만 매칭용 PUUID와 회원 ID/표시 이름/포지션을 제공하며 공개 API에는 노출하지 않는다.
+**Interfaces:** Consumes T02 DB. Produces `POST /api/admin/session`, `POST /api/collector/enroll`, `POST /api/admin/codes`, `DELETE /api/admin/sessions/:id`, `DELETE /api/admin/collector-credentials/:id`, `GET/POST/PATCH /api/admin/members[/:id]`, `GET /api/collector/members`, `POST /api/collector/matches/ingest`, `GET /api/collector/matches?state=pending`, `GET /api/collector/matches/:key`, `POST /api/collector/matches/:key/confirm`, `POST /api/admin/logout`. 경기 API는 T02를 사용한다. `requireAdmin()`/`requireCollector()`가 검증한 principal을 반환한다. 수집기 enroll은 `{code,currentPuuid}`를 받아 `{token,memberId,credentialId,puuid}`를 반환한다. 수집기 경기 조회는 본인이 참가한 경기로 제한하고, 인증된 회원 명단 조회만 매칭용 PUUID를 제공한다.
 
 - [ ] **1. 인증·등록 테스트를 작성한다.** `oneUseAtomic`, `codeScopeIsolation`, `expiredAndRevoked`, `csrfAndOrigin`, `localRecovery`, `memberIdentityStable`: `expect(successfulRedemptions).toBe(1)`, `expect(collectorOnAdmin.statusCode).toBe(403)`, `expect(afterRename.id).toBe(before.id)`. 비밀값 로그 부재와 seedSkill 범위를 확인한다.
 - [ ] **2. 실패를 확인한다.** `pnpm test:integration -- tests/integration/auth-members.test.ts` → 라우트/인증 미구현으로 실패.
@@ -160,9 +166,9 @@ workspace 이름은 `@cw/contracts`, `@cw/lcu`, `@cw/domain`, `@cw/server`, `@cw
 
 **Interfaces:** Consumes T02 저장/T03 인증. Produces `GET /api/matches`, `GET /api/matches/:key`, `GET /api/members`, `GET /api/members/:id/matches`, `PATCH /api/admin/matches/:key/roles`, `POST /api/admin/matches/:key/cancel`. 목록은 cursor/limit(기본 20, 최대 100), memberId·championId·role·win 필터를 지원한다.
 
-- [ ] **1. 권한과 공개 범위 테스트를 작성한다.** `publicSafeDto`, `onlyOwnerEdits`, `cancelHidesImmediately`, `profileRoleDoesNotRewriteHistory`: `expect(publicJson).not.toContain('puuid')`, `expect(collectorEdit.statusCode).toBe(403)`, `expect(publicCanceled.statusCode).toBe(404)`를 확인한다.
+- [ ] **1. 권한과 공개 범위 테스트를 작성한다.** `publicSafeDto`, `pendingNotPublic`, `onlyOwnerEdits`, `cancelHidesImmediately`, `profileRoleDoesNotRewriteHistory`: `expect(publicJson).not.toContain('puuid')`, `expect(publicPending.statusCode).toBe(404)`, `expect(collectorEdit.statusCode).toBe(403)`, `expect(publicCanceled.statusCode).toBe(404)`를 확인한다.
 - [ ] **2. 실패를 확인한다.** `pnpm test:integration -- tests/integration/match-access.test.ts` → 미구현 라우트로 실패.
-- [ ] **3. 조회 DTO와 운영자 변경을 구현한다.** 공개 목록은 활성 경기만, 운영자는 취소 자료와 변경 이력도 조회한다. 포지션 정정은 양 팀 각 역할 1명 검증 후 감사 이력과 revision/job을 함께 기록한다. 수치 수정·취소 복원 엔드포인트는 만들지 않는다.
+- [ ] **3. 조회 DTO와 운영자 변경을 구현한다.** 공개 목록은 registered 경기만, 운영자는 확인 대기·취소 자료와 변경 이력도 조회한다. 등록 완료 경기의 포지션 정정은 양 팀 각 역할 1명 검증 후 감사 이력과 revision/job을 함께 기록한다. 수치 수정·취소 복원 엔드포인트는 만들지 않는다.
 - [ ] **4. 검증한다.** 테스트 → PASS; 등록 수치·포지션·취소 상태·감사 이력이 트랜잭션 단위로 일치하고 공개에 원본/인증값이 나오지 않아야 한다.
 - [ ] **5. 커밋한다.** `feat: expose match records and owner corrections`.
 
@@ -170,36 +176,36 @@ workspace 이름은 `@cw/contracts`, `@cw/lcu`, `@cw/domain`, `@cw/server`, `@cw
 
 **Files:** Create `apps/collector/src/main/{main,lcu-client,credential-store,reference-export}.ts`, `apps/collector/src/preload/index.ts`, `packages/lcu/src/role-reference.ts`; Test `apps/collector/src/main/lcu-bridge.test.ts`, `packages/lcu/src/role-reference.test.ts`.
 
-**Interfaces:** Consumes V1 연결 원칙/T01 정규화/T03 enroll. Produces 제한된 IPC `getAccount()`, `listRecentMatches()`, `getMatch(gameId)`, `enroll(code)`, `exportMemberReferences(selection)`. `CredentialStore.load(): Promise<{token,memberId,credentialId,puuid}|null>`. 참고 자료 내보내기는 회원 식별 정보와 `RoleReferenceSample[]`만 담으며 관리자 웹에서 가져온다.
+**Interfaces:** Consumes V1 연결 원칙/T01 정규화/T03 enroll. Produces main 내부 조회 함수 `getAccount()`, `listPastMatches()`, `getMatch(gameId)`와 제한된 IPC `getAccount()`, `enroll(code)`, `exportMemberReferences(selection)`. T07의 버튼 IPC가 main 조회 함수를 조합한다. `CredentialStore.load(): Promise<{token,memberId,credentialId,puuid}|null>`. 참고 자료 내보내기는 회원 식별 정보와 `RoleReferenceSample[]`만 담으며 관리자 웹에서 가져온다.
 
-- [ ] **1. 연결·인증 분리 테스트를 작성한다.** `clientStopped`, `portChanged`, `noTokenInRenderer`, `accountMismatch`, `soloReferenceOnly`: `expect(rendererAccount).not.toHaveProperty('token')`, `expect(mismatch.code).toBe('ACCOUNT_MISMATCH')`, `expect(reference.source).toBe('solo420')`. 토큰 복호화 실패는 재등록 안내이며 평문 저장으로 우회하지 않는다.
+- [ ] **1. 연결·인증 분리 테스트를 작성한다.** `clientStopped`, `portChanged`, `noTokenInRenderer`, `accountMismatch`, `soloReferenceOnly`, `noHistoryFetchOnLaunch`: `expect(rendererAccount).not.toHaveProperty('token')`, `expect(mismatch.code).toBe('ACCOUNT_MISMATCH')`, `expect(reference.source).toBe('solo420')`, `expect(historyRequestsOnLaunch).toBe(0)`. 토큰 복호화 실패는 재등록 안내이며 평문 저장으로 우회하지 않는다.
 - [ ] **2. 실패를 확인한다.** `pnpm exec vitest run apps/collector/src/main/lcu-bridge.test.ts packages/lcu/src/role-reference.test.ts` → 미구현으로 실패.
-- [ ] **3. main 전용 LCU·인증 저장과 읽기 IPC를 구현한다.** Electron contextIsolation/sandbox를 켜고 nodeIntegration은 끈다. Windows safeStorage로 보호한 토큰만 로컬에 보관한다. 친구·솔로랭크 조회는 V2에서 검증된 범위만 사용하고, 자료가 없으면 이유를 반환한다. 온라인 서버 없이도 LCU 조회는 가능해야 한다.
+- [ ] **3. main 전용 LCU·인증 저장과 읽기 IPC를 구현한다.** Electron contextIsolation/sandbox를 켜고 nodeIntegration은 끈다. Windows safeStorage로 보호한 토큰만 로컬에 보관한다. 친구·솔로랭크 조회는 V2에서 검증된 범위만 사용하고, 자료가 없으면 이유를 반환한다. 온라인 서버 없이도 LCU 조회는 가능해야 한다. 앱 실행 시 계정 인식만 수행하고 새로운 경기 기록 조회는 버튼 요청 때만 시작한다.
 - [ ] **4. fixture 테스트와 Windows 연결 확인을 수행한다.** 테스트 → PASS. 실제 Windows에서 클라이언트 꺼짐·로그아웃·재시작을 확인하고 renderer 개발자 도구에 토큰이 노출되지 않는지 점검한다.
 - [ ] **5. 커밋한다.** `feat: connect Windows collector to verified LCU data`.
 
-### T06. 재시작에 견디는 등록 대기와 재전송
+### T06. 재시작에 견디는 임시 저장·등록 확정 요청 큐
 
 **Files:** Create `apps/collector/src/main/{outbox,outbox-migrations,uploader}.ts`; Test `apps/collector/src/main/outbox.test.ts`.
 
-**Interfaces:** Consumes T05 credential/T03 등록 API. Produces `enqueueConfirmed(input: RegistrationInput, actor: CollectorPrincipal): Promise<OutboxItem>`, `drainOutbox(): Promise<void>`, `listOutbox(): OutboxItem[]`. 상태는 `pending / sending / registered / needs_attention`; 각 건에 원래 memberId·credentialId·matchKey·확인 포지션·요청 자료를 고정한다.
+**Interfaces:** Consumes T05 credential/T03 ingest·confirm API. Produces `enqueueCollected(input: IngestMatchInput, actor: CollectorPrincipal): Promise<OutboxItem>`, `enqueueConfirmation(input: ConfirmationInput, actor: CollectorPrincipal): Promise<OutboxItem>`, `drainOutbox(): Promise<void>`, `listOutbox(): OutboxItem[]`. OutboxItem은 kind(`ingest / confirm`), state(`pending / sending / succeeded / needs_attention`), 원래 memberId·credentialId·matchKey·요청 자료·선행 ingest 작업 ID를 가진다. 같은 회원·경기·kind의 미완료 요청은 합치며, 이미 확정 대기 중인 포지션을 재조회로 덮어쓰지 않는다.
 
-- [ ] **1. 파일 기반 SQLite 테스트를 작성한다.** `survivesRestart`, `lostAckExactlyOnce`, `switchedAccountCannotAdopt`, `canceledStopsRetry`: `expect(reopened.roles).toEqual(confirmedRoles)`, `expect(serverCount).toBe(1)`, `expect(sentWithOtherCredential).toBe(false)`, `expect(canceled.state).toBe('needs_attention')`. 강제 종료된 sending 건도 다음 실행에 회복되어야 한다.
+- [ ] **1. 파일 기반 SQLite 테스트를 작성한다.** `survivesRestart`, `lostIngestAndConfirmAck`, `confirmWaitsForIngest`, `ingestDoesNotAutoConfirm`, `repeatedQueryCoalesces`, `switchedAccountCannotAdopt`, `canceledStopsRetry`, `restartFlushDoesNotFetchLCU`: `expect(reopened.roles).toEqual(confirmedRoles)`, `expect(serverCount).toBe(1)`, `expect(sentKinds).toEqual(['ingest','confirm'])`, `expect(confirmWithoutUserAction).toBe(false)`, `expect(sentWithOtherCredential).toBe(false)`, `expect(canceled.retryScheduled).toBe(false)`. 강제 종료된 sending 작업도 다음 실행에 회복되며, 재전송 때문에 새로운 LCU 경기 조회를 시작하지 않아야 한다.
 - [ ] **2. 실패를 확인한다.** `pnpm exec vitest run apps/collector/src/main/outbox.test.ts` → 저장/전송 미구현으로 실패.
-- [ ] **3. SQLite 트랜잭션과 단일 전송 작업자를 구현한다.** 명시적 등록 클릭 후 먼저 durable 저장한다. 네트워크/5xx는 5초→15초→1분→5분→15분 상한 및 jitter로 재시도, 429는 Retry-After를 따른다. 인증/자료 오류는 확인 필요로 전환한다. 같은 회원의 새 자격으로 재인증하면 명시적 재개가 가능하고, 다른 회원 자격으로 이전하지 않는다. 이미 확인된 대기는 LCU가 꺼져 있어도 원래 유효 자격으로 전송할 수 있다.
-- [ ] **4. 저장·복구를 검증한다.** 테스트 → PASS. 서버 승인 응답 뒤에만 registered로 전환한다. 확인 완료 건의 큰 원본은 30일 뒤 정리하고 승인 키/상태는 남긴다. 미등록 자료는 자동 삭제하지 않는다. 로컬 디스크 저장 실패 시 ‘등록 대기 저장 실패’를 표시하고 저장 성공으로 안내하지 않는다.
+- [ ] **3. SQLite 트랜잭션과 단일 전송 작업자를 구현한다.** 조회 버튼으로 가져온 적격 자료는 즉시 durable ingest 작업으로 저장하고 서버 전송을 시도한다. 명시적 내전 등록 클릭만 confirm 작업을 추가한다. 서버 상태 pending 확인 후 confirm을 전송하고, 이미 registered이면 완료로 처리하며 canceled이면 표시 후 전송을 종료한다. 네트워크/5xx는 5초→15초→1분→5분→15분 상한 및 jitter, 429는 Retry-After로 재시도한다. 인증/자료 오류는 확인 필요로 전환한다. 같은 회원의 새 자격으로만 명시적 재개를 허용하며 확보한 자료의 전송은 LCU가 꺼져 있어도 가능하다.
+- [ ] **4. 저장·복구를 검증한다.** 테스트 → PASS. ingest 성공은 UI의 ‘확인 대기’, confirm 성공 또는 서버의 already_registered 응답만 ‘등록 완료’로 표시한다. 이미 canceled라는 응답은 ‘등록 취소’로 표시하며 자동 복원하지 않는다. 등록 완료 건의 큰 원본은 30일 뒤 정리하고 승인 키/상태는 남긴다. 미등록 자료는 자동 삭제하지 않는다. 로컬 디스크 저장 실패 시 ‘전송 대기 저장 실패’를 표시하고 저장 성공으로 안내하지 않는다.
 - [ ] **5. 커밋한다.** `feat: persist confirmed matches and retry safely`.
 
 ### T07. 수집기 확인·등록 화면과 실제 Windows 흐름
 
-**Files:** Create `apps/collector/src/renderer/{App,AccountView,MatchList,MatchReview,OutboxView}.tsx`, `apps/collector/src/preload/collector-api.ts`; Test `tests/e2e/collector.spec.ts`.
+**Files:** Create `apps/collector/src/renderer/{App,AccountView,MatchList,MatchReview,OutboxView}.tsx`, `apps/collector/src/preload/collector-api.ts`, `apps/collector/src/main/history-sync.ts`; Test `tests/e2e/collector.spec.ts`.
 
-**Interfaces:** Consumes T05 읽기 IPC/T06 대기 API와 T03의 인증된 회원 명단. Produces `confirmRegistration(gameId, rolesByPuuid)` IPC; main에서 계정·경기 참가·포지션을 다시 확인한 뒤 enqueue한다. 회원 명단의 마지막 정상 응답을 main에서 로컬 캐시한다. UI에는 rawMatch 편집 기능을 노출하지 않는다.
+**Interfaces:** Consumes T05 main 조회 함수/T06 요청 큐/T03 회원·확인 대기 API. Produces `queryPastMatches(): Promise<HistorySyncResult>`, `loadPendingMatches(): Promise<CollectorMatch[]>`, `confirmRegistration(matchKey, rolesByPuuid)` IPC. HistorySyncResult는 경기별 matchKey·전송 상태·실패 이유를 담는다. 조회 후 적격 자료는 enqueueCollected, 등록 확인 후에는 enqueueConfirmation을 호출한다. 계정·참가 여부를 main에서 검사하고 회원 명단의 마지막 정상 응답을 캐시한다. UI에는 rawMatch 편집 기능을 노출하지 않는다.
 
-- [ ] **1. 사용자 흐름 테스트를 작성한다.** `noAutoRegistration`, `allRolesConfirmed`, `offlineThenResume`, `queryFailureIsNotPending`: `expect(outboxCountBeforeClick).toBe(0)`, `expect(screen.getByText('등록 대기')).toBeVisible()`, `expect(afterAck).toContain('등록 완료')`. 미등록 회원·다른 LCU 계정·클라이언트 종료 안내를 포함한다.
+- [ ] **1. 사용자 흐름 테스트를 작성한다.** `buttonFetchesAndStages`, `noAutoRegistration`, `allRolesConfirmed`, `offlineThenResume`, `queryFailureIsNotPending`, `duplicateShowsExistingState`: `expect(historyRequestsBeforeClick).toBe(0)`, `expect(afterQuery.serverState).toBe('pending')`, `expect(afterQuery.publicMatchCount).toBe(0)`, `expect(afterConfirmAck).toContain('등록 완료')`. 미등록 회원·다른 LCU 계정·클라이언트 종료, 서버에 이미 저장된 pending 재표시와 registered/canceled 안내도 포함한다.
 - [ ] **2. 실패를 확인한다.** `pnpm test:e2e -- tests/e2e/collector.spec.ts` → 화면/IPC 미구현으로 실패. 자동 테스트는 고정 fixture IPC를 사용하며 실제 LCU 검증과 구분한다.
-- [ ] **3. 최초 코드 입력→자동 계정 인식→최근 경기→5+5 비교→실제 역할 확인→등록 흐름을 구현한다.** 불완전/재경기 여부 확인 안내와 명시적 등록 버튼을 둔다. 인터넷이 없을 때 회원 명단 캐시로 미리 검사하되 서버에서 최종 검증한다. 가입을 완료한 적 없는 PC는 오프라인 최초 인증을 할 수 없다고 안내한다.
-- [ ] **4. 자동 테스트와 Windows 통합 흐름을 확인한다.** 테스트 → PASS. 실제 Windows에서 서버 차단→등록 대기→프로그램 종료→재실행→연결 복구 후 한 경기 등록까지 확인한다. 종료된 프로그램이 백그라운드에서 계속 전송한다고 안내하지 않는다.
+- [ ] **3. 최초 코드 입력→자동 계정 인식→‘과거 경기 조회’→서버 임시 저장→5+5 비교→내전·실제 역할 확인→‘내전 등록’ 흐름을 구현한다.** 전송 대기/확인 대기/등록 대기/등록 완료/등록 취소를 구분한다. 모임 내전이 아닌 경기나 재경기는 확정하지 않으면 집계되지 않는다. 확인 대기 목록은 서버에서 다시 불러올 수 있어 LCU의 과거 경기 목록에서 사라진 뒤에도 확인할 수 있다. 인터넷이 없을 때 회원 명단 캐시로 미리 검사하고 서버에서 최종 검증한다. 최초 기기 인증은 온라인에서 수행한다.
+- [ ] **4. 자동 테스트와 Windows 통합 흐름을 확인한다.** 테스트 → PASS. 실제 Windows에서 서버 차단→조회 버튼→전송 대기→수집자 확인→등록 대기→프로그램 종료→재실행→연결 복구 후 임시 저장·등록 확정 순차 성공을 확인한다. 수집자가 확인하지 않은 자료는 복구 후에도 확인 대기로 남아야 한다. 반복 조회·다른 참가자의 전송으로 기존 점수와 역할이 바뀌지 않아야 한다.
 - [ ] **5. 커밋한다.** `feat: add collector review and registration workflow`.
 
 ### T08. 포지션별 평가·누적 통계 순수 함수
@@ -210,7 +216,7 @@ workspace 이름은 `@cw/contracts`, `@cw/lcu`, `@cw/domain`, `@cw/server`, `@cw
 
 - [ ] **1. 핵심 평가 테스트를 작성한다.** `loserCanRankFirst`, `zeroDenominatorsFinite`, `sameRoleOnly`, `seedAndSoloCannotAffectRank`, `threeGameThreshold`, `cancelReturnsToProvisional`: `expect(losingCarry.rank).toBe(1)`, `expect(Number.isFinite(score)).toBe(true)`, `expect(n2.status).toBe('provisional')`, `expect(n3.status).toBe('ranked')`, `expect(adjusted).toBeCloseTo((sum+5*groupMean)/(n+5))`를 검증한다. 동일 표본·극단값·0데스 KDA도 포함한다.
 - [ ] **2. 실패를 확인한다.** `pnpm exec vitest run packages/domain/src/scoring.test.ts packages/domain/src/aggregate.test.ts` → 평가 함수 미구현으로 실패.
-- [ ] **3. 지표·역할 표준화·가중치·누적을 구현한다.** 솔로랭크/seedSkill을 공개 점수 함수 입력으로 사용하지 않는다. 취소 자료는 EvaluationInput 작성 때 제외하고 도메인에서도 active 경기만 받는 계약을 검사한다. KDA는 표시만 하고 직접 가산하지 않는다.
+- [ ] **3. 지표·역할 표준화·가중치·누적을 구현한다.** 솔로랭크/seedSkill을 공개 점수 함수 입력으로 사용하지 않는다. EvaluationInput은 registered 경기만 사용하여 pending·canceled를 제외하며 도메인에서도 확정 역할이 있는 입력인지 검사한다. KDA는 표시만 하고 직접 가산하지 않는다.
 - [ ] **4. 검증한다.** 테스트 → PASS. 수작업 계산 가능한 작은 예시와 정확히 일치하고, 평가 점수는 0–100, 0경기는 점수/순위 null이어야 한다.
 - [ ] **5. 커밋한다.** `feat: calculate role-aware performance and cumulative statistics`.
 
@@ -292,7 +298,7 @@ workspace 이름은 `@cw/contracts`, `@cw/lcu`, `@cw/domain`, `@cw/server`, `@cw
 
 **Interfaces:** Consumes 설치된 수집기·외부 웹·관리 기능. Produces 3–5경기의 실제 비교 결과, 확정된 평가 버전, 알려진 한계와 사용자 운영 절차.
 
-- [ ] **1. 실제 내전 3–5경기를 등록한다.** 운영자가 참가하지 않은 경기, 프로그램 종료 후 실행, 다른 참가자의 중복 등록, 오프라인 등록 대기를 포함한다. 잘못된 게임은 운영 데이터에 일부러 넣지 않고 별도 테스트 DB에서 재현한다.
+- [ ] **1. 실제 내전 3–5경기를 등록한다.** 운영자가 참가하지 않은 경기, 프로그램 실행 시점과 무관한 조회 버튼, 임시 저장만 하고 미확정인 경기의 집계 제외, 다른 참가자의 중복 전송, 오프라인 전송·확정 순서를 포함한다. 잘못된 게임은 운영 데이터에 일부러 넣지 않고 별도 테스트 DB에서 재현한다.
 - [ ] **2. 전적과 평가를 대조한다.** 결과 화면의 10명 수치, 포지션, 게임 시간, 합계 KDA, 1–2경기 평가 중/3경기 정식 랭킹을 확인한다. 잘한 패배자·탱커·서포터·낮은 킬 경기 등의 점수 근거를 운영자와 검토한다. 점수의 한계와 자료 부족을 기록한다.
 - [ ] **3. 조정이 필요하면 새 평가 기준으로 전체 재계산한다.** 확정한 가중치를 출발점으로 사용하며 개별 경기 결과에 맞추려고 원본을 바꾸지 않는다. 변경 전후 버전·이유·과거 경기/누적 순위 변화를 보고서에 남긴다.
 - [ ] **4. 출시 수용 기준을 확인한다.** `pnpm typecheck`, `pnpm test`, `pnpm test:integration`, `pnpm test:e2e`, `pnpm build` → PASS. T13 Windows 기록과 T14 외부 백업 복원 증거가 있어야 한다. 실패·미확인 항목이 남으면 완료로 표시하지 않는다.
@@ -331,7 +337,7 @@ workspace 이름은 `@cw/contracts`, `@cw/lcu`, `@cw/domain`, `@cw/server`, `@cw
 3. 역사 표본 비중 a=`N/(N+20)`, 최종 지표=`clamp((1-a)×P+a×H, 5, 95)`.
 4. 팀 킬/피해량 분모가 실제로 0이면 해당 비율을 0으로 정의한다. 누락된 분모는 계산 오류이며 0과 혼동하지 않는다. 모든 값이 같으면 중립 50을 유지한다.
 
-새 경기가 생기면 비교 표본도 달라지므로 모든 유효 경기 점수를 함께 재계산한다. 미래 경기의 추가로 과거의 상대적 점수가 변할 수 있음을 기준 설명에 명시한다. 같은 역할 안의 챔피언 성향 차이는 v1에서 완전히 보정하지 않는다.
+새 경기가 내전으로 등록 확정되면 비교 표본도 달라지므로 모든 유효 경기 점수를 함께 재계산한다. 임시 저장이나 중복 자료 수신은 재계산을 일으키지 않는다. 미래 경기의 추가로 과거의 상대적 점수가 변할 수 있음을 기준 설명에 명시한다. 같은 역할 안의 챔피언 성향 차이는 v1에서 완전히 보정하지 않는다.
 
 ### 누적·동점·표시
 

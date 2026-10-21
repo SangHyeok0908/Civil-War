@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 실제 Windows PC에서 경기 종료 후 실행한 프로그램으로 사용자 설정 5대5 경기의 전체 기록을 얻을 수 있는지 검증하고, 본 개발의 데이터 계약을 확정한다.
+**Goal:** 실제 Windows PC에서 수집 프로그램의 실행 시점과 무관하게 명시적 조회 요청으로 과거 사용자 설정 5대5 경기의 전체 기록을 얻을 수 있는지 검증하고, 본 개발의 데이터 계약을 확정한다.
 
-**Architecture:** 본 서비스와 분리된 읽기 전용 Node.js 검증 도구를 먼저 만든다. 실제 LCU 응답과 게임 결과 화면을 대조하여 판정하며, 문서의 API 목록이나 가상 응답만으로 통과시키지 않는다.
+**Architecture:** 본 서비스와 분리된 읽기 전용 Node.js 검증 도구를 먼저 만든다. CLI의 명시적 조회 명령을 제품의 ‘과거 경기 조회’ 버튼에 대응시킨다. 실제 LCU 응답과 게임 결과 화면을 대조하여 판정하며, 문서의 API 목록이나 가상 응답만으로 통과시키지 않는다. 서버 임시 저장·등록 확정·중복 무반영은 이후 서비스 T02/T06/T07에서 검증한다.
 
 **Tech Stack:** Node.js 24 LTS, JavaScript ESM, `node:test`, Node 내장 HTTPS·파일 API, 실제 Windows PC와 LoL 클라이언트.
 
@@ -13,7 +13,8 @@
 ## Global Constraints
 
 - 개발 환경은 macOS, 수집 프로그램 지원 환경은 Windows만 지원한다.
-- 프로그램을 경기 전에 실행하지 않았더라도 경기 종료 후 실행하여 방금 한 경기의 결과를 가져올 수 있어야 한다.
+- 새 경기 조회는 ‘과거 경기 조회’ 버튼을 눌렀을 때 시작하며, 프로그램의 경기 전후 실행 시점이나 경기 중 선행 수집에 의존하지 않는다.
+- 제품은 조회한 적격 경기를 서버에 임시 저장하고 확인한 경기만 집계한다. 이 단계에서는 그 자료를 조회할 수 있는지 검증한다.
 - 참가자 한 명의 수집으로 양 팀 10명의 기록을 얻어야 한다.
 - 솔로랭크 기록은 초기 포지션 참고 자료로만 사용한다.
 - 경기 중 실시간 수집이나 수동 수치 입력으로 요구사항을 대체하지 않는다.
@@ -56,9 +57,9 @@ LCU 연결은 `127.0.0.1`로 제한하고, lockfile에 외부 주소나 임의 �
 
 **Interfaces:** Consumes 사용자가 지정한 LoL lockfile 경로와 읽기 전용 조회 옵션. Produces 원본 JSON·HTTP 상태·수집 시각·클라이언트 버전 manifest; 네트워크 실패와 정상 빈 응답을 별도 상태로 반환한다.
 
-- [ ] **1. 연결과 기록 보호 테스트를 작성한다.** `rejectNonLoopback`, `reloadChangedLockfile`, `preserveMissingVersusZero`, `redactSecretsAndStableIdentifiers`를 검증한다. 핵심 assertion은 `assert.equal(output.stats.visionScore, 0)`, `assert.equal('objectiveDamage' in output.stats, false)`, `assert.equal(log.includes(testPassword), false)`이며, 실제 계정 가명이 서로 다른 경기에서도 유지되어야 한다.
+- [ ] **1. 연결과 기록 보호 테스트를 작성한다.** `rejectNonLoopback`, `reloadChangedLockfile`, `preserveMissingVersusZero`, `redactSecretsAndStableIdentifiers`, `historyOnlyOnExplicitCommand`를 검증한다. 핵심 assertion은 `assert.equal(output.stats.visionScore, 0)`, `assert.equal('objectiveDamage' in output.stats, false)`, `assert.equal(log.includes(testPassword), false)`, `assert.equal(historyRequestsBeforeCommand, 0)`이며, 실제 계정 가명이 서로 다른 경기에서도 유지되어야 한다.
 - [ ] **2. 실패를 확인한다.** `node --test tools/lcu-probe/probe.test.mjs` → 구현 모듈 부재 또는 assertion으로 실패. 문법·테스트 환경 오류를 기능 실패로 간주하지 않는다.
-- [ ] **3. 명시적으로 지정한 경로에서 연결 정보를 읽는 CLI를 구현한다.** 기본 명령은 `node tools/lcu-probe/probe.mjs --lockfile "C:\Riot Games\League of Legends\lockfile" --out .private/lcu/run-01`이다. 경로는 사용자 설치 위치에 맞게 바꾼다. POST/게임 조작·채팅 조회는 구현하지 않는다. 종료된 클라이언트와 응답 없는 LCU를 구분한다.
+- [ ] **3. 명시적으로 지정한 경로에서 연결 정보를 읽는 CLI를 구현한다.** 기본 명령은 `node tools/lcu-probe/probe.mjs --lockfile "C:\Riot Games\League of Legends\lockfile" --out .private/lcu/run-01`이다. 이 명령은 1회 조회한다. 여기에 `--interactive`를 붙이면 Node 내장 readline으로 `history` 입력 때만 조회하는 대기 모드를 제공한다. 경로는 사용자 설치 위치에 맞게 바꾼다. POST/게임 조작·채팅 조회는 구현하지 않는다. 종료된 클라이언트와 응답 없는 LCU를 구분한다.
 - [ ] **4. 테스트와 가상 서버 실행을 확인한다.** 위 테스트 명령 → 전부 PASS. 테스트 암호·실제 lockfile 내용이 stdout, 오류 스택, 저장된 HTTP 메타데이터 어디에도 나오지 않아야 한다. fixture에 실제 자료를 넣기 전 이 테스트를 통과한다.
 - [ ] **5. 검증 도구만 커밋한다.** `git add .gitignore tools/lcu-probe` 후 `git diff --cached --check`, `git commit -m "test: add read-only Windows LCU probe"`. 실제 응답은 커밋하지 않는다.
 
@@ -84,8 +85,8 @@ LCU 연결은 `127.0.0.1`로 제한하고, lockfile에 외부 주소나 임의 �
 **Interfaces:** Consumes V1 CLI, 실제 Windows PC, 완료된 사용자 설정 5대5 경기. Produces `gate: PASS | HOLD`, 실제 지원 필드 목록·단위·누락 정책, 검증한 환경/조회 조건, 서비스 T01에서 사용할 가명화 fixture.
 
 - [ ] **1. 실제 테스트 환경을 기록한다.** Windows 버전·CPU 아키텍처, Node 버전, 클라이언트/게임 패치, 지역, 경기 시각, 수집 시작 시각을 기록한다. macOS 가상 응답으로 Windows 결과를 대신하지 않는다.
-- [ ] **2. 경기 전에는 검증 도구를 실행하지 않은 상태로 첫 실제 내전을 완료한다.** 기존 정상 내전에서 수집한다. 테스트를 위해 고의 탈주·비정상 게임을 만들지 않는다.
-- [ ] **3. 종료 후 도구를 실행해 아래 표를 채운다.** 종료 직후, 약 1분·5분·15분 뒤 중 필요한 시점에 재조회하여 관찰된 지연만 기록한다. 15분은 테스트 관찰 창이며 제품의 보장 기한이 아니다.
+- [ ] **2. 조회 시점과 프로그램 실행 시점을 분리해 검증한다.** 첫 실제 내전은 경기 중 도구를 실행하지 않고 종료 후 처음 조회한다. 다른 실행에서는 도구를 미리 실행해 두되 조회 명령 전에는 경기 기록을 읽지 않는다. 기존 정상 내전에서 검증하며 고의 탈주·비정상 게임을 만들지 않는다.
+- [ ] **3. 명시적 조회 명령으로 아래 표를 채운다.** 종료 직후, 약 1분·5분·15분 뒤 중 필요한 시점과 목록에 제공되는 더 오래된 경기들을 조회하여 관찰된 지연·범위를 기록한다. 두 실행 조건에서 같은 경기의 키와 핵심 기록이 일치하는지 비교한다. 15분은 테스트 관찰 창이며 제품의 보장 기한이 아니다. CLI를 실행해 둔 경우에는 `--interactive` 모드의 `history` 명령을 제품 버튼에 대응시키고 명령 전에는 자동 조회하지 않는다.
 - [ ] **4. 클라이언트를 재시작한 뒤 같은 경기를 다시 조회한다.** 최소 두 실제 경기에서 핵심 필드가 같은 구조로 나오는지 확인한다. 같은 경기 참가자 두 명의 PC에서 경기 키를 대조한다. 두 번째 PC에서 확인할 수 없으면 해당 항목을 보류하고 전체 gate를 PASS로 표시하지 않는다.
 - [ ] **5. 원본과 게임 결과 화면을 대조해 필드 맵과 판정을 작성한다.** JSON 경로·타입·단위, 결측과 0, 아이템 빈 슬롯, CS 합산 범위, 팀 ID와 승패, 안정적인 경기 키, 역할 힌트의 출처를 명시한다.
 - [ ] **6. 가명화 fixture를 검증해 커밋한다.** `node --test tools/lcu-probe/probe.test.mjs` → PASS, `git diff --check` → 출력 없음. `git add docs/validation fixtures/lcu/verified` 후 `git diff --cached`를 검토하고 `git commit -m "docs: record measured LCU capabilities and fixtures"`. 원본·토큰·실제 PUUID가 포함되면 커밋하지 않는다.
@@ -94,13 +95,13 @@ LCU 연결은 `127.0.0.1`로 제한하고, lockfile에 외부 주소나 임의 �
 
 | 검증 항목 | 통과 증거 | 실패·누락 시 처리 |
 | --- | --- | --- |
-| 종료 후 실행하여 방금 내전 발견 | 경기 전 미실행 조건과 실제 조회 시각·경기 ID 기록 | **본 개발 보류**, 가능한 대안과 요구 변경점을 사용자에게 제시 |
+| 명시적 요청으로 과거 내전 조회 | 선행 실행 없이 조회 성공, 미리 실행한 경우에도 명령 전 조회 없음, 같은 경기의 키·핵심 기록 일치 | **본 개발 보류**, 가능한 대안과 요구 변경점을 사용자에게 제시 |
 | 10명 식별·팀·승패·경기 시간 | 10개의 고유 계정, 5+5 팀, 결과 화면 대조 | 본 개발 보류 |
 | 두 수집자의 경기 키 일치 | `platformId:gameId`가 동일하며 문자열로 보존됨 | 본 개발 보류; 다른 안정적인 키 검증 필요 |
 | 회원 사전 등록 | 수집자 한 명이 친구의 안정적인 식별자를 확보하는 검증된 경로 | 모든 친구 설치를 강제하지 말고 등록 대안 검증 |
 | 챔피언·K/D/A·가한/받은 피해량·CS·골드·시야·아이템 | 10명 전원 실제 JSON 값과 화면상 확인 가능한 값 대조 | 누락 필드를 정확히 제시하고 요구/대안 재검토 |
 | 오브젝트·포탑 피해량 | 필드의 존재, 0과 양수 사례, 단위·의미 확인 | 확정 가중치를 조용히 변경하지 않음; 해당 평가 구현 전에 사용자와 대안 확정 |
-| 재시작·조회 범위 | 같은 경기 재조회 결과와 관찰한 범위 명시 | 재시작 이후 실패는 제한으로 명시; 종료 후 수집 요구와 충돌 여부 검토 |
+| 재시작·조회 범위 | 같은 경기 재조회 결과, 확인한 과거 경기 범위·페이지 제한 명시 | 재시작 이후 실패는 제한으로 명시; 버튼 기반 과거 조회 요구와 충돌 여부 검토 |
 | 솔로랭크 초기 포지션 | 검증된 솔로랭크 구분값과 역할 힌트, 다른 친구 조회 가능 여부 | 기록 부족은 ‘자료 부족’과 수동 지정; 기능 자체가 불가능하면 대안 확인 |
 | 타임라인 | 응답 유무와 이벤트 항목만 기록 | 없어도 통과 가능, 초기 평가에 의존하지 않음 |
 
