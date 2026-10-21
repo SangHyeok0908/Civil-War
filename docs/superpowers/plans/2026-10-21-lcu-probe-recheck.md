@@ -1,5 +1,7 @@
 # LCU probe Windows 재검증 준비 계획
 
+**현재 범위 정정:** 사용자 요청에 따라 친구 목록 조회와 1.0.2 Windows 친구 재검증을 제외한다. 솔로랭크 조회는 초기 포지션 참고용으로 유지한다. 아래 계획·완료 항목의 친구 관련 내용은 당시 작업 이력이며 현재 실행 지시가 아니다. 현재 절차와 판정은 [README](../../../tools/lcu-probe/README.md)와 [검증 보고서](../../validation/lcu-report.md)를 따른다.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 첫 Windows 수집에서 발견한 요청 인자 오류를 수정하고, 친구 응답 차단 사유를 안전하게 기록하는 재검증 키트를 제공한다.
@@ -67,4 +69,4 @@
 - [x] Node 24 전체 테스트 26/26 PASS.
 - [x] 실제 경기 JSON 기준 보고서·필드 맵 갱신, README를 친구 1회 재조회로 단축.
 - [x] 독립 리뷰 및 필요한 수정 반영. 중복 JSON 키가 앞선 인증값을 가리는 우회를 실패 테스트로 확인하고 원문 토큰·객체 범위 검사로 거절. 이스케이프 동등 키 포함 26/26 PASS; 재검토 추가 지적 없음.
-- [x] 실제 데이터 없는 1.0.2 배포 zip 생성, 별도 추출본 테스트·무결성·식별자 미포함 확인. 14개 파일, 별도 추출본 26/26 PASS, help 1.0.2 확인. 실제 Windows 친구 재조회는 사용자 실행 대기.
+- [x] 실제 데이터 없는 1.0.2 배포 zip 생성, 별도 추출본 테스트·무결성·식별자 미포함 확인. 14개 파일, 별도 추출본 26/26 PASS, help 1.0.2 확인. 이후 사용자 범위 정정으로 실제 Windows 친구 재조회 요청은 철회했다.

@@ -221,7 +221,7 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 - [ ] **1. 연결·인증 분리 테스트를 작성한다.** `clientStopped`, `portChanged`, `noTokenInRenderer`, `accountMismatch`, `soloReferenceOnly`, `noHistoryFetchOnLaunch`: `expect(rendererAccount).not.toHaveProperty('token')`, `expect(mismatch.code).toBe('ACCOUNT_MISMATCH')`, `expect(reference.source).toBe('solo420')`, `expect(historyRequestsOnLaunch).toBe(0)`. 토큰 복호화 실패는 재등록 안내이며 평문 저장으로 우회하지 않는다.
 - [ ] **2. 실패를 확인한다.** pnpm/Vitest 후보 채택 시 `pnpm exec vitest run apps/collector/src/main/lcu-bridge.test.ts packages/lcu/src/normalize-match.test.ts packages/lcu/src/role-reference.test.ts` → 미구현으로 실패. 클라이언트 정규화는 T01과 동일한 fixture에서 참가자 10명·문자열 경기 ID·0과 누락 구분이 일치하는지 검증한다.
-- [ ] **3. main 전용 LCU·인증 저장과 읽기 IPC를 구현한다.** Electron contextIsolation/sandbox를 켜고 nodeIntegration은 끈다. Windows safeStorage로 보호한 토큰만 로컬에 보관한다. 친구·솔로랭크 조회는 V2에서 검증된 범위만 사용하고, 자료가 없으면 이유를 반환한다. 온라인 서버 없이도 LCU 조회는 가능해야 한다. 앱 실행 시 계정 인식만 수행하고 새로운 경기 기록 조회는 버튼 요청 때만 시작한다.
+- [ ] **3. main 전용 LCU·인증 저장과 읽기 IPC를 구현한다.** Electron contextIsolation/sandbox를 켜고 nodeIntegration은 끈다. Windows safeStorage로 보호한 토큰만 로컬에 보관한다. 솔로랭크 조회는 V2에서 검증된 범위만 사용하고, 자료가 없으면 이유를 반환한다. 친구 목록 조회는 구현 범위에서 제외하며 참가자 식별에는 경기 상세의 식별 정보를 사용한다. 온라인 서버 없이도 LCU 조회는 가능해야 한다. 앱 실행 시 계정 인식만 수행하고 새로운 경기 기록 조회는 버튼 요청 때만 시작한다.
 - [ ] **4. fixture 테스트와 Windows 연결 확인을 수행한다.** 테스트 → PASS. 실제 Windows에서 클라이언트 꺼짐·로그아웃·재시작을 확인하고 renderer 개발자 도구에 토큰이 노출되지 않는지 점검한다.
 - [ ] **5. 커밋한다.** `feat: connect Windows collector to verified LCU data`.
 

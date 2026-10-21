@@ -2,41 +2,33 @@
 
 Node.js 24로 실제 Windows LoL 클라이언트의 과거 경기 조회 가능 범위를 조사한다. 외부 npm 패키지, 빌드, 서버 설치, Riot 개발자 API 키는 필요하지 않다. 인증은 명시적으로 지정한 로컬 LoL lockfile에서 읽으며 화면이나 파일에 출력하지 않는다.
 
-**버전 1.0.2:** 1.0.1 Windows 실행으로 과거 사용자 설정 경기 3건의 목록·상세 수집과 통계 필드 존재를 확인했다. 친구 응답에서 확인한 도전과제 토큰 필드의 오탐을 좁은 경로·숫자 형식에 한해 보완했다. 1.0.2는 macOS 합성 HTTPS 테스트 26/26 통과, Windows 친구 재조회는 대기 중이다. 결과 화면·두 PC 대조 등은 남아 있으며 전체 판정은 HOLD다.
+**버전 1.0.2:** 1.0.1 Windows 실행으로 과거 사용자 설정 경기 3건의 목록·상세 수집과 통계 필드 존재를 확인했다. 1.0.2는 macOS 합성 HTTPS 테스트 26/26을 통과했다. 친구 목록 조회는 사용자 요청에 따라 수집·검증 범위에서 제외하며, 초기 포지션 참고용 솔로랭크 조회는 유지한다. 결과 화면·두 PC 대조 등은 남아 있으며 전체 판정은 HOLD다.
 
 - [검증 계획](../../docs/superpowers/plans/2026-10-21-lcu-validation-plan.md)
 - [실측 보고서](../../docs/validation/lcu-report.md)
 - [필드 맵](../../docs/validation/lcu-field-map.md)
 
-## 0. 이번 수정본 재검증 — 친구 목록만 다시 조회
+## 0. 현재 검증 범위와 기존 경기 조회
 
-새 압축 파일을 별도 폴더에 풀고 **그 폴더를 PowerShell의 현재 디렉터리로 지정**한다. LoL 클라이언트에 로그인한 상태에서 아래 블록을 실행한다. 기존 결과를 덮어쓰지 않도록 실행 시각으로 새 폴더 이름을 만든다. 새 내전은 필요하지 않다.
+친구 목록 조회와 1.0.2의 친구 재검증 요청은 철회했다. 도구의 도움말에 `--friends`나 `friends`가 표시되더라도 이번 절차에서는 사용하지 않는다. 경기 참가자는 경기 상세의 식별 정보로 확인하며, 솔로랭크 조회와 초기 포지션 참고 검증은 계속 수행한다. 친구 목록 응답의 성공·차단 여부는 전체 gate 판정에 넣지 않는다.
+
+이미 확보한 1.0.1의 경기 3건은 다시 수집할 필요가 없다. 기존 경기 목록을 추가로 확인할 때만 아래 블록을 실행한다. 키트 폴더를 **PowerShell의 현재 디렉터리로 지정**하고 LoL 클라이언트에 로그인한다. 실행 시각으로 새 출력 폴더를 만들며 새 내전은 필요하지 않다. 목록의 최대 3개 경기 상세를 자동 수집하므로 실제 ID를 직접 입력할 필요가 없다.
 
 ~~~powershell
 node --version
 node --test tools/lcu-probe/probe.test.mjs
 node tools/lcu-probe/probe.mjs --help
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$friendsOut = ".private/lcu/pc-a-friends-$stamp"
-$historyOut = $null
-node tools/lcu-probe/probe.mjs --lockfile 'C:\Riot Games\League of Legends\lockfile' --out $friendsOut --region KR --friends
-~~~
-
-- `--help` 첫 줄에서 `1.0.2`를 확인한다. Node 버전은 24.x, 테스트는 26개가 통과해야 한다.
-- 친구 목록의 목표 결과는 `requests=1, errors=0, history=n/a`와 `001-friends.json` 생성이다. JSON의 친구 식별 자료를 확인하기 전까지 회원 사전 등록 PASS로 판단하지 않는다.
-- 친구 목록이 다시 `SENSITIVE_RESPONSE`이면 다음 출력과 manifest의 `sensitivity`를 함께 보존한다. 실제 응답에 허용 형식 밖의 값이나 다른 token 키가 있는지는 아직 모른다.
-- 기존 경기 조회는 1.0.1에서 성공했다. 과거 사용자 설정 경기의 참가자 10명·통계 JSON을 확보했으나, 결과 화면·종료 직후 반영·두 PC 대조는 이번 친구 조회에서 검증하지 않는다. 정상 응답이어도 `gate=HOLD`는 유지된다.
-- 실행한 키트 폴더를 `.private` 숨김 폴더까지 포함해 다시 압축한다. LoL 설치 폴더의 lockfile을 넣지 않는다.
-
-경기 목록도 다시 확인하려면 아래 선택 블록을 실행한다. 목록의 최대 3개 경기 상세를 자동 수집하므로 실제 ID를 직접 입력할 필요가 없다.
-
-~~~powershell
-$historyStamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$historyOut = ".private/lcu/pc-a-history-$historyStamp"
+$historyOut = ".private/lcu/pc-a-history-$stamp"
 node tools/lcu-probe/probe.mjs --lockfile 'C:\Riot Games\League of Legends\lockfile' --out $historyOut --region KR --label existing-history --count 3
 ~~~
 
-아래 1~8절은 전체 검증 절차와 선택적 조회 설명이다. **이번에는 첫 블록의 친구 조회만 필수다.**
+- `--help` 첫 줄에서 `1.0.2`를 확인한다. Node 버전은 24.x, 테스트는 26개가 통과해야 한다.
+- 1.0.1의 경기 조회 결과는 `requests=6, errors=0, history=available`이었다. 새 조회의 요청 수는 목록에 반환된 경기 수에 따라 달라질 수 있다.
+- 과거 사용자 설정 경기의 참가자 10명·통계 JSON은 확보했으나, 결과 화면·종료 직후 반영·두 PC 대조와 솔로랭크 참고 경로는 별도 검증이 필요하다. 정상 응답이어도 `gate=HOLD`는 유지된다.
+- 실행한 키트 폴더를 `.private` 숨김 폴더까지 포함해 다시 압축한다. LoL 설치 폴더의 lockfile을 넣지 않는다.
+
+아래 1~8절은 전체 검증 절차와 선택적 조회 설명이다. 친구 목록 조회는 포함하지 않는다.
 
 ## 1. Windows 준비
 
@@ -87,13 +79,11 @@ READY가 표시된 시점에는 LCU 요청이 0건이다. **이 프로세스를 
 
 ~~~text
 history
-friends
 quit
 ~~~
 
 - history: 기본 최근 20경기 페이지. history 20 20은 20번 인덱스부터 20개를 요청한다. --begin과 --count로 기본값도 지정할 수 있다.
 - game: `game 실제경기ID` 형식으로 목록에 나온 경기 ID의 상세를 재조회한다. 기본 history가 이미 상세를 수집한다.
-- friends: 참가자 사전 등록용 식별 자료 확인. 대화·메시지 조회는 지원하지 않는다.
 - player: `player 실제PUUID` 형식으로 다른 참가자의 기록 접근 가능 범위를 확인한다. 확보한 PUUID를 사용하며, 솔로랭크 여부와 역할 힌트는 원본을 보고 판정한다.
 - timeline: `timeline 실제경기ID` 형식의 선택적 타임라인 조회. 실패하거나 없어도 기본 수집 PASS를 단독으로 막지 않는다.
 - help, quit: 도움말과 종료.
@@ -128,10 +118,10 @@ if ($gameId) {
 }
 ~~~
 
-다른 참가자 기록은 실제 친구 PUUID를 확보했을 때만 조회한다. Riot ID의 이름/태그와 PUUID는 다르다. 친구 본문이 차단되어 PUUID를 확보하지 못했다면 이 단계는 생략한다. 본인 `002-current-summoner.json`의 PUUID를 사용하면 본인 경로 검증만 되며 다른 참가자의 접근 가능 여부는 확인되지 않는다.
+다른 참가자의 솔로랭크 등 과거 기록은 경기 상세 JSON의 `participantIdentities[].player.puuid`에서 해당 참가자의 실제 PUUID를 확인한 뒤 조회한다. 이 경로는 확보한 사용자 설정 경기 3건에 존재하며 친구 목록 조회가 필요하지 않다. Riot ID의 이름/태그와 PUUID는 다르다. PUUID를 확보하지 못했다면 이 명령은 생략하고 해당 검증을 미확인으로 남긴다. 본인 `002-current-summoner.json`의 PUUID를 사용하면 본인 경로 검증만 되며 다른 참가자의 접근 가능 여부는 확인되지 않는다. PUUID 확보와 다른 계정의 경기 조회 성공은 별개로 판정한다.
 
 ~~~powershell
-$playerPuuid = (Read-Host '확보한 실제 친구 PUUID를 입력하세요. 없으면 Enter로 생략').Trim()
+$playerPuuid = (Read-Host '경기 상세에서 확인한 참가자 PUUID를 입력하세요. 없으면 Enter로 생략').Trim()
 if ($playerPuuid) {
     $playerStamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     node tools/lcu-probe/probe.mjs --lockfile 'C:\Riot Games\League of Legends\lockfile' --out ".private/lcu/pc-a-player-$playerStamp" --player $playerPuuid --begin 0 --count 3
@@ -140,7 +130,7 @@ if ($playerPuuid) {
 
 이전 문서의 `1234567890`과 `REPLACE_WITH_PUUID`는 실제 계정의 값이 아니다. `REPLACE_WITH_PUUID`는 이제 요청 전에 `INVALID_PUUID`로 거절한다.
 
---game, --friends, --player, --timeline, --interactive는 함께 사용하지 않는다. 모든 조회 명령에 --client-version, --region, --label을 추가할 수 있다. 메타데이터에는 인증 정보나 실명을 넣지 않고 수집자·PC 가명을 사용한다.
+--game, --player, --timeline, --interactive는 함께 사용하지 않는다. 모든 조회 명령에 --client-version, --region, --label을 추가할 수 있다. 메타데이터에는 인증 정보나 실명을 넣지 않고 수집자·PC 가명을 사용한다.
 
 ## 5. 저장 결과 읽기
 
@@ -191,13 +181,11 @@ historyState의 available은 알려진 목록 구조에서 경기 ID를 읽었�
 - `keyCategories`: `password`, `authorization`, `token`, `secret`, `cookie`, `lockfile` 중 해당 분류만 기록한다. 실제 키 이름과 값은 기록하지 않는다.
 - `recognizedFields`: 사전 지정한 `challengeTokensSelected`, `challengeTokenNamesSelected`가 키 이름 검사에 걸린 경우에만 해당 고정 이름을 기록한다. 1.0.2에서 허용 경로·형식 예외에 해당한 필드는 여기에 포함하지 않는다. 임의 JSON 경로나 필드명을 출력하지 않으며, 이 목록으로 다른 인증 필드가 없다고 판단하지 않는다.
 
-1.0.1의 실제 Windows 친구 응답에서는 `sensitive-key/token/challengeTokensSelected`가 확인됐다. 이는 키 이름 검사에 해당 필드가 걸렸다는 뜻이며, 다른 token 키가 없다는 보장은 아니다. 해당 응답의 값·정확한 위치는 원문 미보관으로 미확인이다.
-
-1.0.2는 `/lol-chat/v1/friends` 응답 배열의 `[].lol.challengeTokensSelected`에만 예외를 적용한다. 값은 빈 문자열 또는 쉼표로 구분된 숫자 ID 최대 3개(각 1~10자리)여야 한다. 도전과제의 표시용 토큰을 위한 형식 제한이며 인증값 일치 검사와 다른 민감 키 차단은 계속 적용한다. 다른 경로·형식·`challengeTokenNamesSelected` 등은 계속 차단한다. [Riot 도전과제 설명](https://www.leagueoflegends.com/en-au/news/game-updates/challenges-walkthrough/)과 [직접 LCU 타입 정의](https://github.com/Its-Haze/lcu-gopher/blob/master/types.go)를 대조했으며, 사용자 응답의 이 형식 충족 여부는 재조회로 확인한다.
+과거 친구 응답의 차단 진단과 1.0.2 보완 내용은 [실측 보고서](../../docs/validation/lcu-report.md)의 실행 이력에 보존한다. 친구 목록 재조회는 수행하지 않으며 해당 차단을 내전 수집 실패나 gate 보류 사유로 판단하지 않는다.
 
 ## 7. 가명화 후보 준비
 
-실제 응답을 확보한 뒤 공개 fixture 후보를 만들 때만 사용한다. 서버 접속 없이 로컬 JSON을 읽는다. 같은 계정의 가명을 유지하려면 관련 경기·현재 계정·친구 자료를 **같은 실행에 모두 --input으로 전달**한다.
+실제 응답을 확보한 뒤 공개 fixture 후보를 만들 때만 사용한다. 서버 접속 없이 로컬 JSON을 읽는다. 같은 계정의 가명을 유지하려면 관련 경기·현재 계정 자료를 **같은 실행에 모두 --input으로 전달**한다.
 
 ~~~powershell
 node tools/lcu-probe/redact.mjs --input '.private/lcu/pc-a-after-game-01/실제캡처폴더/004-game.json' --input '.private/lcu/pc-a-game-01/실제캡처폴더/001-game.json' --out .private/lcu/candidates-01
@@ -218,7 +206,7 @@ node tools/lcu-probe/redact.mjs --input '.private/lcu/pc-a-after-game-01/실제�
 3. 클라이언트 재시작 뒤 같은 경기의 키·기록을 대조한다.
 4. 두 수집자의 platformId:gameId가 일치하는지 확인한다.
 5. 고유 계정 10명·5+5 팀·승패·경기 시간과 모든 필수 통계를 화면과 대조한다.
-6. 오브젝트·포탑 피해의 0과 양수, CS 합산 범위, 아이템 빈 슬롯, 친구 식별·솔로랭크 참고 경로를 확인한다.
+6. 오브젝트·포탑 피해의 0과 양수, CS 합산 범위, 아이템 빈 슬롯, 솔로랭크 참고 경로를 확인한다.
 7. 실제 확인한 과거 조회 범위·페이지 제한과 미확인 항목을 보고서에 기록한다.
 
 전체 PASS 전에는 실제 Windows 결과를 가상 테스트로 대신하거나 본 서비스의 데이터 계약을 확정하지 않는다.
