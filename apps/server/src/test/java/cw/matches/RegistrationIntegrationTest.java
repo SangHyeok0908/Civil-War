@@ -63,6 +63,31 @@ class RegistrationIntegrationTest extends DatabaseTestSupport {
         assertThatThrownBy(()->registration.registerMatch(confirmation(false),actor(11))).isInstanceOf(ApiException.class);
         assertThat(registration.registerMatch(confirmation(false),actor(2)).disposition()).isEqualTo("created");
     }
+    @Test void invalidRolesCannotPartiallyRegister() {
+        ingest.ingestMatch(input(),actor(1));
+        var invalid=new java.util.HashMap<>(roles(false)); invalid.put("fixture-player-02",cw.contracts.Role.TOP);
+        assertThatThrownBy(()->registration.registerMatch(new ConfirmationInput(KEY,invalid,"invalid-roles"),actor(1))).isInstanceOf(ApiException.class);
+        assertThat(collector.getCollectorMatch(KEY,actor(1)).state()).isEqualTo("pending");
+        assertThat(collector.getCollectorMatch(KEY,actor(1)).confirmedRoles()).isNull();
+        assertThat(revision()).isZero(); assertThat(jobs()).isZero();
+    }
+    @Test void registrationJobFailureRollsBackStateRolesRevisionAndAudit() {
+        ingest.ingestMatch(input(),actor(1));
+        jdbc.execute("alter table recalculation_jobs add constraint injected_job_failure check(source_revision <> 1)");
+        try { assertThatThrownBy(()->registration.registerMatch(confirmation(false),actor(1))).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class); }
+        finally { jdbc.execute("alter table recalculation_jobs drop constraint injected_job_failure"); }
+        assertThat(collector.getCollectorMatch(KEY,actor(1)).state()).isEqualTo("pending");
+        assertThat(jdbc.queryForObject("select count(*) from match_participants where role is not null",Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from audit_log",Integer.class)).isEqualTo(1);
+        assertThat(revision()).isZero(); assertThat(jobs()).isZero();
+    }
+    @Test void duplicateCannotReplaceStoredParticipantAuthorization() {
+        ingest.ingestMatch(input(),actor(1)); var altered=raw();
+        ((tools.jackson.databind.node.ObjectNode)altered.at("/participantIdentities/0/player")).put("puuid",actor(11).puuid());
+        assertThatThrownBy(()->ingest.ingestMatch(new IngestMatchInput(altered,"impostor",1),actor(11))).isInstanceOf(ApiException.class);
+        assertThat(collector.getCollectorMatch(KEY,actor(1)).match().participants().getFirst().puuid()).isEqualTo(actor(1).puuid());
+        assertThat(jdbc.queryForObject("select count(*) from audit_log",Integer.class)).isEqualTo(1);
+    }
     @Test void rollbackLeavesNoPartialParticipantsOrJob() {
         jdbc.execute("alter table audit_log add constraint injected_failure check(action <> 'match_ingested')");
         try { assertThatThrownBy(()->ingest.ingestMatch(input(),actor(1))).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class); }

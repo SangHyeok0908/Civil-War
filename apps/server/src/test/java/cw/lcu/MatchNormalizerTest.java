@@ -47,6 +47,24 @@ class MatchNormalizerTest {
         var b=raw(); ((ObjectNode)b.at("/participants/0")).put("teamId",200); assertThatThrownBy(()->normalizer.normalizeMatch(b)).isInstanceOf(MatchValidationError.class);
         var c=raw(); ((ObjectNode)c.at("/participants/0/stats")).put("win",true); assertThatThrownBy(()->normalizer.normalizeMatch(c)).isInstanceOf(MatchValidationError.class);
     }
+    @Test void schemaValidationAndParticipantJoinAreStrict() throws Exception {
+        var validator=new cw.matches.MatchInputValidator(normalizer);
+        assertThat(validator.validateIngest(new cw.contracts.MatchContracts.IngestMatchInput(raw(),"s",2)).issues())
+            .contains(new cw.contracts.MatchContracts.Issue("schemaVersion","UNSUPPORTED_SCHEMA"));
+        var a=raw(); a.put("queueId",420);
+        assertThatThrownBy(()->normalizer.normalizeMatch(a)).isInstanceOfSatisfying(cw.contracts.ApiException.class,e->assertThat(e.code).isEqualTo("UNSUPPORTED_SCHEMA"));
+        var b=raw(); ((ObjectNode)b.at("/participants/1")).put("participantId",1);
+        assertThatThrownBy(()->normalizer.normalizeMatch(b)).isInstanceOf(MatchValidationError.class);
+        var c=raw(); ((ObjectNode)c.at("/participants/0/stats")).putNull("visionScore");
+        assertThatThrownBy(()->normalizer.normalizeMatch(c)).isInstanceOfSatisfying(MatchValidationError.class,e->assertThat(e.details).contains(new cw.contracts.MatchContracts.Issue("participants.0.visionScore","INVALID_TYPE")));
+        var d=raw(); ((ObjectNode)d.at("/participants/0/stats")).put("kills",9_007_199_254_740_992L);
+        assertThatThrownBy(()->normalizer.normalizeMatch(d)).isInstanceOf(MatchValidationError.class);
+    }
+    @Test void identityArrayOrderDoesNotChangeJoin() throws Exception {
+        var a=raw(); var identities=(ArrayNode)a.get("participantIdentities");
+        var first=identities.remove(0); identities.add(first);
+        assertThat(normalizer.normalizeMatch(a).participants().getFirst().puuid()).isEqualTo("fixture-player-01");
+    }
     @Test void rejectCoercionsAndMissingItems() throws Exception {
         var a=raw(); ((ObjectNode)a.at("/participants/0/stats")).put("visionScore","0"); assertThatThrownBy(()->normalizer.normalizeMatch(a)).isInstanceOf(MatchValidationError.class);
         var b=raw(); ((ObjectNode)b.at("/participants/0/stats")).remove("item6"); assertThatThrownBy(()->normalizer.normalizeMatch(b)).isInstanceOf(MatchValidationError.class);
