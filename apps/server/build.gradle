@@ -19,6 +19,8 @@ dependencies {
 }
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
+    dependsOn tasks.named('bootJar')
+    systemProperty 'cw.serverJar', tasks.named('bootJar').get().archiveFile.get().asFile.absolutePath
     maxParallelForks = 1
     testLogging { events 'failed', 'skipped'; exceptionFormat 'short' }
     systemProperty 'cw.fixtureRoot', file('../../fixtures/lcu/candidates/h2-20261021').absolutePath

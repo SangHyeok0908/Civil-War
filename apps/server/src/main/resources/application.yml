@@ -22,3 +22,7 @@ server:
 cw:
   origin: ${SERVER_ORIGIN:https://localhost}
   dev-http: false
+logging:
+  level:
+    org.hibernate.orm.jdbc.error: OFF
+    org.hibernate.engine.jdbc.spi.SqlExceptionHelper: OFF
