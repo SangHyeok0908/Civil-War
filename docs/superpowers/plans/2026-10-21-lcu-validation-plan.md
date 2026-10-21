@@ -4,9 +4,13 @@
 
 **Goal:** 실제 Windows PC에서 수집 프로그램의 실행 시점과 무관하게 명시적 조회 요청으로 과거 사용자 설정 5대5 경기의 전체 기록을 얻을 수 있는지 검증하고, 본 개발의 데이터 계약을 확정한다.
 
-**Architecture:** 본 서비스와 분리된 읽기 전용 Node.js 검증 도구를 먼저 만든다. CLI의 명시적 조회 명령을 제품의 ‘과거 경기 조회’ 버튼에 대응시킨다. 실제 LCU 응답과 게임 결과 화면을 대조하여 판정하며, 문서의 API 목록이나 가상 응답만으로 통과시키지 않는다. 서버 임시 저장·등록 확정·중복 무반영은 이후 서비스 T02/T06/T07에서 검증한다.
+**Architecture:** 본 서비스와 분리된 읽기 전용 검증 도구를 먼저 만든다. 검증 도구는 사용자와 확정한 Node.js 24로 구현한다. CLI의 명시적 조회 명령을 제품의 ‘과거 경기 조회’ 버튼에 대응시킨다. 실제 LCU 응답과 게임 결과 화면을 대조하여 판정하며, 문서의 API 목록이나 가상 응답만으로 통과시키지 않는다. 서버 임시 저장·등록 확정·중복 무반영은 이후 서비스 T02/T06/T07에서 검증한다.
 
-**Tech Stack:** Node.js 24 LTS, JavaScript ESM, `node:test`, Node 내장 HTTPS·파일 API, 실제 Windows PC와 LoL 클라이언트.
+**Tech Stack:** 사용자 확정 — Node.js 24 LTS. 구현은 JavaScript ESM, `node:test`, Node 내장 HTTPS·파일 API를 사용하며 외부 패키지 의존성은 없다. 실제 Windows PC와 LoL 클라이언트에서 검증한다는 조건은 확정되어 있다.
+
+**서버 기술 결정 (2026-10-21):** 본 서비스 서버는 **Java 25 + Spring Boot 4.1.x의 최신 정식 패치 버전**, 서버 DB는 **PostgreSQL**, DB 접근과 동적 조회는 **Spring Data JPA + Specification**, 서버 빌드는 **Gradle + Groovy DSL(`build.gradle`)**로 사용자와 확정했다. Spring Boot의 정확한 패치 버전은 본 서비스 T01에서 공식 릴리스를 확인한 뒤 고정한다. 서버 선택과 독립적으로 검증 도구는 후속 대화에서 Node.js 24로 확정했다. 아래 `.mjs` 파일·Node 명령·테스트 절차를 사용한다. Windows PC 실측은 사용자가 나중에 진행한다. 검증 산출물인 원본 JSON·필드 맵·가명화 fixture·PASS/HOLD 기준은 서버 언어와 무관하다.
+
+**기술 선택 기록:** 대안별 장단점과 LCU 원본 보존 이유는 [기술 스택 선택 근거](../decisions/2026-10-21-tech-stack-decisions.md)에 정리한다.
 
 **Spec:** [확정 기획서](../specs/2026-10-21-lol-inhouse-design.md), 특히 §7·10·11·18. 이후 작업은 [서비스 개발 계획](2026-10-21-lol-inhouse-development-plan.md)을 따른다.
 
@@ -109,10 +113,10 @@ LCU 연결은 `127.0.0.1`로 제한하고, lockfile에 외부 주소나 임의 �
 
 ## 실기 검증 후 인계
 
-보고서 첫 화면에 `PASS/HOLD`, 검증일·패치, 가능/불가능/미확인 항목, 알려진 조회 제약을 적는다. 본 서비스 T01은 필드 맵을 입력으로 사용하며 추측한 응답 구조를 제품 계약으로 고정하지 않는다. 패치 이후 다시 확인할 수 있도록 동일 probe를 유지한다.
+보고서 첫 화면에 `PASS/HOLD`, 검증일·패치, 가능/불가능/미확인 항목, 알려진 조회 제약을 적는다. 본 서비스 T01의 Java 정규화·입력 검증은 필드 맵과 가명화 JSON fixture를 입력으로 사용하며 추측한 응답 구조를 제품 계약으로 고정하지 않는다. 패치 이후 다시 확인할 수 있도록 동일 probe를 유지한다.
 
 ## 근거 자료
 
 - [Riot 공식 LoL 문서](https://developer.riotgames.com/docs/lol): LCU는 지원 범위가 제한된 인터페이스이므로 실기 검증과 오류 처리가 필요하다.
 - [LCU API 목록](https://lcu.kebs.dev/)과 [공개 클라이언트 스키마](https://raw.githubusercontent.com/KebsCS/lcu-and-riotclient-api/main/lcu/swagger.json): 조회 경로 후보의 출처이며 실제 기록 가용성의 증거는 아니다.
-- [Node.js 릴리스 상태](https://nodejs.org/en/about/previous-releases): 검증 도구와 서버의 Node 24 LTS 선택 근거. 정확한 패치 버전은 실행 시 기록한다.
+- [Node.js 릴리스 상태](https://nodejs.org/en/about/previous-releases): 사용자가 확정한 검증 도구 Node.js 24 LTS의 릴리스 상태. 서버 Java 25 + Spring Boot 4.1.x와 별도로 관리한다.
