@@ -259,17 +259,19 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 ### T08. 포지션별 평가·누적 통계 순수 함수
 
+> Stage 3 구현·검증: [보고서](../../validation/stage3-report.md). T08–T12 구현은 통합 커밋으로 묶었다. 웹 검증 명령은 `pnpm test:web`이며 실제 서버 시나리오와 fixture UI 시나리오를 구분한다. T11/T12 단계 2의 정확한 선행 RED 절차와 T12 외부 네트워크 수용은 완료로 주장하지 않는다. C01/C02/C07/C10 HOLD 및 T13–T15 미완료는 유지한다.
+
 **현재 draft 정책:** [D04](../decisions/2026-10-22-overnight-decisions.md)의 `objective-provisional-v1`을 적용한다. TOP은 turretDamage, 나머지는 objectiveDamage만 사용하며 MIDDLE/BOTTOM의 이전 50:50 혼합은 보류한다. 바깥 가중치는 유지한다. 테스트는 선택하지 않은 피해 필드 변경이 해당 항목 점수에 영향을 주지 않는지 포함한다. C07 HOLD와 운영 평가 승인은 별도로 유지한다.
 
 **Files:** Create `apps/server/src/main/java/cw/domain/{MatchFeatures,ScoringService,MemberAggregator,ScoringRulesV1}.java`; Test `apps/server/src/test/java/cw/domain/{ScoringServiceTest,MemberAggregatorTest}.java`.
 
 **Interfaces:** Consumes `EvaluationInput`. Produces `scoreMatches(input) -> GameScore 목록`, `aggregateMembers(scores, matches) -> MemberStats 목록`의 Java 계산; `GameScore={matchKey,memberId,role,scoringVersion,score,rank,breakdown}`, `MemberStats`는 경기 수/승패/승률/합계 KDA/포지션·챔피언별 집계/보정 점수/공식 순위/평가 상태를 포함한다. 아래 §5의 v1 계산을 그대로 사용한다.
 
-- [ ] **1. 핵심 평가 테스트를 작성한다.** `loserCanRankFirst`, `zeroDenominatorsFinite`, `sameRoleOnly`, `seedAndSoloCannotAffectRank`, `threeGameThreshold`, `cancelReturnsToProvisional`: 잘한 패배자 순위 1 가능, 모든 점수 유한, 2경기 provisional/3경기 ranked, 보정 점수 `(sum+5*groupMean)/(n+5)`와 허용 오차 내 일치를 검증한다. 동일 표본·극단값·0데스 KDA도 포함한다.
-- [ ] **2. 실패를 확인한다.** Java `ScoringServiceTest`, `MemberAggregatorTest` 실행 → 평가 함수 미구현으로 실패.
-- [ ] **3. 지표·역할 표준화·가중치·누적을 구현한다.** 솔로랭크/seedSkill을 공개 점수 함수 입력으로 사용하지 않는다. EvaluationInput은 registered 경기만 사용하여 pending·canceled를 제외하며 도메인에서도 확정 역할이 있는 입력인지 검사한다. KDA는 표시만 하고 직접 가산하지 않는다.
-- [ ] **4. 검증한다.** 테스트 → PASS. 수작업 계산 가능한 작은 예시와 정확히 일치하고, 평가 점수는 0–100, 0경기는 점수/순위 null이어야 한다.
-- [ ] **5. 커밋한다.** `feat: calculate role-aware performance and cumulative statistics`.
+- [x] **1. 핵심 평가 테스트를 작성한다.** `loserCanRankFirst`, `zeroDenominatorsFinite`, `sameRoleOnly`, `seedAndSoloCannotAffectRank`, `threeGameThreshold`, `cancelReturnsToProvisional`: 잘한 패배자 순위 1 가능, 모든 점수 유한, 2경기 provisional/3경기 ranked, 보정 점수 `(sum+5*groupMean)/(n+5)`와 허용 오차 내 일치를 검증한다. 동일 표본·극단값·0데스 KDA도 포함한다.
+- [x] **2. 실패를 확인한다.** Java `ScoringServiceTest`, `MemberAggregatorTest` 실행 → 평가 함수 미구현으로 실패.
+- [x] **3. 지표·역할 표준화·가중치·누적을 구현한다.** 솔로랭크/seedSkill을 공개 점수 함수 입력으로 사용하지 않는다. EvaluationInput은 registered 경기만 사용하여 pending·canceled를 제외하며 도메인에서도 확정 역할이 있는 입력인지 검사한다. KDA는 표시만 하고 직접 가산하지 않는다.
+- [x] **4. 검증한다.** 테스트 → PASS. 수작업 계산 가능한 작은 예시와 정확히 일치하고, 평가 점수는 0–100, 0경기는 점수/순위 null이어야 한다.
+- [x] **5. 커밋한다.** `feat: calculate role-aware performance and cumulative statistics`.
 
 ### T09. 평가 버전·전체 재계산·일괄 공개
 
@@ -277,11 +279,11 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 **Interfaces:** Consumes T08 함수와 DB source revision/jobs. Produces Java 작업자 `recalculate(sourceRevision) -> GenerationResult`, `readCurrentGeneration() -> CurrentGenerationResult`, `POST /api/admin/scoring-versions`, `GET /api/rankings`, `GET /api/members/:id/stats`. `CurrentGenerationResult`는 ready generation 또는 `{status:'recalculating',sourceRevision}`다.
 
-- [ ] **1. 일관성·복구 테스트를 작성한다.** `singleVersionEverywhere`, `cancelDuringCalculation`, `workerRestart`, `staleGenerationNeverPublishes`: 공개 세대 revision과 최신 revision 일치, 공개 점수 전체의 평가 버전 동일, 취소 후 해당 회원 경기 수 2. 실패한 세대가 공개되지 않는지도 확인한다.
-- [ ] **2. 실패를 확인한다.** Java `RecalculationIntegrationTest` 실행 → 작업자/세대 조회 미구현으로 실패.
-- [ ] **3. 스냅샷 계산과 조건부 공개를 구현한다.** REPEATABLE READ로 입력을 확보하고 작업자를 한 개씩 실행한다. 완료 시 revision과 desired scoring version이 동일할 때만 active generation 포인터를 트랜잭션으로 교체한다. 변경되었으면 폐기 후 최신 job을 처리한다. 계산 중 공개 집계는 202/RECALCULATING이며 DB의 이전 점수를 혼합하지 않는다. 실패 job은 보존하고 재시작/운영자 재시도로 회복한다.
-- [ ] **4. 장애 주입 테스트를 통과한다.** 테스트 → PASS. 기준 변경·역할 수정·등록 취소·새 경기 추가가 과거 점수와 누적 결과를 같은 세대로 갱신한다. seedSkill 변경은 공개 랭킹 값을 바꾸지 않는다. T10의 roleSkills도 같은 세대에 추가한다.
-- [ ] **5. 커밋한다.** `feat: publish consistent versioned evaluation generations`.
+- [x] **1. 일관성·복구 테스트를 작성한다.** `singleVersionEverywhere`, `cancelDuringCalculation`, `workerRestart`, `staleGenerationNeverPublishes`: 공개 세대 revision과 최신 revision 일치, 공개 점수 전체의 평가 버전 동일, 취소 후 해당 회원 경기 수 2. 실패한 세대가 공개되지 않는지도 확인한다.
+- [x] **2. 실패를 확인한다.** Java `RecalculationIntegrationTest` 실행 → 작업자/세대 조회 미구현으로 실패.
+- [x] **3. 스냅샷 계산과 조건부 공개를 구현한다.** REPEATABLE READ로 입력을 확보하고 작업자를 한 개씩 실행한다. 완료 시 revision과 desired scoring version이 동일할 때만 active generation 포인터를 트랜잭션으로 교체한다. 변경되었으면 폐기 후 최신 job을 처리한다. 계산 중 공개 집계는 202/RECALCULATING이며 DB의 이전 점수를 혼합하지 않는다. 실패 job은 보존하고 재시작/운영자 재시도로 회복한다.
+- [x] **4. 장애 주입 테스트를 통과한다.** 테스트 → PASS. 기준 변경·역할 수정·등록 취소·새 경기 추가가 과거 점수와 누적 결과를 같은 세대로 갱신한다. seedSkill 변경은 공개 랭킹 값을 바꾸지 않는다. T10의 roleSkills도 같은 세대에 추가한다.
+- [x] **5. 커밋한다.** `feat: publish consistent versioned evaluation generations`.
 
 ### T10. 역할별 실력 보정과 팀 후보 3개
 
@@ -289,11 +291,11 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 **Interfaces:** Consumes `Member[]`, `GameScore[]`와 유효 세대. Produces `calculateRoleSkills(members, scores) -> RoleSkill 목록`, `recommendTeams(members, skills) -> TeamRecommendation`의 Java 계산, `POST /api/teams/recommend` with `{memberIds:string[10]}`. `RoleSkill={memberId,role,value,n}`. 아래 §5 공식을 사용한다.
 
-- [ ] **1. 배정 테스트를 작성한다.** `allowedRolesOnly`, `balanceBeforePreference`, `atMostThreeDistinctRosters`, `oneOrTwoOnly`, `impossibleMatching`, `anonymousAllowed`: 후보 수 최대 3, 선수 구성 키가 모두 고유함, 구성 불가 시 이유 존재. 특정 역할 가능 인원이 있어도 조합 전체가 불가능한 경우, 중복 10명/비활성 회원도 검사한다.
-- [ ] **2. 실패를 확인한다.** Java `TeamRecommenderTest`, `TeamApiIntegrationTest` 실행 → 미구현으로 실패.
-- [ ] **3. 가능한 배정을 열거하고 후보를 정렬한다.** 소규모 10명에 대해 같은 선수 집합의 진영 반전·역할 순열을 제거한다. 부족한 역할 또는 서로 겹치는 역할 제약을 설명하고 임의 강제 배정하지 않는다. 현재 revision+정렬한 10명 ID로 결과를 캐시하고 공개 호출 속도를 제한한다.
-- [ ] **4. 테스트와 비용을 확인한다.** 테스트 → PASS. 10명 전원이 5역할 가능한 입력의 실행 시간·후보 수를 기록한다. 목표 서버에서 2초 이내 응답을 목표로 하고 초과 시 결과를 바꾸지 않는 조합 탐색 최적화를 수행한다.
-- [ ] **5. 커밋한다.** `feat: recommend balanced teams within playable roles`.
+- [x] **1. 배정 테스트를 작성한다.** `allowedRolesOnly`, `balanceBeforePreference`, `atMostThreeDistinctRosters`, `oneOrTwoOnly`, `impossibleMatching`, `anonymousAllowed`: 후보 수 최대 3, 선수 구성 키가 모두 고유함, 구성 불가 시 이유 존재. 특정 역할 가능 인원이 있어도 조합 전체가 불가능한 경우, 중복 10명/비활성 회원도 검사한다.
+- [x] **2. 실패를 확인한다.** Java `TeamRecommenderTest`, `TeamApiIntegrationTest` 실행 → 미구현으로 실패.
+- [x] **3. 가능한 배정을 열거하고 후보를 정렬한다.** 소규모 10명에 대해 같은 선수 집합의 진영 반전·역할 순열을 제거한다. 부족한 역할 또는 서로 겹치는 역할 제약을 설명하고 임의 강제 배정하지 않는다. 현재 revision+정렬한 10명 ID로 결과를 캐시하고 공개 호출 속도를 제한한다.
+- [x] **4. 테스트와 비용을 확인한다.** 테스트 → PASS. 10명 전원이 5역할 가능한 입력의 실행 시간·후보 수를 기록한다. 목표 서버에서 2초 이내 응답을 목표로 하고 초과 시 결과를 바꾸지 않는 조합 탐색 최적화를 수행한다.
+- [x] **5. 커밋한다.** `feat: recommend balanced teams within playable roles`.
 
 ### T11. 공개 전적·통계·랭킹·팀 추천 웹
 
@@ -301,11 +303,11 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 **Interfaces:** Consumes T04/T09/T10 public APIs. Produces routes `/matches`, `/matches/:key`, `/members/:id`, `/rankings`, `/teams`; 아이콘은 확인된 정적 데이터 버전과 fallback을 사용하며 통계 계산에 이미지 메타데이터를 사용하지 않는다.
 
-- [ ] **1. 사용자 화면 테스트를 작성한다.** `tenPlayerComparison`, `aggregateKdaFromTotals`, `provisionalVisible`, `anonymousTeamChoices`, `missingAssetFallback`: `expect(playerRows).toHaveCount(10)`, `expect(page.getByText('평가 중')).toBeVisible()`, `expect(recordAfterImage404).toBeVisible()`. 로그인 없이 모든 조회/추천을 수행한다.
+- [x] **1. 사용자 화면 테스트를 작성한다.** `tenPlayerComparison`, `aggregateKdaFromTotals`, `provisionalVisible`, `anonymousTeamChoices`, `missingAssetFallback`: `expect(playerRows).toHaveCount(10)`, `expect(page.getByText('평가 중')).toBeVisible()`, `expect(recordAfterImage404).toBeVisible()`. 로그인 없이 모든 조회/추천을 수행한다.
 - [ ] **2. 실패를 확인한다.** `pnpm test:e2e -- tests/e2e/public-web.spec.ts` → 페이지 미구현으로 실패.
-- [ ] **3. 화면을 구현한다.** 경기 상세에 팀별 5명, 시간·승패·챔피언·K/D/A·피해량·CS·골드·시야·아이템·역할·활약 순위를 표시한다. 개인별 포지션/챔피언 기록과 경기 필터, 랭킹의 경기 수·기준 설명·평가 중 구분을 제공한다. 누적 KDA는 합계에서 계산한다. 추천은 선수/역할과 균형 차이를 보여주며 선수 교환·선택 추적 UI는 만들지 않는다.
-- [ ] **4. 접근과 실패 상태를 검증한다.** 테스트 → PASS. 좁은 화면은 전적 표 가로 스크롤을 제공한다. 키보드 조작·loading/빈 자료/계산 중/서버 오류 상태를 확인한다. 오래된/새로운 아이템 ID는 대체 아이콘과 ID를 표시한다.
-- [ ] **5. 커밋한다.** `feat: add public match statistics rankings and team pages`.
+- [x] **3. 화면을 구현한다.** 경기 상세에 팀별 5명, 시간·승패·챔피언·K/D/A·피해량·CS·골드·시야·아이템·역할·활약 순위를 표시한다. 개인별 포지션/챔피언 기록과 경기 필터, 랭킹의 경기 수·기준 설명·평가 중 구분을 제공한다. 누적 KDA는 합계에서 계산한다. 추천은 선수/역할과 균형 차이를 보여주며 선수 교환·선택 추적 UI는 만들지 않는다.
+- [x] **4. 접근과 실패 상태를 검증한다.** 테스트 → PASS. 좁은 화면은 전적 표 가로 스크롤을 제공한다. 키보드 조작·loading/빈 자료/계산 중/서버 오류 상태를 확인한다. 오래된/새로운 아이템 ID는 대체 아이콘과 ID를 표시한다.
+- [x] **5. 커밋한다.** `feat: add public match statistics rankings and team pages`.
 
 ### T12. 운영자 웹과 초기 포지션 참고 자료
 
@@ -313,11 +315,12 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 **Interfaces:** Consumes T03/T04/T09 admin APIs와 T05 참고 파일. Produces `/admin/*`, `POST /api/admin/member-references`, Java `suggestRoles(samples) -> RoleSuggestion`, `POST /api/admin/recalculation/retry`; RoleSuggestion은 primary/secondary nullable, 표본 수·출처·권고 이유를 포함한다.
 
-- [ ] **1. 관리 흐름 테스트를 작성한다.** `codeOnlyLogin`, `referenceDoesNotOverwriteManual`, `soloNeverEntersRanking`, `ownerCorrectsAndCancels`, `weightsCreateNewVersion`: `expect(afterImport.allowedRoles).toEqual(manualRoles)`, `expect(afterSoloImport.matchCount).toBe(beforeCount)`, `expect(oldScoringVersion.immutable).toBe(true)`. 새 브라우저 코드 발급과 기존 기기 인증 폐기도 포함한다.
+- [x] **1. 관리 흐름 테스트를 작성한다.** `codeOnlyLogin`, `referenceDoesNotOverwriteManual`, `soloNeverEntersRanking`, `ownerCorrectsAndCancels`, `weightsCreateNewVersion`: `expect(afterImport.allowedRoles).toEqual(manualRoles)`, `expect(afterSoloImport.matchCount).toBe(beforeCount)`, `expect(oldScoringVersion.immutable).toBe(true)`. 새 브라우저 코드 발급과 기존 기기 인증 폐기도 포함한다.
 - [ ] **2. 실패를 확인한다.** Java `RoleSuggesterTest` 실행, `pnpm test:e2e -- tests/e2e/admin-web.spec.ts` → 미구현으로 실패.
-- [ ] **3. 관리 화면과 제안 함수를 구현한다.** 참고 자료는 검증된 솔로랭크와 등록 내전의 최근 최대 20경기에서 확인된 역할 빈도로 상위 2개를 제안한다. 동률은 최근 플레이→고정 역할 순서, 알 수 없는 역할은 제외한다. 제안 적용은 운영자가 명시적으로 수행하며 주/부·가능 역할·0–100 초기 실력을 수정한다. 계정 ID 변경을 전적 통합 기능으로 만들지 않는다. 가중치는 역할별 합계 100·음수 없음·승패 최대 5를 검증해 새 불변 버전으로 저장한다.
+- [x] **3. 관리 화면과 제안 함수를 구현한다.** 참고 자료는 검증된 솔로랭크와 등록 내전의 최근 최대 20경기에서 확인된 역할 빈도로 상위 2개를 제안한다. 동률은 최근 플레이→고정 역할 순서, 알 수 없는 역할은 제외한다. 제안 적용은 운영자가 명시적으로 수행하며 주/부·가능 역할·0–100 초기 실력을 수정한다. 계정 ID 변경을 전적 통합 기능으로 만들지 않는다. 가중치는 역할별 합계 100·음수 없음·승패 최대 5를 검증해 새 불변 버전으로 저장한다.
 - [ ] **4. 외부 관리 사용자 흐름을 확인한다.** 테스트 → PASS. 포지션 수정/취소 후 재계산 상태, 코드 만료/로그아웃/인증 폐기, 원본 수치 읽기 전용, 취소 자료의 내부 보관을 확인한다.
-- [ ] **5. 커밋한다.** `feat: add owner controls and reviewed role suggestions`.
+- [x] **5. 커밋한다.** `feat: add owner controls and reviewed role suggestions`.
+
 
 ### T13. Windows 설치·업데이트·진단
 

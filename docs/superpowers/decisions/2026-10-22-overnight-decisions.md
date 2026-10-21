@@ -136,3 +136,24 @@
 - 이유·검증: 실제 키와 통합 경로가 없는 상태에서 데이터 생성보다 명시적 unavailable이 정확하다. 5분 기준은 초기 참고 표본을 보수적으로 거르는 선택이며 내전 적격성/점수 계산에는 적용하지 않는다. 정상 짧은 솔로 경기 일부를 제외할 수 있다. 표본으로 사용자 주·부 포지션을 자동 변경하지 않는다.
 - 결정: [stage2-report](../../validation/stage2-report.md)에 자동 검증, screenshot, outstanding Windows 절차와 stage3 API handoff를 기록한다. hosted Windows fixture CI는 추가했으나 코디네이터 push 후 실제 결과를 따로 확인한다. macOS Electron fixture 결과와 Windows 실기 결과를 구분하며 C01/C02/C07/C10 HOLD를 유지한다.
 - 되돌리기 비용: 향후 승인된 공식 API 연동/키 운영과 rate limit 처리, Riot ID→공식 PUUID 계정 연결 검증, 실제 export/import 계약 검증을 추가해야 한다. 참고 표본의 5분 필터를 바꾸는 비용은 낮지만 초기 역할 제안 표본 수가 달라진다. 설치 파일·실제 Windows·운영 readiness는 이번 검증으로 대체하지 않는다.
+
+## D19 — 같은 세대의 불변 평가와 작업 시도 fencing
+
+- 결정: P/H 비교에서 현재 경기의 같은 포지션 두 표본을 모두 빼며 전체 registered 자료를 다시 계산한다. 점수 원정밀도는 누적에 유지하고 화면·경쟁 순위는 동일한 소수 둘째 자리 반올림을 사용한다. 공개 점수에는 seed/solo 입력이 없다. D04의 TOP 포탑/나머지 오브젝트 단독 잠정 정책과 모든 정규화 상수·가중치·혼합비를 불변 ruleset으로 저장한다.
+- 결정: PostgreSQL 세션 advisory lock으로 작업자 1개, REPEATABLE READ 입력, generation JSON 하나에 경기 점수·누적·역할 실력 전체를 저장한다. 계산 관련 변경은 active pointer를 즉시 지우며 공개 집계는 202다. 최종 트랜잭션에서 revision·desired version·running job·claim attempt까지 대조한다. 재시작이 회수한 이전 시도의 publish/failure를 차단한다. 웹 scheduler만 복구하며 admin:code는 작업자를 시작하지 않는다.
+- 검증: 수작업 golden, concurrent snapshot mutation, PG insert 실패 trigger, active worker SIGKILL→CLI 무개입→재시작 attempt2, stale revision/version/attempt를 확인했다. JSON 숫자 타입의 DB 왕복 차이는 값 기반 검증으로 해결하고 raw 원문은 문자열로 보존·표시한다.
+- 비용: 소규모 전체 재계산과 JSON 전체 세대는 단순하지만 자료량 증가 시 비용이 커진다. 정규화 v1 상수는 UI에서 임의 변경하지 못하며 새 알고리즘은 명시적 코드 구현이 필요하다.
+
+## D20 — 팀 열거·공개 웹·관리 경계
+
+- 결정: 정렬 첫 ID를 A팀에 고정한 126개 선수 구성마다 가능한 역할 순열만 조사한다. 균형→선호→고정 ID 순서로 한 배정을 고르고 최선+5 이내 최대 3개만 반환한다. revision+generation+정렬 ID 캐시128개와 direct IP당 10분 60회 제한을 적용한다.
+- 검증: all10/all5roles 로컬 benchmark 34ms, Hall 겹침 부족, 1/2/3후보·중복·비활성·익명·429를 확인했다. 운영 서버 benchmark/신뢰 proxy 설정은 후속이다. limiter는 재시작 시 초기화되며 forwarded header는 신뢰하지 않는다.
+- 결정: React/TypeScript/Vite를 Spring 빌드에 포함하고 지정된 SPA 경로만 fallback한다. 공개 페이지와 운영자 코드/cookie/CSRF, 회원·코드·세션·기기·정정·취소·감사·기준·작업 화면을 제공한다. 기록 조회는 재계산 중 수치를 표시하고 완료까지 새로 읽는다. 16.20.1 Data Dragon Korean metadata를 고정하고 이미지 실패 시 ID를 남긴다.
+- 검증: 실제 Spring/PG/Chromium과 실제 stage2 HttpServerApi/파일 Outbox를 연결했다. 확인 ACK 유실·재시작·원문 소수·정정·취소 흐름과 모바일390px·키보드·이미지404를 검증했다. 상태 주입 fixture 테스트는 별도로 표시한다. 단계2 Electron7·transport31 회귀도 유지한다.
+
+## D21 — 확인한 공식 계정 매핑과 남은 외부 gate
+
+- 결정: 역할 참고 import는 member의 LCU PUUID와 명시적으로 확인한 officialPuuid 매핑을 요구한다. 두 종류의 문자열을 비교해 동일 인물로 추정하지 않는다. queue420·5분 이상·조기종료 아님·기간/숫자 범위·알려진 역할을 검사하며 실제 registered 내전과 합쳐 최근20개에서 빈도→최근→고정 역할로 top2를 제안한다. 제안을 편집란에 적용한 뒤 저장하는 명시적 동작만 회원 설정을 변경한다.
+- 검증: import 후 수동 설정·revision·내전 경기 수·공개 점수 불변, 잘못된 매핑/정수 overflow/중복 표본, 명시적 적용을 확인했다. Stage2 adapter evidence에 durationSeconds/earlyEnded를 추가했다. live 공식 export는 기존 OFFICIAL_API_UNAVAILABLE을 유지한다.
+- 상태: [stage3-report](../../validation/stage3-report.md)에 정확한 자동 검증/범위/스크린샷을 기록한다. T11/T12는 모든 테스트가 UI 이전에 작성되었다고 주장하지 않으며 T12 외부 HTTPS 관리 수용은 열어 둔다. 독립 stage3 review/hosted CI는 코디네이터 후속이다.
+- 외부 gate: **C01/C02/C07/C10 HOLD 유지**, 실제 Windows/League/DPAPI·설치/업데이트·외부 배포·백업복원·시범 내전은 미수행이다. stage2 hosted Windows fixture CI 성공은 실제 LCU 수용 증거가 아니다. 단계1–3는 provisional draft이며 T13–T15와 stage0 실기 gate 완료로 표시하지 않는다.

@@ -2,7 +2,9 @@
 
 Java 25 / Spring Boot 4.1.1 / PostgreSQL 18.6 / JPA + Specification / Gradle Groovy.
 
-**Provisional stage 2.** LCU 실기 gate는 HOLD다. `fixtures/lcu/candidates/h2-20261021/`의 경기 ID·PUUID·시각은 합성/가명이고 서비스 seed가 아니다. Windows 수집기 코드와 macOS Electron fixture 검증을 추가했다. 실제 Windows/League/DPAPI 실측, 평가 작업자, 웹, 운영 배포는 후속 단계다. [검증 상태](docs/validation/lcu-report.md), [후보 계약](docs/validation/lcu-candidate-contract.md), [수집기 검증과 Windows 체크리스트](docs/validation/stage2-report.md).
+**Provisional stage 3.** 공개 전적·누적 통계·활약 랭킹·팀 추천과 운영자 웹, 포지션별 평가 및 PostgreSQL 재계산 작업자를 구현했다. [stage 3 검증과 한계](docs/validation/stage3-report.md)를 참조한다. LCU 실기 gate는 계속 **HOLD**이며 실제 Windows/League/DPAPI, 설치·배포·백업·시범 운영은 완료하지 않았다. fixture의 ID·PUUID·시각은 합성/가명이며 운영 seed가 아니다.
+
+웹: `/matches`, `/matches/:key`, `/members`, `/members/:id`, `/rankings`, `/teams`. 운영자: `/admin`에서 일회용 코드 로그인 후 참가자·코드/인증·경기 정정/취소·평가 기준·재계산·감사 이력을 관리한다. 빌드된 웹과 API는 같은 Spring JAR에서 제공한다. [현재 API 계약](docs/contracts/stage3-api.md) · [현재 JSON Schema](docs/contracts/stage3.schema.json) · [수집기 검증](docs/validation/stage2-report.md).
 
 ## 수집기 개발·실행
 
@@ -38,16 +40,17 @@ Windows `%APPDATA%\Civil War Collector`에 `collector.sqlite`와 암호화된 `c
 
 ## 서버 빌드와 테스트
 
-Java 25와 Docker Compose가 필요하다. 저장소 루트에서:
+Java 25, Docker Compose, Node 24.22.1, pnpm 11.5.0이 필요하다. 저장소 루트에서:
 
 ```sh
+pnpm install --frozen-lockfile
 docker compose -f infra/compose.test.yml up -d --wait
 ./apps/server/gradlew -p apps/server build
 ```
 
 macOS 설치 환경에서 JDK 선택이 필요하면 `JAVA_HOME`을 Java 25 설치 디렉터리로 지정한다. Windows PowerShell에서는 `./apps/server/gradlew` 대신 `.\apps\server\gradlew.bat`를 사용한다. Gradle Wrapper는 공식 9.8.2 배포판을 SHA-256으로 검증한다.
 
-`build`는 단위 테스트, **실제 PostgreSQL 통합 테스트**, 실제 HTTP chunked 요청, 실행 JAR의 `admin:code --revoke-all` 복구 테스트와 패키징을 수행한다. DB가 없으면 실패하며 H2나 skip으로 대체하지 않는다. 테스트는 `cw_test` DB를 초기화하므로 개발/운영 데이터에 연결하지 않는다.
+`build`와 `bootJar`는 Gradle `buildWeb`을 통해 Vite 웹을 빌드하여 JAR의 static 리소스에 포함한다. 미리 만들어 둔 dist 디렉터리에 의존하지 않는다. `build`는 단위 테스트, **실제 PostgreSQL 통합 테스트**, 실제 HTTP chunked 요청, 실행 JAR의 `admin:code --revoke-all` 복구 테스트와 패키징을 수행한다. DB가 없으면 실패하며 H2나 skip으로 대체하지 않는다. 테스트는 `cw_test` DB를 초기화하므로 개발/운영 데이터에 연결하지 않는다.
 
 기본 테스트 DB는 `localhost:55432/cw_test`, 사용자 `cw_test`, 비밀번호 `cw_test_only`다. 공개된 **테스트 전용** 자격이다. Compose project/volume은 `cw-stage1-test` 전용이며 포트는 loopback에만 바인딩한다. `CW_TEST_DB_PORT`, `CW_TEST_DATABASE_URL`, `CW_TEST_DATABASE_USER`, `CW_TEST_DATABASE_PASSWORD`로 바꿀 수 있다. 테스트 DB 이름은 안전 장치 때문에 `cw_test`를 유지한다. 포트 변경 시 JDBC URL도 함께 바꾼다.
 
@@ -76,8 +79,34 @@ java -jar apps/server/build/libs/civil-war-server-0.1.0-provisional.jar admin:co
 
 명령은 웹 서버를 열지 않고 종료한다. `ADMIN_CODE=`는 터미널에 한 번만 출력하며 30분 동안 1회 사용할 수 있다. `--revoke-all`은 기존 관리자 세션과 미소비 관리자 코드를 폐기한다. 수집기 인증은 별도 관리한다. 일반 로그로 출력하지 않으며 셸 리다이렉션/터미널 기록에 코드를 보관하지 않는다.
 
-코드를 `POST /api/admin/session`에 JSON으로 전송하면 쿠키와 CSRF 토큰을 받는다. 관리자 쓰기에는 설정한 `Origin`과 `X-CSRF-Token`이 필요하다. 새로고침 후 `GET /api/admin/session`으로 CSRF 토큰을 다시 받는다. 회원을 먼저 생성하고 개인별 collector 코드를 발급한다. 실제 계정의 LCU PUUID를 사용하며 Riot 공식 API PUUID와 혼용하지 않는다.
+브라우저에서 `/admin`에 코드를 입력한다. `POST /api/admin/session`으로 교환한 쿠키와 CSRF 토큰을 사용한다. 관리자 쓰기에는 설정한 `Origin`과 `X-CSRF-Token`이 필요하다. 새로고침 후 `GET /api/admin/session`으로 CSRF 토큰을 다시 받는다. 회원을 먼저 생성하고 개인별 collector 코드를 발급한다. 실제 계정의 LCU PUUID를 사용하며 Riot 공식 API PUUID와 혼용하지 않는다.
 
-[전체 API 계약과 예시](docs/contracts/stage1-api.md) · [JSON Schema](docs/contracts/stage1.schema.json) · [stage 1 검증 보고서](docs/validation/stage1-report.md) · [야간 결정 기록](docs/superpowers/decisions/2026-10-22-overnight-decisions.md).
+[현재 API 계약과 예시](docs/contracts/stage3-api.md) · [JSON Schema](docs/contracts/stage3.schema.json) · [stage 1 검증 보고서](docs/validation/stage1-report.md) · [야간 결정 기록](docs/superpowers/decisions/2026-10-22-overnight-decisions.md).
 
-현재 재계산 job은 durable `pending`으로 저장된다. 평가 작업자는 T08–T09에서 구현하므로 공개 경기의 `evaluationStatus`는 `recalculating`, `scoringVersion`은 null이다. 운영용 DB·Tunnel·백업 구성은 아직 제공하지 않는다.
+재계산 작업은 PostgreSQL에 영속 저장한다. 등록·정정·취소·평가 기준·팀 입력이 바뀌면 공개 평가를 즉시 무효화하고, 같은 스냅샷에서 경기 점수·누적 통계·역할 실력을 모두 만든 뒤 최신 revision/기준/작업 시도를 확인하여 원자적으로 공개한다. 실패·중단된 계산은 공개하지 않는다. 웹 프로세스 재시작 또는 운영자 재시도로 회복하며 로컬 `admin:code` 명령은 작업자를 시작하지 않는다.
+
+운영자 초기 실력은 팀 편성에만 쓰고 공개 점수에는 포함하지 않는다. 0경기는 점수 없음, 1–2경기는 평가 중, 3경기부터 공동 순위를 적용한다. 누적 KDA는 합계에서 계산하고 0데스는 Perfect다. 새 경기 등록 시 같은 포지션의 비교 표본이 달라져 과거 점수도 다시 계산된다. 현재 오브젝트 정책은 잠정 `objective-provisional-v1`이며 C07 검증 전 운영 확정 기준으로 주장하지 않는다.
+
+## 웹과 전체 통합 검증
+
+```sh
+pnpm typecheck
+pnpm test
+pnpm build
+./apps/server/gradlew -p apps/server clean build
+pnpm exec playwright install chromium
+pnpm test:web
+pnpm test:e2e
+pnpm test:probe
+pnpm format:check
+```
+
+`test:web`는 실제 패키지 JAR·Chromium·격리 PostgreSQL **cw_web_test**를 사용한다. Docker Compose 테스트 DB가 먼저 실행되어야 한다. harness는 이 DB만 초기화하고 실제 API로 합성 회원/경기를 등록하며 localhost:18080(Spring), 18081(테스트 전용 프로세스 제어)을 사용한다. 다른 서버가 이 포트를 점유하면 종료 후 실행한다. 18081 제어는 테스트 스크립트에만 있고 제품 JAR에는 없다. 테스트 중 JAR를 덮어쓰지 않는다. Java는 `JAVA_HOME` 또는 PATH에서, Docker는 `CW_DOCKER` 또는 기본 설치에서 찾는다.
+
+실제 서버 브라우저 테스트는 공개/관리 흐름, stage 2 HttpServerApi·SQLite Outbox의 확인 대기→확정→응답 유실 재시도, 원문 소수 정밀도, 역할 정정/취소, 실행 중 작업자 강제 종료→관리 CLI 무개입→재시작 복구를 확인한다. `ui-states.fixture.spec.ts`는 네트워크 UI 상태를 주입하는 별도 fixture 검사이며 서버 검증 증거로 합산하여 설명하지 않는다. `test:e2e`는 기존 Electron fixture만 실행하므로 Windows collector CI가 Java/PostgreSQL 웹 harness를 시작하지 않는다.
+
+화면 캡처는 `docs/validation/assets/stage3-*.png`, 로컬 테스트 로그·추적은 gitignore된 `test-results/`에 생성된다. 테스트 인증 상태는 `test-results/web-state.json`의 합성 DB 전용 값이며 운영 자료로 재사용하지 않는다.
+
+솔로 참고 가져오기는 운영자가 확인한 **LCU 회원 ↔ 공식 API PUUID 매핑**을 반드시 요구한다. 최근 최대 20개의 검증된 솔로/등록 내전 역할로 주·부 역할을 제안하며 수동 설정은 자동 변경하지 않는다. 제안을 편집란에 적용하고 저장하는 두 번의 명시적 동작이 필요하다. 수집기의 실시간 솔로 export는 여전히 이용 불가이며, 직접 Riot HTTP 차단을 우회하지 않는다. 상세 import 형식은 현재 API 계약을 따른다.
+
+운영용 DB·Tunnel·설치/업데이트·외부 백업/복원은 T13–T15 후속 범위다. 로컬/호스팅 fixture 성공은 실제 Windows/League, 운영 보안 또는 가용성 검증을 대신하지 않는다.
