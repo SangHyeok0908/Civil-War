@@ -34,6 +34,26 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
         assertThat(result).containsExactlyInAnyOrder(200,401);
         assertThat(jdbc.queryForObject("select count(*) from collector_credentials",Integer.class)).isEqualTo(1);
     }
+    @Test void adminCodeOneUseAtomic() throws Exception {
+        var code=auth.issueCode("admin",null,"test"); var body=json.writeValueAsString(Map.of("code",code.code()));
+        var results=concurrent(()->mvc.perform(post("/api/admin/session").header("Origin","http://localhost:8080").contentType("application/json").content(body)).andReturn().getResponse().getStatus(),
+            ()->mvc.perform(post("/api/admin/session").header("Origin","http://localhost:8080").contentType("application/json").content(body)).andReturn().getResponse().getStatus());
+        assertThat(results).containsExactlyInAnyOrder(200,401);
+        assertThat(jdbc.queryForObject("select count(*) from admin_sessions",Integer.class)).isEqualTo(1);
+    }
+    @Test void ownerCanRevokeCredentialAndUnusedCodeOverHttp() throws Exception {
+        String token=enroll(1); var code=auth.issueCode("collector","member-2","test"); var login=login();
+        String credential=jdbc.queryForObject("select id from collector_credentials limit 1",String.class);
+        for(String path:java.util.List.of("/api/admin/collector-credentials/"+credential,"/api/admin/codes/"+code.id())) {
+            assertThat(mvc.perform(delete(path).cookie(login.cookie()).header("Origin","http://localhost:8080").header("X-CSRF-Token",login.csrf())).andReturn().getResponse().getStatus()).isEqualTo(204);
+        }
+        assertThat(mvc.perform(get("/api/collector/members").header("Authorization","Bearer "+token)).andReturn().getResponse().getStatus()).isEqualTo(401);
+        assertThat(mvc.perform(post("/api/collector/enroll").contentType("application/json").content(json.writeValueAsString(Map.of("code",code.code(),"currentPuuid",actor(2).puuid())))).andReturn().getResponse().getStatus()).isEqualTo(401);
+    }
+    @Test void absoluteSessionLifetimeCannotBeExtendedByActivity() throws Exception {
+        var login=login(); jdbc.update("update admin_sessions set created_at=now()-interval '31 days', last_seen_at=now()");
+        assertThat(mvc.perform(get("/api/admin/session").cookie(login.cookie())).andReturn().getResponse().getStatus()).isEqualTo(401);
+    }
     @Test void codeScopeIsolation() throws Exception {
         String token=enroll(1);
         assertThat(mvc.perform(get("/api/admin/members").header("Authorization","Bearer "+token)).andReturn().getResponse().getStatus()).isEqualTo(403);

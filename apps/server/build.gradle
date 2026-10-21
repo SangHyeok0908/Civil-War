@@ -22,7 +22,7 @@ tasks.withType(Test).configureEach {
     dependsOn tasks.named('bootJar')
     systemProperty 'cw.serverJar', tasks.named('bootJar').get().archiveFile.get().asFile.absolutePath
     maxParallelForks = 1
-    testLogging { events 'failed', 'skipped'; exceptionFormat 'short' }
+    testLogging { events 'failed', 'skipped'; exceptionFormat = 'short' }
     systemProperty 'cw.fixtureRoot', file('../../fixtures/lcu/candidates/h2-20261021').absolutePath
 }
 tasks.named('wrapper') {
@@ -30,3 +30,4 @@ tasks.named('wrapper') {
     distributionType = Wrapper.DistributionType.BIN
     distributionSha256Sum = '21bd5da2de49b642904077f38c0efdc7778e92b3ed0889392dca61b97e389607'
 }
+dependencyLocking { lockAllConfigurations() }

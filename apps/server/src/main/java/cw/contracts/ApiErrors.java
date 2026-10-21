@@ -13,6 +13,15 @@ public class ApiErrors {
     }
     @ExceptionHandler({HttpMessageNotReadableException.class,MethodArgumentTypeMismatchException.class,tools.jackson.core.JacksonException.class})
     public ResponseEntity<?> invalid(Exception ignored) { return api(new ApiException(400,"INVALID_REQUEST")); }
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<?> unexpected(Exception failure) {
+        if(failure instanceof org.springframework.web.ErrorResponse error && error.getStatusCode().is4xxClientError()) {
+            int status=error.getStatusCode().value();
+            return api(new ApiException(status,status==404?"NOT_FOUND":"INVALID_REQUEST"));
+        }
+        // Do not reflect exception messages, SQL values, or submitted identifiers.
+        return api(new ApiException(500,"INTERNAL_ERROR"));
+    }
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<?> conflict(Exception ignored) { return api(new ApiException(409,"CONFLICT")); }
 }

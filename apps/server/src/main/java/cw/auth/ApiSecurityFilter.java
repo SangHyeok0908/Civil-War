@@ -32,8 +32,11 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
     @Override protected void doFilterInternal(HttpServletRequest request,HttpServletResponse response,FilterChain chain) throws ServletException,IOException {
         response.setHeader("X-Content-Type-Options","nosniff"); response.setHeader("Referrer-Policy","no-referrer");
         response.setHeader("Content-Security-Policy","default-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'");
-        if(request.getRequestURI().startsWith("/api/admin") || request.getRequestURI().startsWith("/api/collector")) response.setHeader("Cache-Control","no-store");
         try {
+            // Match the decoded path segments used by Spring MVC, including matrix-parameter removal.
+            // Raw getRequestURI() prefixes permit alternate spellings to bypass this boundary.
+            String path=canonicalPath(request);
+            if(path.startsWith("/api/admin") || path.startsWith("/api/collector")) response.setHeader("Cache-Control","no-store");
             HttpServletRequest req=request;
             if(!Set.of("GET","HEAD","OPTIONS").contains(req.getMethod())) {
                 if(req.getContentLengthLong()>MAX_BODY_BYTES) throw new ApiException(413,"BODY_TOO_LARGE");
@@ -41,7 +44,6 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
                 if(body.length>MAX_BODY_BYTES) throw new ApiException(413,"BODY_TOO_LARGE");
                 req=new BufferedRequest(req,body);
             }
-            String path=req.getRequestURI();
             if(path.startsWith("/api/admin/")) {
                 boolean login=path.equals("/api/admin/session") && req.getMethod().equals("POST");
                 boolean write=!Set.of("GET","HEAD","OPTIONS").contains(req.getMethod());
@@ -58,10 +60,28 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
             }
             chain.doFilter(req,response);
         } catch(ApiException e) {
-            response.setStatus(e.status); response.setContentType("application/json");
-            if(e.status==429) response.setHeader("Retry-After","600");
-            response.getWriter().write(json.writeValueAsString(Map.of("code",e.code,"message",e.code,"retryable",e.retryable,"details",e.details)));
+            writeError(response,e);
+        } catch(RuntimeException | ServletException failure) {
+            // Authentication failures can happen before MVC's exception advice is entered.
+            if(response.isCommitted()) throw failure;
+            writeError(response,new ApiException(500,"INTERNAL_ERROR"));
         }
+    }
+    private static String canonicalPath(HttpServletRequest request) {
+        try {
+            var path=org.springframework.web.util.ServletRequestPathUtils.parseAndCache(request).pathWithinApplication();
+            var canonical=new StringBuilder();
+            for(var element:path.elements()) {
+                if(element instanceof org.springframework.http.server.PathContainer.PathSegment segment) canonical.append(segment.valueToMatch());
+                else canonical.append(element.value());
+            }
+            return canonical.toString();
+        } catch(IllegalArgumentException e) { throw new ApiException(400,"INVALID_REQUEST"); }
+    }
+    private void writeError(HttpServletResponse response,ApiException e) throws IOException {
+        response.setStatus(e.status); response.setContentType("application/json");
+        if(e.status==429) response.setHeader("Retry-After","600");
+        response.getWriter().write(json.writeValueAsString(Map.of("code",e.code,"message",e.code,"retryable",e.retryable,"details",e.details)));
     }
     private static class BufferedRequest extends HttpServletRequestWrapper {
         private final byte[] body;

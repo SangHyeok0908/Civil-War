@@ -1,6 +1,7 @@
 package cw.members;
 
 import cw.contracts.*;
+import cw.contracts.MemberContracts.*;
 import cw.db.MutationCoordinator;
 import java.util.*;
 import org.springframework.stereotype.Service;
@@ -14,8 +15,6 @@ public class MemberService {
     private final MutationCoordinator mutations;
     private final JsonMapper json;
     public MemberService(MemberRepository members,MutationCoordinator mutations,JsonMapper json) { this.members=members; this.mutations=mutations; this.json=json; }
-    public record Member(String id,String puuid,String riotId,String displayName,boolean active,Role primaryRole,Role secondaryRole,List<Role> allowedRoles,int seedSkill,long profileRevision) {}
-    public record PublicMember(String id,String displayName,boolean active,Role primaryRole,Role secondaryRole,List<Role> allowedRoles) {}
     public Member view(MemberEntity m) { return new Member(m.id,m.puuid,m.riotId,m.displayName,m.active,m.primaryRole,m.secondaryRole,roles(m.allowedRoles),m.seedSkill,m.profileRevision); }
     public PublicMember publicView(MemberEntity m) { return new PublicMember(m.id,m.displayName,m.active,m.primaryRole,m.secondaryRole,roles(m.allowedRoles)); }
     public List<Member> list() { return members.findAll(org.springframework.data.domain.Sort.by("id")).stream().map(this::view).toList(); }
@@ -51,7 +50,7 @@ public class MemberService {
         if(input.has("allowedRoles")) {
             var a=input.get("allowedRoles"); if(!a.isArray() || a.size()>5) invalid();
             Set<Role> values=new LinkedHashSet<>(); for(var node:a) { var r=role(node); if(r==null || !values.add(r)) invalid(); }
-            m.allowedRoles=String.join(",",values.stream().map(Enum::name).sorted().toList());
+            m.allowedRoles=String.join(",",values.stream().sorted().map(Enum::name).toList());
         } else if(create) {
             Set<Role> values=new TreeSet<>(); if(m.primaryRole!=null) values.add(m.primaryRole); if(m.secondaryRole!=null) values.add(m.secondaryRole);
             m.allowedRoles=String.join(",",values.stream().map(Enum::name).toList());
@@ -64,7 +63,7 @@ public class MemberService {
         Set<String> allowed=new HashSet<>(Set.of("riotId","displayName","active","primaryRole","secondaryRole","allowedRoles","seedSkill")); if(create) allowed.add("puuid");
         for(String name:input.propertyNames()) if(!allowed.contains(name)) invalid();
     }
-    private static List<Role> roles(String encoded) { return encoded.isEmpty()?List.of():Arrays.stream(encoded.split(",")).map(Role::valueOf).toList(); }
+    private static List<Role> roles(String encoded) { return encoded.isEmpty()?List.of():Arrays.stream(encoded.split(",")).map(Role::valueOf).sorted().toList(); }
     private static Role role(JsonNode value) {
         if(value.isNull()) return null; if(!value.isString()) invalid();
         try { return Role.valueOf(value.asString()); } catch(IllegalArgumentException e) { invalid(); return null; }

@@ -31,6 +31,18 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
         assertThat(captured.getAll()).doesNotContain(sentinel,"private-account-sentinel");
         limiter.succeeded("127.0.0.1");
     }
+    @Test void alternatePathSpellingsCannotBypassAuthentication() throws Exception {
+        for(String path:List.of("/api/admin;ignored/members","/api/collector;ignored/members","/api/%61dmin/members","/api/%63ollector/members")) {
+            var response=mvc.perform(get(java.net.URI.create(path))).andReturn().getResponse();
+            assertThat(response.getStatus()).as(path).isIn(400,401,403,404);
+            assertThat(response.getContentAsString()).doesNotContain("fixture-player");
+        }
+    }
+    @Test void matrixPathCannotIssueAnUnauthenticatedAdminCode() throws Exception {
+        var response=mvc.perform(post("/api/admin;ignored/codes").contentType("application/json").content("{\"scope\":\"admin\"}")).andReturn().getResponse();
+        assertThat(response.getStatus()).isIn(400,401,403,404);
+        assertThat(jdbc.queryForObject("select count(*) from enrollment_codes",Integer.class)).isZero();
+    }
     @Test void sessionReloadRestoresCsrf() throws Exception {
         var login=login(); var response=mvc.perform(get("/api/admin/session").cookie(login.cookie())).andReturn().getResponse();
         assertThat(response.getStatus()).isEqualTo(200);
@@ -62,11 +74,28 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
             assertThat(mvc.perform(post("/api/collector/enroll").contentType("application/json").content(json.writeValueAsString(Map.of("code",code.code(),"currentPuuid",actor(1).puuid())))).andReturn().getResponse().getStatus()).isEqualTo(200);
         } finally { limiter.succeeded("127.0.0.1"); }
     }
+    @Test void allowedRoleOrderingIsNotAMutation() throws Exception {
+        var login=login(); long beforeProfile=members.findById("member-1").orElseThrow().profileRevision;
+        var response=mvc.perform(patch("/api/admin/members/member-1").cookie(login.cookie()).header("Origin","http://localhost:8080").header("X-CSRF-Token",login.csrf()).contentType("application/json")
+            .content("{\"allowedRoles\":[\"UTILITY\",\"BOTTOM\",\"MIDDLE\",\"JUNGLE\",\"TOP\"]}")).andReturn().getResponse();
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(revision()).isZero(); assertThat(jobs()).isZero();
+        assertThat(members.findById("member-1").orElseThrow().profileRevision).isEqualTo(beforeProfile);
+        assertThat(jdbc.queryForObject("select count(*) from audit_log where action='member_updated'",Integer.class)).isZero();
+    }
     @Test void seedMutationOnlyCreatesWorkOnceAndIdentityCannotChange() throws Exception {
         var login=login();
         for(int i=0;i<2;i++) assertThat(mvc.perform(patch("/api/admin/members/member-1").cookie(login.cookie()).header("Origin","http://localhost:8080").header("X-CSRF-Token",login.csrf()).contentType("application/json").content("{\"seedSkill\":0}")).andReturn().getResponse().getStatus()).isEqualTo(200);
         assertThat(revision()).isEqualTo(1); assertThat(jobs()).isEqualTo(1);
         assertThat(mvc.perform(patch("/api/admin/members/member-1").cookie(login.cookie()).header("Origin","http://localhost:8080").header("X-CSRF-Token",login.csrf()).contentType("application/json").content("{\"puuid\":\"different\"}")).andReturn().getResponse().getStatus()).isEqualTo(422);
+    }
+    @Test void schemaVersionAndUnknownEnvelopeFieldsNeverCoerce() throws Exception {
+        var code=auth.issueCode("collector","member-1","test"); var token=auth.enroll(code.code(),actor(1).puuid()).token();
+        for(String version:List.of("1.2","\"1\"")) {
+            String body="{\"rawMatch\":"+raw()+",\"schemaVersion\":"+version+",\"clientSubmissionId\":\"invalid-schema\"}";
+            assertThat(mvc.perform(post("/api/collector/matches/ingest").header("Authorization","Bearer "+token).contentType("application/json").content(body)).andReturn().getResponse().getStatus()).isEqualTo(400);
+        }
+        assertThat(matches.count()).isZero();
     }
     @Test void collectorHttpRoundTripKeepsLargeNumericGameId() throws Exception {
         var code=auth.issueCode("collector","member-1","test"); var token=auth.enroll(code.code(),actor(1).puuid()).token();
