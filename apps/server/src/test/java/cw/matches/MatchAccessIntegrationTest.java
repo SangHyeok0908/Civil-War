@@ -83,4 +83,30 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
         assertThat(mvc.perform(patch("/api/admin/matches/"+KEY+"/roles").cookie(login.cookie()).header("Origin","http://localhost:8080").header("X-CSRF-Token",login.csrf()).contentType("application/json").content(json.writeValueAsString(Map.of("rolesByPuuid",roles(false))))).andReturn().getResponse().getStatus()).isEqualTo(200);
         assertThat(revision()).isEqualTo(1); assertThat(jobs()).isEqualTo(1);
     }
+    @Test void correctionAuditFailureRollsBackRolesRevisionAndJob() throws Exception {
+        registered(); var login=login(); long audits=jdbc.queryForObject("select count(*) from audit_log",Long.class);
+        jdbc.execute("alter table audit_log add constraint injected_correction_failure check(action <> 'roles_corrected')");
+        try {
+            assertThat(mvc.perform(patch("/api/admin/matches/"+KEY+"/roles").cookie(login.cookie()).header("Origin","http://localhost:8080")
+                .header("X-CSRF-Token",login.csrf()).contentType("application/json").content(json.writeValueAsString(Map.of("rolesByPuuid",roles(true)))))
+                .andReturn().getResponse().getStatus()).isEqualTo(409);
+        } finally { jdbc.execute("alter table audit_log drop constraint injected_correction_failure"); }
+        assertThat(collector.getCollectorMatch(KEY,actor(1)).state()).isEqualTo("registered");
+        assertThat(collector.getCollectorMatch(KEY,actor(1)).confirmedRoles()).isEqualTo(roles(false));
+        assertThat(revision()).isEqualTo(1); assertThat(jobs()).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from audit_log",Long.class)).isEqualTo(audits);
+    }
+    @Test void cancellationJobFailureRollsBackStateRevisionAndAudit() throws Exception {
+        registered(); var login=login(); long audits=jdbc.queryForObject("select count(*) from audit_log",Long.class);
+        jdbc.execute("alter table recalculation_jobs add constraint injected_cancel_failure check(source_revision <> 2)");
+        try {
+            assertThat(mvc.perform(post("/api/admin/matches/"+KEY+"/cancel").cookie(login.cookie()).header("Origin","http://localhost:8080")
+                .header("X-CSRF-Token",login.csrf())).andReturn().getResponse().getStatus()).isEqualTo(409);
+        } finally { jdbc.execute("alter table recalculation_jobs drop constraint injected_cancel_failure"); }
+        assertThat(collector.getCollectorMatch(KEY,actor(1)).state()).isEqualTo("registered");
+        assertThat(collector.getCollectorMatch(KEY,actor(1)).confirmedRoles()).isEqualTo(roles(false));
+        assertThat(mvc.perform(get("/api/matches/"+KEY)).andReturn().getResponse().getStatus()).isEqualTo(200);
+        assertThat(revision()).isEqualTo(1); assertThat(jobs()).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from audit_log",Long.class)).isEqualTo(audits);
+    }
 }

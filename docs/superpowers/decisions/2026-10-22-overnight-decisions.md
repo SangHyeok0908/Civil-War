@@ -94,4 +94,12 @@
 ## 단계 1 마지막 검토 보완
 
 - 인증 경로는 raw URI 문자열 접두사가 아니라 Spring MVC가 실제로 매핑하는 decoded path segments를 사용한다. matrix parameter/percent-encoded 경로의 인증 우회가 두 실패 테스트에서 재현되었고 수정 후 MockMvc와 실제 HTTP 회귀가 모두 통과했다. 이 검증은 일반 라우트 테스트만으로 인증 경계를 보장할 수 없다는 발견이며, canonical 경로 처리를 우회하는 새 라우팅 계층을 도입할 때 동일 테스트를 유지한다.
-- 현재 clean build는 서버 **63/63**, 기존 Node **31/31**, skipped 0이다. CLI 복구의 sanitized 결과와 한계는 stage1-report에 보존했다. 역할 집합 순서만 바꾸는 요청과 일반 framework 오류 형식도 실패 후 수정했다. 별도 fresh review는 코디네이터 소유다.
+- 독립 리뷰 전 clean build는 서버 **63/63**, 기존 Node **31/31**, skipped 0이었다. CLI 복구의 sanitized 결과와 한계는 stage1-report에 보존했다. 역할 집합 순서만 바꾸는 요청과 일반 framework 오류 형식도 실패 후 수정했다. 후속 독립 리뷰와 수정 검증은 아래 D13에 기록한다.
+
+## D13 — 독립 리뷰의 JSON 계약 결함 수정
+
+- 발견·권한: 별도 리뷰 dispatch가 `727e2e0`의 실제 코드와 PostgreSQL 테스트를 검토하고 P2 두 건을 재현했다. 숫자 역할 0–4가 enum 순번으로 변환되어 확정/정정에 사용됐고, 추가 raw JSON의 고정밀 소수는 저장 전에 double로 반올림됐다. 코디네이터는 리뷰 종료 후 새 구현 dispatch로 두 수정을 승인했다. 조건부 draft·`objective-provisional-v1`은 승인된 결정이며 단계 0 HOLD는 유지한다.
+- 결정: Jackson 3의 `EnumFeature.FAIL_ON_NUMBERS_FOR_ENUMS`와 `DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS`를 활성화한다. 역할 계약은 문자열만 받고 raw JSON tree는 임의 정밀도 소수의 수치값을 보존한다. 명시적으로 선언된 평가 `double`/`Double` 필드는 기존 타입을 유지한다. 원문 공백·소수 표기 형식 자체 보존이나 기존 저장값의 복원은 주장하지 않는다.
+- 검증: 먼저 HTTP/실DB 회귀 5개를 추가해 숫자 역할 확정·정정의 200 응답과 raw 소수 손실로 정확히 3개 실패를 확인했다. 수정 후 5개 모두 통과했고, 거절 후 상태/역할/audit/revision/job 불변·정상 문자열 역할 처리·중첩 소수 저장/관리자 조회·큰 정수 ID·필수 통계의 소수 토큰 거절·평가 double 호환성을 검사했다. 관리자 정정 audit 실패와 취소 job 실패의 rollback 테스트 2개도 추가했다. 전체 재실행은 서버 **70/70**, Node **31/31**, skipped 0이다.
+- CI 경계: 코디네이터가 이전 HEAD `727e2e0`의 Ubuntu 실PostgreSQL [CI 성공](https://github.com/SangHyeok0908/Civil-War/actions/runs/39643558919)을 확인했다. 이번 수정 커밋은 코디네이터 push 후 별도 CI 결과를 확인해야 하며, 이전 성공을 새 커밋 검증으로 대체하지 않는다.
+- 되돌리기 비용: mapper 설정과 회귀 테스트를 함께 검토하면 된다. migration/API 버전/fixture 수정은 없다. 이미 정밀도를 잃은 raw 자료가 있다면 보존된 원본에서 재수집해야 하며 자동 복구하지 않는다. [리뷰 결과와 최종 검증](../../validation/stage1-report.md#independent-review-and-resolution)에 상세를 남긴다.
