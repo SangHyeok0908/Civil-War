@@ -4,6 +4,7 @@
 - 상태: **1번 자료 준비 완료 / 실기 검증 gate HOLD**
 - 출처: 사용자가 제공한 `Downloads/lcu-probe-kit-1.0.1.zip`의 H2 history 캡처. 압축 무결성과 보존 원본의 SHA-256 일치를 확인했다.
 - 범위: 실제 사용자 설정 경기 3건, 고유 계정 10개, 참가자 기록 30행. 같은 계정은 경기마다 동일한 가명을 사용한다.
+- 화면 대조: G1의 필수 숫자 통계 150개·CS 10명·아이템 슬롯 점유 70개가 제공된 화면 5장과 일치한다. 개별 아이템 ID와 G2·G3 화면 대조는 남아 있다.
 
 ## 산출물
 
@@ -15,7 +16,8 @@
 | [경기 목록](../../.private/lcu/test-data-h2-20261021/history.json), [현재 계정](../../.private/lcu/test-data-h2-20261021/current-summoner.json) | 목록·상세와 수집자 계정의 연결 확인 |
 | [필드 검사](../../.private/lcu/test-data-h2-20261021/field-coverage.json), [제거 필드 목록](../../.private/lcu/test-data-h2-20261021/omitted-fields.json) | 필수 통계의 0·누락·null 집계와 허용 목록 밖 필드의 제거 내역 |
 | [검증 기록](../../.private/lcu/test-data-h2-20261021/verification.json), [매니페스트](../../.private/lcu/test-data-h2-20261021/manifest.json) | 원본 대조·가명화 정책·검증 범위·파일 해시 |
-| [자료 묶음 ZIP](../../.private/releases/lcu-real-data-h2-20261021.zip) | 가명화 산출물만 포함한 11개 파일 묶음. 원본·실계정 대응표·원본 경로는 제외 |
+| [G1 화면 대조 보고서](../../.private/lcu/test-data-h2-20261021/screen-G1-review.md), [화면 관측값](../../.private/lcu/test-data-h2-20261021/screen-G1-observations.json) | 제공된 5장에 대한 가명 관측값·일치 결과·남은 확인 범위 |
+| [자료 묶음 ZIP](../../.private/releases/lcu-real-data-h2-20261021.zip) | 가명화 산출물만 포함한 13개 파일 묶음. 원본 JSON·스크린샷·실계정 대응표·원본 경로는 제외 |
 
 산출물은 `.private/` 아래에 있으므로 Git에 포함되지 않는다. V2 실기 검증 전의 후보이며 `fixtures/lcu/verified/`에는 올리지 않았다. 위 링크는 이 작업 폴더의 로컬 파일을 가리킨다.
 
@@ -32,17 +34,18 @@
 
 ## 해석과 사용 범위
 
-- `csCandidateSum`은 `totalMinionsKilled + neutralMinionsKilled`의 계산값이다. 아군·적 정글 하위 필드를 다시 더하지 않는다. 화면 CS와의 일치는 아직 확인하지 않았다.
+- `csCandidateSum`은 `totalMinionsKilled + neutralMinionsKilled`의 계산값이다. 아군·적 정글 하위 필드를 다시 더하지 않는다. G1의 10명 모두 화면 CS와 일치하며 G2·G3 화면 대조는 남아 있다.
 - 챔피언 대상 피해·받은 피해·오브젝트 피해·포탑 피해를 분리했다. 오브젝트와 포탑 피해는 중복 포함 여부가 미확인이므로 합산하지 않는다.
 - 경기 상세의 `accountId`와 `currentAccountId`는 모두 0이었다. 여러 참가자가 공유하는 자리표시 값이므로 계정 연결에 사용하지 않는다. 이름 대신 PUUID 가명을 사용했다.
 - 실제 정수 식별자는 가명 문자열로 바뀐다. 원본 숫자 ID 파싱이나 두 PC의 원본 경기 키 검증에는 비공개 원본이 필요하다.
 - 기존 보수적 가명화 정책에 따라 경기 생성 시각·자유 문자열·허용되지 않은 필드는 제거했다. `timeline.role`의 `CARRY`/`SUPPORT`도 기존 허용 목록에 없어 제거됐으며, 이 후보를 완전한 역할 분석 자료로 간주하지 않는다. 요구된 비교 통계는 모두 보존했다.
-- 결과 화면 대조·클라이언트 재시작·다른 PC 경기 식별자 비교는 이번에 수행하지 않았다. 비교표의 해당 기록란은 미확인으로 남겼고 전체 gate는 HOLD다.
+- 결과 화면 대조는 **G1 숫자 통계·슬롯 점유 일치, 나머지 범위 미확인**이다. G1은 화면의 1번 팀이 teamId=200(승), 2번 팀이 teamId=100(패)에 대응했다. 이를 모든 경기의 고정 대응으로 일반화하지 않는다. 아이템의 정확한 ID는 작은 아이콘만으로 확정하지 않았다. G2·G3 화면·클라이언트 재시작·다른 PC 경기 식별자 비교는 미확인으로 남겼고 전체 gate는 HOLD다.
 
 ## 비공개 원본과 재현 자료
 
 원본은 `.private/lcu/source-h2-20261021/`, 원본과 가명의 대응표는 `.private/lcu/redacted-h2-20261021/aliases.private.json`에 별도 보관했다. 원본 파일 해시는 `source.private.json`에 있다. 이 경로의 파일을 자료 묶음에 추가하지 않는다.
 
+제공된 스크린샷 5장은 `.private/lcu/screens-g1-20261021/S1.png`~`S5.png`에 보존했다. 계정명·친구 목록을 포함하므로 원본 화면은 자료 묶음에 넣지 않는다. 화면 관측값과 대조 절차는 `.private/lcu/record-g1-screen-review.py`에 남겼다.
 
 이번 로컬 준비 절차는 `.private/lcu/prepare-h2-test-data.py`, 원본·표·해시·식별자 재검사는 `.private/lcu/verify-h2-test-data.py`에 남겼다. 준비 스크립트는 기존 결과 폴더를 덮어쓰지 않는다. 재검사 명령은 프로젝트 루트에서 다음과 같다.
 
