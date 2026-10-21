@@ -9,3 +9,7 @@ lockfile.*
 node_modules/
 .gradle/
 build/
+dist/
+test-results/
+playwright-report/
+.pnpm-store/
