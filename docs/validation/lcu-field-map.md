@@ -2,6 +2,8 @@
 
 - 상태: **과거 사용자 설정 경기 3건의 JSON 구조 확인 — G1 화면 숫자 통계·아이템 슬롯 점유 일치**
 - 관련 판정: [LCU 검증 보고서](lcu-report.md), 전체 `gate: HOLD`
+- 2026-10-22: [공개 후보 계약](lcu-candidate-contract.md)과 [C07 의미 감사](lcu-objective-semantics.md)를 추가했다. 엄격한 draft 계약만 지원하며 실기 gate는 HOLD다. 공개 후보의 gameId·gameCreation은 합성값이며 시각 실측에 사용할 수 없다.
+- 잠정 평가 [D04](../superpowers/decisions/2026-10-22-overnight-decisions.md): TOP은 포탑, 나머지 네 역할은 오브젝트 단일 지표를 사용한다. 기존 MIDDLE/BOTTOM 50:50 혼합은 보류하고 바깥 가중치는 유지한다. 포함 관계가 입증됐다는 뜻이 아니며 두 원본 필드는 별도로 보존한다.
 - 증거 H2: 제공된 `lcu-probe-kit-1.0.1.zip` 안의 `.private/lcu/pc-a-history-20261021-220717/2026-10-21T13-07-18-049Z-0IDsnC/`.
 - G1=`004-game.json`, G2=`005-game.json`, G3=`006-game.json`; H2 목록=`003-history.json`.
 - 화면 증거 S1~S5: 사용자 제공 G1(32:22) 점수판·개요·통계 5장. [G1 화면 대조 보고서](../../.private/lcu/test-data-h2-20261021/screen-G1-review.md). G1을 대표 경기로 삼으며 G2·G3 추가 화면 대조는 사용자 결정으로 생략한다.

@@ -12,6 +12,8 @@
 
 **기술 선택 기록:** 대안별 장단점과 LCU 원본 보존 이유는 [기술 스택 선택 근거](../decisions/2026-10-21-tech-stack-decisions.md)에 정리한다.
 
+**2026-10-22 단계 0 인계:** [보고서 12절](../../validation/lcu-report.md)에 오프라인 감사 결과를 추가했다. C01/C02/C07/C10은 HOLD다. 새 Windows 증거가 없어 V2를 완료 처리하지 않는다. 최신 사용자 승인과 [D01 조건부 ruling](../decisions/2026-10-22-overnight-decisions.md)에 따라 후속 단계 1–3은 provisional draft로 진행할 수 있다.
+
 **Spec:** [확정 기획서](../specs/2026-10-21-lol-inhouse-design.md), 특히 §7·10·11·18. 이후 작업은 [서비스 개발 계획](2026-10-21-lol-inhouse-development-plan.md)을 따른다.
 
 ## Global Constraints
@@ -97,7 +99,8 @@ LCU 연결은 `127.0.0.1`로 제한하고, lockfile에 외부 주소나 임의 �
 - [ ] **3. 명시적 조회 명령으로 아래 표를 채운다.** 종료 직후, 약 1분·5분·15분 뒤 중 필요한 시점과 목록에 제공되는 더 오래된 경기들을 조회하여 관찰된 지연·범위를 기록한다. 두 실행 조건에서 같은 경기의 키와 핵심 기록이 일치하는지 비교한다. 15분은 테스트 관찰 창이며 제품의 보장 기한이 아니다. CLI를 실행해 둔 경우에는 `--interactive` 모드의 `history` 명령을 제품 버튼에 대응시키고 명령 전에는 자동 조회하지 않는다.
 - [x] **4. 최소 두 실제 경기의 핵심 구조를 비교한다.** G1–G3의 구조 일치를 확인했다(C09). 클라이언트 재시작 후 같은 경기 재조회(C08)와 다른 참가자 PC의 경기 키 대조(C04)는 사용자 결정으로 생략하며 gate 조건에서 제외한다.
 - [ ] **5. 대표 경기 G1의 원본과 게임 결과 화면을 대조해 필드 맵과 판정을 작성한다.** 숫자 통계·CS·챔피언·아이템·팀·승패·경기 시간 대조는 완료했다(C03/C06 PASS). 피해 지표의 포함 관계는 미확인이다. G2·G3 추가 화면 대조는 사용자 결정으로 생략한다.
-- [ ] **6. 가명화 fixture를 검증해 커밋한다.** `node --test tools/lcu-probe/probe.test.mjs` → PASS, `git diff --check` → 출력 없음. `git add docs/validation fixtures/lcu/verified` 후 `git diff --cached`를 검토하고 `git commit -m "docs: record measured LCU capabilities and fixtures"`. 원본·토큰·실제 PUUID가 포함되면 커밋하지 않는다.
+- [x] **6a. HOLD 상태의 가명화 후보를 감사한다.** `fixtures/lcu/candidates/h2-20261021/`의 통계 660개·원본 식별자 잔존·해시·0 보존을 `tools/lcu-probe/audit-candidates.mjs`로 확인했다. 합성 gameId/시각을 명시하고 엄격한 draft 계약과 Windows 재현 명령을 작성했다. Node 24 probe 26/26·감사 5/5 PASS. 전체 실기 PASS가 아니다.
+- [ ] **6b. V2 통과 후 검증 완료 fixture로 승격한다.** `node --test tools/lcu-probe/probe.test.mjs` → PASS, `git diff --check` → 출력 없음. `git add docs/validation fixtures/lcu/verified` 후 `git diff --cached`를 검토하고 `git commit -m "docs: record measured LCU capabilities and fixtures"`. 원본·토큰·실제 PUUID가 포함되면 커밋하지 않는다.
 
 ### 실기 체크리스트와 완료 기준
 

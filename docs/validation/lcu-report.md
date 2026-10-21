@@ -1,6 +1,7 @@
 # LCU 실기 검증 보고서
 
 - **Gate: HOLD**
+- 2026-10-22 단계 0 감사: **C01/C02/C07/C10 HOLD**. 새 Windows 호스트/경기 증거 없음. [후보 계약·감사](lcu-candidate-contract.md), [피해 의미 감사](lcu-objective-semantics.md), [Windows 재현 명령](lcu-windows-capture.md)을 추가했다. 최신 승인과 [D01 조건부 ruling](../superpowers/decisions/2026-10-22-overnight-decisions.md)에 따라 단계 1–3은 provisional draft로 진행할 수 있으며 운영 준비 완료를 뜻하지 않는다.
 - 후속 확인(2026-10-22): [Riot 공식 API 경로](riot-solo-reference.md)에서 다른 참가자 1명의 계정·목록 2페이지·상세 6경기를 조회했다. 모두 HTTP 200, 상세 queueId=420과 포지션 연결을 확인해 **C11 PASS**다. 직접 HTTP 시도의 403과 포털 UI 성공은 구분하며 전체 gate는 HOLD다. LCU의 다른 참가자 기록 조회 성공은 필수 조건에서 제외한다.
 - 상태: 실제 경기 3건·참가자 30행 가명화 완료. G1 숫자 통계·챔피언 10명·아이템 65개 아이콘·빈 슬롯 5개 대조 완료, **C06 PASS**
 - 양식 작성일: 2026-10-21
@@ -72,7 +73,7 @@ PC 이름과 수집자 이름은 `PC-A`, `collector-A` 같은 가명을 사용�
 | ID | 검증 항목 | 통과에 필요한 증거 | 현재 판정 | 증거·제약 |
 | --- | --- | --- | --- | --- |
 | C01 | 종료 후 처음 실행하여 과거 내전 조회 | 경기 중 선행 실행 없이 목록·상세 확보 | HOLD | 과거 CUSTOM_GAME 3건 조회는 성공; 새 실측 경기의 종료 직후 조건·화면 증거는 미확인 |
-| C02 | 미리 실행한 도구의 명시적 조회 | 명령 전 경기 요청 0건, C01과 동일 경기의 키·핵심 기록 일치 | 미확인 | 대기 세션 요청 0건만 확인; 실제 명령·동일 경기 비교 없음 |
+| C02 | 미리 실행한 도구의 명시적 조회 | 명령 전 경기 요청 0건, 동일 경기의 종료 후 새 프로세스 조회와 키·핵심 기록 일치 | HOLD | 대기 세션 요청 0건만 확인; 실제 명령·동일 경기 비교 없음. C01의 도구 미실행 경기는 별도로 검증 |
 | C03 | 10명 식별·팀·승패·경기 시간 | 대표 경기 G1의 고유 계정 10명, 5+5 팀, 결과 화면 대조 | PASS | G1 화면의 10명·5+5·승패·32:22 일치. G2·G3는 JSON 내부 확인 완료, 추가 화면 대조는 사용자 결정으로 생략 |
 | C04 | 두 수집자의 경기 키 | 적용하지 않음 | 범위 제외 | 사용자 결정으로 다른 PC 대조 생략. 참가자 간 동일 키를 전제로 두며 실측 PASS로 간주하지 않음 |
 | C05 | 친구 목록 기반 회원 식별 | 적용하지 않음 | 범위 제외 | 친구 목록 재조회 요구 철회. 경기 참가자 식별은 C03에서 확인하며, 회원 사전 등록 요구 자체를 삭제하거나 검증 완료로 판정한 것은 아님 |
@@ -91,6 +92,7 @@ PC 이름과 수집자 이름은 `PC-A`, `collector-A` 같은 가명을 사용�
 - 필드 맵: [lcu-field-map.md](lcu-field-map.md) — G1–G3의 실제 JSON 경로·타입·존재 여부와 대표 경기 G1의 화면 일치 범위를 기록했다. G1 아이템 리소스 대조는 완료했고 피해 지표의 포함 관계는 미확인이다. G2·G3 추가 화면 대조는 생략한다.
 - 실제 원본: 사용자 제공 `lcu-probe-kit.zip`, `lcu-probe-kit-1.0.1.zip`의 `.private/lcu/`에서 확보. 두 번째 압축본은 `Downloads`에서 다시 확인했고 H2 원본을 프로젝트의 `.private/lcu/source-h2-20261021/`에 보존했다. 친구 본문은 미확보다. 실계정 가명 대응표는 `.private/lcu/redacted-h2-20261021/aliases.private.json`에 별도 보관한다.
 - 검증된 가명화 fixture: 없음. 실측 전 `fixtures/lcu/verified/`에 예시나 가상 응답을 넣지 않는다.
+- 공개 후보: [candidates/h2-20261021](../../fixtures/lcu/candidates/h2-20261021/manifest.json). 기존 실제 통계의 축소 projection 3건이며 gameId·gameCreation·PUUID는 합성/가명값이다. 원본 대조 660개·식별자 잔존 검사 통과. `verified` 자료나 Windows 신규 측정이 아니다.
 - 가명화 후보 준비: **완료**. [테스트 자료 준비 결과](lcu-test-data.md)에 경기 상세 3건·목록·현재 계정의 가명화 JSON, 비교표, 자동 비교용 기대값과 ZIP 위치를 기록했다. 동일 계정 10개의 가명을 세 경기에서 유지했다.
 - 오프라인 검증: 필수 통계 660개 원본 일치, 5+5 팀·승패·참가자 연결·0 보존, 실제 식별자·이름·태그 잔존 없음, 비교표 90행 일치를 확인했다. 관련 오프라인 테스트 3/3 PASS. 전체 HTTPS 테스트는 샌드박스 포트 제한으로 완료하지 못했다. G1 화면 대조 결과는 아래 9절에 기록했으며 재시작·두 PC 검증은 사용자 결정으로 범위에서 제외했다.
 
@@ -100,7 +102,7 @@ PC 이름과 수집자 이름은 `PC-A`, `collector-A` 같은 가명을 사용�
 
 사용자가 조정한 검증 범위의 핵심 수집·식별 요구를 충족하고 평가·초기 포지션 참고 기능의 구현 경로가 확정된 경우에 PASS로 변경한다. 범위에서 제외한 C04·C08의 증거는 요구하지 않는다. 필수 지표 변경이 필요하면 사용자 결정과 기획서 반영을 먼저 기록한다. 타임라인 누락만으로 HOLD 처리하지 않는다.
 
-본 서비스 T01의 데이터 계약 확정은 이 gate 통과 이후 진행한다.
+운영용 데이터 계약 확정은 이 gate 통과 이후 진행한다. 최신 사용자 승인과 D01 ruling에 따라 T01–T12의 provisional draft 구현은 [후보 계약](lcu-candidate-contract.md)을 사용할 수 있다. 후보의 타입·구조 검사 통과를 V2 PASS로 기록하지 않는다.
 
 2026-10-22 보완: C11은 공식 API 실측으로 통과했다. LCU를 통한 솔로랭크 접근 실패 자체는 HOLD 사유가 아니다. 공식 API와 LCU의 PUUID가 달라 Riot ID를 Account-v1로 해석한 뒤 연결한다. 아이템·피해 지표의 추가 확인은 아래 10절에 기록한다.
 
@@ -167,3 +169,14 @@ PC 이름과 수집자 이름은 `PC-A`, `collector-A` 같은 가명을 사용�
 - LCU PUUID와 공식 API PUUID는 같은 참가자에서도 달랐다. Riot ID를 Account-v1로 해석해 별도 식별자로 연결하며 LCU PUUID를 그대로 재사용하지 않는다.
 - 가장 오래된 반환 경기는 2026-10-16 04:07:02 KST다. 6건을 넘는 보관 범위·다른 지역·전체 계정·정상 빈 목록·운영 서버 HTTP 통합은 이번 증거로 보장하지 않는다.
 - 비공개 증거는 `.private/riot/portal-solo-20261022/evidence.json`, `audit.json`이다. DOM에서 추출한 필드 부분집합이며 전체 HTTP 원문이나 공개 fixture가 아니다. 키·쿠키·요청 인증 헤더는 제외했다.
+
+## 12. 단계 0 오프라인 감사와 조건부 인계 — 2026-10-22
+
+- 코디네이터 환경 발견: 연결 가능한 Windows host 없음. 로컬은 macOS이며 새로운 종료 직후 게임·명시 조회 비교·추가 LCU 페이지를 실행하지 않았다. C01/C02/C10은 HOLD다. 기존 원본의 Windows v24.22.1, win32/x64와 과거 3건 성공만 유지한다.
+- [C07 1차 출처 감사](lcu-objective-semantics.md): 공식 Match-v5 페이지의 상세 응답을 다시 읽었으나 타입 이외 포함 관계를 얻지 못했다. LCU 30행과 공식 API 60행 산술을 재계산해 기존 결과를 확인했다. C07 HOLD, 합산/차감 의미 확정 금지.
+- 공개 후보 3건은 각 10명·22개 수치=660개를 보존한다. 원본 metadata와 개인 식별자는 제거했고 gameId/시각은 합성이다. [manifest](../../fixtures/lcu/candidates/h2-20261021/manifest.json)의 `status:candidate`, `gate:HOLD`, `productionReady:false`를 유지한다. 검증 완료 fixture는 여전히 없다.
+- Node v24.22.1: `node --test tools/lcu-probe/probe.test.mjs` 26/26 PASS(권한 확장 후 macOS 루프백), `node --test tools/lcu-probe/audit-candidates.test.mjs` 5/5 PASS, 전체 suite 31/31 PASS. 실기 PASS의 근거로 사용하지 않는다. 4절의 당시 HTTPS sandbox 제약은 이번 권한 확장 실행에서 해소됐다.
+- `node tools/lcu-probe/audit-candidates.mjs --source-dir .private/lcu/source-h2-20261021/2026-10-21T13-07-18-049Z-0IDsnC` → 3경기·30행, `sourceStatsCompared:660`, `privateIdentityScan:passed`, objectives 0 1행·turrets 0 4행·아이템 0 7슬롯, `gate:HOLD`. 원본 식별자를 출력하지 않는다.
+- 남은 증거를 얻는 [Windows 수집 절차](lcu-windows-capture.md)를 준비했다. 실제 종료 시각·도구 미실행 진술·명령 직전 0건 snapshot·종료한 interactive session·같은 경기 비교·새 페이지/관찰 시각이 필요하다. PowerShell 절차는 실제 Windows에서 아직 실행하지 않았다.
+- 후속 권고: [엄격한 정규화 후보 계약](lcu-candidate-contract.md)을 T01에 사용하고, [D01–D04](../superpowers/decisions/2026-10-22-overnight-decisions.md)의 잠정성을 API/화면/PR에 유지한다. 단계 0은 미완료이며 이후 draft 개발의 허용과 production gate는 별개다.
+- 기존 `python3 .private/lcu/verify-h2-test-data.py`는 화면 검토 Markdown의 오래된 manifest 해시 때문에 실패했다. ZIP 안의 당시 문서는 해시 일치, 현재 문서는 C06 후속 대조 설명 두 줄만 달랐다. 원본 배포 ZIP·source 파일 해시는 모두 일치했고 현재 공개 후보 원본 대조에는 영향이 없다. [정확한 범위](lcu-test-data.md)에 기록했으며 실패를 숨기기 위해 과거 묶음을 재작성하지 않았다.

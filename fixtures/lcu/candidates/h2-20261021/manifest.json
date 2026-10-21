@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "status": "candidate",
+  "gate": "HOLD",
+  "productionReady": false,
+  "source": "User-supplied Windows H2 capture, three custom games; G1 result screen checked in the existing report.",
+  "sourceGamePatch": "16.20.824.8524",
+  "capturePlatform": "win32",
+  "captureNode": "v24.22.1",
+  "captureDate": "2026-10-21",
+  "publishedDate": "2026-10-22",
+  "transformations": {
+    "gameId": "Synthetic decimal strings, deliberately above JavaScript safe integer range. Not real match IDs.",
+    "gameCreation": "Synthetic UTC dates 2000-01-01 through 2000-01-03; not measured event times.",
+    "participantIdentities[].player": "Only stable fixture-player-NN aliases retained; account IDs, Riot IDs and names omitted.",
+    "otherFields": "Only explicitly selected structure, patch, completion marker and measured numeric stats retained; no raw metadata, paths, screenshots or alias map."
+  },
+  "statFields": [
+    "kills",
+    "deaths",
+    "assists",
+    "totalDamageDealtToChampions",
+    "totalDamageTaken",
+    "damageDealtToObjectives",
+    "damageDealtToTurrets",
+    "totalMinionsKilled",
+    "neutralMinionsKilled",
+    "neutralMinionsKilledTeamJungle",
+    "neutralMinionsKilledEnemyJungle",
+    "goldEarned",
+    "visionScore",
+    "wardsKilled",
+    "wardsPlaced",
+    "item0",
+    "item1",
+    "item2",
+    "item3",
+    "item4",
+    "item5",
+    "item6"
+  ],
+  "checks": {
+    "C01": "HOLD",
+    "C02": "HOLD",
+    "C07": "HOLD",
+    "C10": "HOLD"
+  },
+  "files": [
+    {
+      "file": "G1.json",
+      "sha256": "d4e4e13cf062d05b3998d4dec3bbd80d473a32f5e9a792704a9fb7a295eeb3a7",
+      "participantRows": 10,
+      "numericStats": 220
+    },
+    {
+      "file": "G2.json",
+      "sha256": "25207d5da4aee54a421945bc835ad49282ff7813802e50dc559792cbe929282e",
+      "participantRows": 10,
+      "numericStats": 220
+    },
+    {
+      "file": "G3.json",
+      "sha256": "678aca83f51662d553212f20389d6eb01c21f88dff7f7c339d5af84ad99f9d6e",
+      "participantRows": 10,
+      "numericStats": 220
+    }
+  ]
+}

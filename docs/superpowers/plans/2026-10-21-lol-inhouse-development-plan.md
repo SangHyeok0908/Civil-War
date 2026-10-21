@@ -14,6 +14,8 @@
 
 **기술 선택 기록:** 대안별 장단점과 선택 근거는 [기술 스택 선택 근거](../decisions/2026-10-21-tech-stack-decisions.md)에 정리한다.
 
+**2026-10-22 실행 ruling:** [야간 결정 D01–D04](../decisions/2026-10-22-overnight-decisions.md)가 최신 사용자 승인에 따른 한정적 진행 조건이다. 아래의 V2 PASS 전 구현 금지는 단계 1–3 provisional draft에 한해 대체한다. 운영 데이터 계약 확정과 단계 0 종료 기준은 그대로다. C01/C02/C07/C10은 HOLD이며 후속 자동 테스트를 Windows 실측 또는 운영 준비 완료로 취급하지 않는다. 남은 기술 선택은 최신 위임 범위에서 권고안·근거·검증·되돌리기 비용을 기록한 뒤 결정할 수 있다.
+
 ## Global Constraints
 
 - 개발 환경은 macOS, 수집 프로그램은 Windows만 지원하며 실제 Windows PC에서 검증한다.
@@ -52,7 +54,7 @@
 | 4. 설치·배포 | T13–T14 | Windows 설치/업데이트, 외부 HTTPS, 서버 재부팅, 외부 백업 복원 확인 |
 | 5. 실제 시범 운영 | T15 | 실제 내전 3–5경기 대조, 평가 보정 및 운영 절차 확인 |
 
-단계 0 이전에 서비스 스캐폴딩·프레임워크 설치·DB 구현을 시작하지 않는다. 핵심 수집 요구가 실패하면 대안과 범위 변경점을 먼저 정리한다. 경기 전 상시 실행이나 수동 전적 입력으로 조용히 대체하지 않는다. 실제 내전 일정이 필요하므로 확정하지 않은 달력상 완료일을 약속하지 않는다.
+기존에는 단계 0 PASS 전 서비스 스캐폴딩·프레임워크 설치·DB 구현을 금지했다. 최신 사용자 승인/D01로 단계 1–3 provisional draft 개발만 예외 허용한다. 핵심 수집 요구가 실패하면 대안과 범위 변경점을 먼저 정리한다. 경기 전 상시 실행이나 수동 전적 입력으로 조용히 대체하지 않는다. 실제 내전 일정이 필요하므로 실측의 달력상 완료일을 약속하지 않는다.
 
 ## 2. 기술 결정과 파일 책임
 
@@ -169,7 +171,7 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 **Files:** Create `apps/server/build.gradle`, `apps/server/settings.gradle`, `apps/server/gradlew`, `apps/server/gradlew.bat`, `apps/server/gradle/wrapper/gradle-wrapper.jar`, `apps/server/gradle/wrapper/gradle-wrapper.properties`, `apps/server/src/main/java/cw/contracts/`의 경기·회원·인증·평가·팀 모델, `apps/server/src/main/java/cw/lcu/MatchNormalizer.java`, `apps/server/src/main/java/cw/matches/MatchInputValidator.java`; Test `apps/server/src/test/java/cw/lcu/MatchNormalizerTest.java`. Wrapper 파일은 선택한 Gradle 버전의 공식 Wrapper 작업으로 생성한다. Modify `.gitignore`.
 
-**Interfaces:** Consumes V2 `fixtures/lcu/verified/*`와 필드 맵. Produces `normalizeMatch(rawJson) -> NormalizedMatch`, `validateIngest(input) -> ValidationResult`, `validateConfirmation(input, match) -> ValidationResult`의 Java 구현과 위 JSON 계약. `ValidationResult={ok,issues:[{path,code}]}`. 정규화 실패는 같은 issues 구조를 가진 `MatchValidationError`로 반환하고 validator는 이를 결과로 변환한다. rawJson의 Java 자료형은 JSON 처리 도구 결정 시 확정한다.
+**Interfaces:** 운영 확정 시 V2 `fixtures/lcu/verified/*`와 필드 맵을 소비한다. HOLD 중 draft는 `fixtures/lcu/candidates/h2-20261021/*`와 [후보 계약](../../validation/lcu-candidate-contract.md)을 사용하며 합성 metadata와 미확정 의미를 유지한다. Produces `normalizeMatch(rawJson) -> NormalizedMatch`, `validateIngest(input) -> ValidationResult`, `validateConfirmation(input, match) -> ValidationResult`의 Java 구현과 위 JSON 계약. `ValidationResult={ok,issues:[{path,code}]}`. 정규화 실패는 같은 issues 구조를 가진 `MatchValidationError`로 반환하고 validator는 이를 결과로 변환한다. rawJson의 Java 자료형은 JSON 처리 도구 결정 시 확정한다.
 
 - [ ] **1. 정규화 테스트를 작성한다.** `completeTenPlayers`, `rejectNineOrDuplicatePlayers`, `missingIsNotZero`, `preserveStringGameId`: 참가자 수 10, 경기 ID 원문 문자열과 동일, 시야 점수 누락 시 `participants.0.visionScore/REQUIRED` 오류를 검증한다. 숫자 범위·팀당 5명·양 팀 승패 일치·양의 경기 시간을 포함한다.
 - [ ] **2. Gradle 설정 후 테스트 실패를 확인한다.** `./apps/server/gradlew -p apps/server test --tests 'cw.lcu.MatchNormalizerTest'` → 미구현 정규화로 실패. 테스트 환경 오류를 기능 실패로 간주하지 않는다. 이 단계 이전에 확정된 Java 25·Spring Boot 4.1.x 정책에 따라 정확한 패치 버전을 기록하고, JDK 배포판·Gradle 세부 버전과 JSON 처리·검증·테스트 도구를 확정한다.
@@ -250,6 +252,8 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 - [ ] **5. 커밋한다.** `feat: add collector review and registration workflow`.
 
 ### T08. 포지션별 평가·누적 통계 순수 함수
+
+**현재 draft 정책:** [D04](../decisions/2026-10-22-overnight-decisions.md)의 `objective-provisional-v1`을 적용한다. TOP은 turretDamage, 나머지는 objectiveDamage만 사용하며 MIDDLE/BOTTOM의 이전 50:50 혼합은 보류한다. 바깥 가중치는 유지한다. 테스트는 선택하지 않은 피해 필드 변경이 해당 항목 점수에 영향을 주지 않는지 포함한다. C07 HOLD와 운영 평가 승인은 별도로 유지한다.
 
 **Files:** Create `apps/server/src/main/java/cw/domain/{MatchFeatures,ScoringService,MemberAggregator,ScoringRulesV1}.java`; Test `apps/server/src/test/java/cw/domain/{ScoringServiceTest,MemberAggregatorTest}.java`.
 
@@ -365,7 +369,7 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 - 성장: 분당 총 CS(laneCs+neutralCs) 50%, 분당 골드 50%.
 - 교전: 기본 킬 관여율. 서포터만 킬 관여율 70% + 분당 어시스트 30%.
 - 시야: 분당 시야 점수. 와드 제거 수가 확보되면 표시용 보조 자료로만 사용한다.
-- 오브젝트: 탑은 분당 포탑 피해량, 정글/서포터는 분당 오브젝트 피해량, 미드/원딜은 두 지표 50%씩. 개인의 오브젝트 기여를 근사할 뿐 팀 용·바론 획득을 정글 개인 공로로 배분하지 않는다.
+- 오브젝트: 원래 안은 탑=분당 포탑 피해량, 정글/서포터=분당 오브젝트 피해량, 미드/원딜=두 지표 50%씩이었다. C07 HOLD 중 draft `objective-provisional-v1`은 D04에 따라 탑=포탑, 나머지 네 역할=오브젝트 단일 지표를 선택한다. 바깥 역할별 가중치는 유지하고 합산/차감 파생값은 만들지 않는다. 운영 전 의미 확인 후 평가 규칙 버전을 확정한다. 팀 용·바론 획득을 정글 개인 공로로 배분하지 않는다.
 - 사망: 10분당 사망을 환산한 뒤 `100 - 환산값`으로 방향을 뒤집는다. 받은 피해량이나 KDA는 직접 가산하지 않는다.
 - 승패: 승리 100, 패배 0에 5% 가중치. 다른 성적이 같으면 최대 5점 차이다.
 
