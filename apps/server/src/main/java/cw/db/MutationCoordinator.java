@@ -13,6 +13,7 @@ public class MutationCoordinator {
     public ServiceState lock() { return em.find(ServiceState.class,1,LockModeType.PESSIMISTIC_WRITE); }
     public long changed(ServiceState state) {
         state.sourceRevision++;
+        state.activeGenerationId=null;
         var job=new RecalculationJob(); job.id=UUID.randomUUID().toString(); job.sourceRevision=state.sourceRevision;
         job.status="pending"; job.createdAt=clock.instant(); em.persist(job); return state.sourceRevision;
     }

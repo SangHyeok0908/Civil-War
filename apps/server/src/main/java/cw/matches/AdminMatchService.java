@@ -38,7 +38,7 @@ public class AdminMatchService {
         var m=find(key);
         var history=em.createQuery("select a from AuditEntry a where a.targetId=:key order by a.createdAt,a.id",AuditEntry.class).setParameter("key",key).getResultList()
             .stream().map(a->Map.of("id",a.id,"action",a.action,"actorId",a.actorId,"createdAt",a.createdAt,"details",json.readTree(a.details))).toList();
-        return Map.of("record",views.collector(m),"rawMatch",json.readTree(m.rawJson),"audit",history);
+        return Map.of("record",views.collector(m),"rawMatch",json.readTree(m.rawJson),"rawJson",m.rawJson,"audit",history);
     }
     public Object list(String state) {
         if(!Set.of("pending","registered","canceled").contains(state)) throw new ApiException(400,"INVALID_FILTER");

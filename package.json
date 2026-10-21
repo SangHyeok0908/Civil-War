@@ -11,10 +11,12 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "build": "node scripts/build-collector.mjs",
+    "build": "node scripts/build-collector.mjs && pnpm build:web",
     "dev:collector": "pnpm build && electron apps/collector/dist/main.cjs",
     "test:probe": "node --test tools/lcu-probe/*.test.mjs",
-    "format:check": "prettier --check apps/collector/src packages tests/e2e scripts/build-collector.mjs *.config.ts package.json pnpm-workspace.yaml tsconfig.json"
+    "format:check": "prettier --check apps/collector/src apps/web/src packages tests/e2e tests/web scripts/build-collector.mjs scripts/web-test-server.mjs *.config.ts package.json pnpm-workspace.yaml tsconfig.json",
+    "build:web": "vite build --config vite.web.config.ts",
+    "test:web": "playwright test -c playwright.web.config.ts"
   },
   "dependencies": {
     "react": "19.3.1",

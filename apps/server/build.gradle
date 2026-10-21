@@ -23,6 +23,7 @@ tasks.withType(Test).configureEach {
     systemProperty 'cw.serverJar', tasks.named('bootJar').get().archiveFile.get().asFile.absolutePath
     maxParallelForks = 1
     testLogging { events 'failed', 'skipped'; exceptionFormat = 'short' }
+    systemProperty 'cw.contractRoot', file('../../docs/contracts').absolutePath
     systemProperty 'cw.fixtureRoot', file('../../fixtures/lcu/candidates/h2-20261021').absolutePath
 }
 tasks.named('wrapper') {
@@ -31,3 +32,18 @@ tasks.named('wrapper') {
     distributionSha256Sum = '21bd5da2de49b642904077f38c0efdc7778e92b3ed0889392dca61b97e389607'
 }
 dependencyLocking { lockAllConfigurations() }
+
+// Clean builds always package the same-origin UI; no pre-existing dist directory is assumed.
+tasks.register('buildWeb', Exec) {
+    workingDir file('../..')
+    commandLine(System.getProperty('os.name').toLowerCase().contains('windows') ? 'pnpm.cmd' : 'pnpm', 'build:web')
+    inputs.dir(file('../web/src'))
+    inputs.file(file('../web/index.html'))
+    inputs.file(file('../../vite.web.config.ts'))
+    inputs.file(file('../../pnpm-lock.yaml'))
+    outputs.dir(file('../web/dist'))
+}
+tasks.named('processResources') {
+    dependsOn tasks.named('buildWeb')
+    from('../web/dist') { into 'static' }
+}

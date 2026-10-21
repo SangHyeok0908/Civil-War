@@ -13,5 +13,11 @@
     "esModuleInterop": true,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["apps/collector/src", "packages", "tests", "*.config.ts"]
+  "include": [
+    "apps/collector/src",
+    "packages",
+    "tests",
+    "*.config.ts",
+    "apps/web/src"
+  ]
 }

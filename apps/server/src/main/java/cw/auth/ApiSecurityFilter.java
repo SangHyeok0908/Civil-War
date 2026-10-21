@@ -31,12 +31,12 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
     }
     @Override protected void doFilterInternal(HttpServletRequest request,HttpServletResponse response,FilterChain chain) throws ServletException,IOException {
         response.setHeader("X-Content-Type-Options","nosniff"); response.setHeader("Referrer-Policy","no-referrer");
-        response.setHeader("Content-Security-Policy","default-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'");
+        response.setHeader("Content-Security-Policy","default-src 'self'; img-src 'self' https://ddragon.leagueoflegends.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self'");
         try {
             // Match the decoded path segments used by Spring MVC, including matrix-parameter removal.
             // Raw getRequestURI() prefixes permit alternate spellings to bypass this boundary.
             String path=canonicalPath(request);
-            if(path.startsWith("/api/admin") || path.startsWith("/api/collector")) response.setHeader("Cache-Control","no-store");
+            if(path.startsWith("/api/")) response.setHeader("Cache-Control","no-store");
             HttpServletRequest req=request;
             if(!Set.of("GET","HEAD","OPTIONS").contains(req.getMethod())) {
                 if(req.getContentLengthLong()>MAX_BODY_BYTES) throw new ApiException(413,"BODY_TOO_LARGE");

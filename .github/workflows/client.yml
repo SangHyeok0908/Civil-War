@@ -1,9 +1,9 @@
 name: Collector fixture verification
 on:
   push:
-    paths: ['apps/collector/**', 'packages/**', 'tests/e2e/**', 'scripts/build-collector.mjs', '*config.ts', 'tsconfig.json', 'package.json', 'pnpm-*.yaml', '.npmrc', 'fixtures/**', 'tools/lcu-probe/client.mjs', '.github/workflows/client.yml']
+    paths: ['apps/collector/**', 'apps/web/**', 'packages/**', 'tests/e2e/**', 'scripts/build-collector.mjs', '*config.ts', 'tsconfig.json', 'package.json', 'pnpm-*.yaml', '.npmrc', 'fixtures/**', 'tools/lcu-probe/client.mjs', '.github/workflows/client.yml']
   pull_request:
-    paths: ['apps/collector/**', 'packages/**', 'tests/e2e/**', 'scripts/build-collector.mjs', '*config.ts', 'tsconfig.json', 'package.json', 'pnpm-*.yaml', '.npmrc', 'fixtures/**', 'tools/lcu-probe/client.mjs', '.github/workflows/client.yml']
+    paths: ['apps/collector/**', 'apps/web/**', 'packages/**', 'tests/e2e/**', 'scripts/build-collector.mjs', '*config.ts', 'tsconfig.json', 'package.json', 'pnpm-*.yaml', '.npmrc', 'fixtures/**', 'tools/lcu-probe/client.mjs', '.github/workflows/client.yml']
 permissions:
   contents: read
 jobs:

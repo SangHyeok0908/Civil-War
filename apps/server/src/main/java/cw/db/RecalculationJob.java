@@ -7,4 +7,9 @@ public class RecalculationJob {
     public long sourceRevision;
     public String status;
     public Instant createdAt;
+    public String scoringVersion;
+    public int attempts;
+    public Instant claimedAt;
+    public Instant completedAt;
+    public String errorCode;
 }

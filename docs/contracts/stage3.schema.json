@@ -1,0 +1,1878 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civil-war.invalid/contracts/stage3.schema.json",
+  "title": "Civil War stage 3 provisional HTTP contract",
+  "description": "Current stage 3 schemas; ingest schemaVersion 1 remains unchanged. Stage 1 schema is a historical snapshot.",
+  "$comment": "Public evaluation fields extend the stage 1 DTO. See stage3-api.md. This is not a verified Windows/LCU operational contract.",
+  "$defs": {
+    "Role": {
+      "enum": [
+        "TOP",
+        "JUNGLE",
+        "MIDDLE",
+        "BOTTOM",
+        "UTILITY"
+      ]
+    },
+    "State": {
+      "enum": [
+        "pending",
+        "registered",
+        "canceled"
+      ]
+    },
+    "MatchKey": {
+      "type": "string",
+      "pattern": "^[A-Z0-9]{1,16}:[0-9]{1,30}$"
+    },
+    "SubmissionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "Timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "Roles": {
+      "type": "object",
+      "minProperties": 10,
+      "maxProperties": 10,
+      "additionalProperties": {
+        "$ref": "#/$defs/Role"
+      }
+    },
+    "ParticipantRecord": {
+      "type": "object",
+      "properties": {
+        "puuid": {
+          "type": "string",
+          "minLength": 1
+        },
+        "teamId": {
+          "enum": [
+            100,
+            200
+          ]
+        },
+        "win": {
+          "type": "boolean"
+        },
+        "championId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "kills": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "deaths": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "assists": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "championDamage": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "damageTaken": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "laneCs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "neutralCs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "goldEarned": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "visionScore": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "objectiveDamage": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "turretDamage": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "minItems": 7,
+          "maxItems": 7
+        }
+      },
+      "required": [
+        "puuid",
+        "teamId",
+        "win",
+        "championId",
+        "kills",
+        "deaths",
+        "assists",
+        "championDamage",
+        "damageTaken",
+        "laneCs",
+        "neutralCs",
+        "goldEarned",
+        "visionScore",
+        "objectiveDamage",
+        "turretDamage",
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "NormalizedMatch": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "platformId": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{1,16}$"
+        },
+        "gameId": {
+          "type": "string",
+          "pattern": "^[0-9]{1,30}$"
+        },
+        "startedAtUtc": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "durationSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "mapId": {
+          "const": 11
+        },
+        "gameType": {
+          "const": "CUSTOM_GAME"
+        },
+        "patch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "participants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ParticipantRecord"
+          },
+          "minItems": 10,
+          "maxItems": 10
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "platformId",
+        "gameId",
+        "startedAtUtc",
+        "durationSeconds",
+        "mapId",
+        "gameType",
+        "patch",
+        "participants"
+      ],
+      "additionalProperties": false
+    },
+    "IngestMatchInput": {
+      "type": "object",
+      "properties": {
+        "rawMatch": {
+          "type": "object"
+        },
+        "clientSubmissionId": {
+          "$ref": "#/$defs/SubmissionId"
+        },
+        "schemaVersion": {
+          "const": 1
+        }
+      },
+      "required": [
+        "rawMatch",
+        "clientSubmissionId",
+        "schemaVersion"
+      ],
+      "additionalProperties": false
+    },
+    "IngestMatchAck": {
+      "type": "object",
+      "properties": {
+        "matchKey": {
+          "$ref": "#/$defs/MatchKey"
+        },
+        "state": {
+          "$ref": "#/$defs/State"
+        },
+        "disposition": {
+          "enum": [
+            "created_pending",
+            "already_pending",
+            "already_registered",
+            "already_canceled"
+          ]
+        }
+      },
+      "required": [
+        "matchKey",
+        "state",
+        "disposition"
+      ],
+      "additionalProperties": false
+    },
+    "ConfirmationBody": {
+      "type": "object",
+      "properties": {
+        "rolesByPuuid": {
+          "$ref": "#/$defs/Roles"
+        },
+        "clientSubmissionId": {
+          "$ref": "#/$defs/SubmissionId"
+        }
+      },
+      "required": [
+        "rolesByPuuid",
+        "clientSubmissionId"
+      ],
+      "additionalProperties": false
+    },
+    "RegistrationAck": {
+      "type": "object",
+      "properties": {
+        "matchKey": {
+          "$ref": "#/$defs/MatchKey"
+        },
+        "disposition": {
+          "enum": [
+            "created",
+            "already_registered"
+          ]
+        },
+        "sourceRevision": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "matchKey",
+        "disposition",
+        "sourceRevision"
+      ],
+      "additionalProperties": false
+    },
+    "CollectorMatch": {
+      "type": "object",
+      "properties": {
+        "matchKey": {
+          "$ref": "#/$defs/MatchKey"
+        },
+        "state": {
+          "$ref": "#/$defs/State"
+        },
+        "match": {
+          "$ref": "#/$defs/NormalizedMatch"
+        },
+        "confirmedRoles": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Roles"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "matchKey",
+        "state",
+        "match",
+        "confirmedRoles"
+      ],
+      "additionalProperties": false
+    },
+    "Member": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "puuid": {
+          "type": "string",
+          "minLength": 1
+        },
+        "riotId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "primaryRole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Role"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "secondaryRole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Role"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "allowedRoles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Role"
+          },
+          "uniqueItems": true,
+          "maxItems": 5
+        },
+        "seedSkill": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "profileRevision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "id",
+        "puuid",
+        "riotId",
+        "displayName",
+        "active",
+        "primaryRole",
+        "secondaryRole",
+        "allowedRoles",
+        "seedSkill",
+        "profileRevision"
+      ],
+      "additionalProperties": false
+    },
+    "PublicMember": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "primaryRole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Role"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "secondaryRole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Role"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "allowedRoles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Role"
+          },
+          "uniqueItems": true,
+          "maxItems": 5
+        }
+      },
+      "required": [
+        "id",
+        "displayName",
+        "active",
+        "primaryRole",
+        "secondaryRole",
+        "allowedRoles"
+      ],
+      "additionalProperties": false
+    },
+    "MemberCreate": {
+      "type": "object",
+      "properties": {
+        "puuid": {
+          "type": "string",
+          "minLength": 1
+        },
+        "riotId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "primaryRole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Role"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "secondaryRole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Role"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "allowedRoles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Role"
+          },
+          "uniqueItems": true,
+          "maxItems": 5
+        },
+        "seedSkill": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "puuid",
+        "riotId",
+        "displayName",
+        "seedSkill"
+      ],
+      "additionalProperties": false
+    },
+    "MemberPatch": {
+      "type": "object",
+      "properties": {
+        "riotId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "primaryRole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Role"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "secondaryRole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Role"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "allowedRoles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Role"
+          },
+          "uniqueItems": true,
+          "maxItems": 5
+        },
+        "seedSkill": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "PublicParticipant": {
+      "type": "object",
+      "properties": {
+        "teamId": {
+          "enum": [
+            100,
+            200
+          ]
+        },
+        "win": {
+          "type": "boolean"
+        },
+        "championId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "kills": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "deaths": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "assists": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "championDamage": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "damageTaken": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "laneCs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "neutralCs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "goldEarned": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "visionScore": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "objectiveDamage": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "turretDamage": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "minItems": 7,
+          "maxItems": 7
+        },
+        "memberId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "$ref": "#/$defs/Role"
+        }
+      },
+      "required": [
+        "teamId",
+        "win",
+        "championId",
+        "kills",
+        "deaths",
+        "assists",
+        "championDamage",
+        "damageTaken",
+        "laneCs",
+        "neutralCs",
+        "goldEarned",
+        "visionScore",
+        "objectiveDamage",
+        "turretDamage",
+        "items",
+        "memberId",
+        "displayName",
+        "role"
+      ],
+      "additionalProperties": false
+    },
+    "PublicMatch": {
+      "type": "object",
+      "properties": {
+        "matchKey": {
+          "$ref": "#/$defs/MatchKey"
+        },
+        "startedAtUtc": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "durationSeconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "mapId": {
+          "const": 11
+        },
+        "patch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "participants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PublicParticipant"
+          },
+          "minItems": 10,
+          "maxItems": 10
+        },
+        "evaluationStatus": {
+          "enum": [
+            "ready",
+            "recalculating"
+          ]
+        },
+        "scoringVersion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "generationId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scores": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GameScore"
+          }
+        }
+      },
+      "required": [
+        "matchKey",
+        "startedAtUtc",
+        "durationSeconds",
+        "mapId",
+        "patch",
+        "participants",
+        "evaluationStatus",
+        "scoringVersion",
+        "sourceRevision",
+        "generationId",
+        "scores"
+      ],
+      "additionalProperties": false
+    },
+    "MatchPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PublicMatch"
+          }
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "nextCursor"
+      ],
+      "additionalProperties": false
+    },
+    "EnrollmentInput": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "currentPuuid": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "code",
+        "currentPuuid"
+      ],
+      "additionalProperties": false
+    },
+    "EnrollmentReply": {
+      "type": "object",
+      "properties": {
+        "token": {
+          "type": "string"
+        },
+        "memberId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "credentialId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "puuid": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "token",
+        "memberId",
+        "credentialId",
+        "puuid"
+      ],
+      "additionalProperties": false
+    },
+    "AdminLoginInput": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "additionalProperties": false
+    },
+    "AdminSessionReply": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "csrfToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "csrfToken"
+      ],
+      "additionalProperties": false
+    },
+    "IssueCodeInput": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "enum": [
+            "admin",
+            "collector"
+          ]
+        },
+        "memberId": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "scope"
+      ],
+      "additionalProperties": false
+    },
+    "CodeReply": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "code": {
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "admin",
+            "collector"
+          ]
+        },
+        "expiresAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "id",
+        "code",
+        "scope",
+        "expiresAt"
+      ],
+      "additionalProperties": false
+    },
+    "Issue": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "code"
+      ],
+      "additionalProperties": false
+    },
+    "ValidationResult": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Issue"
+          }
+        }
+      },
+      "required": [
+        "ok",
+        "issues"
+      ],
+      "additionalProperties": false
+    },
+    "Error": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Issue"
+          }
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "retryable",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    "GameScore": {
+      "type": "object",
+      "properties": {
+        "matchKey": {
+          "$ref": "#/$defs/MatchKey"
+        },
+        "memberId": {
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/$defs/Role"
+        },
+        "scoringVersion": {
+          "type": "string"
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "breakdown": {
+          "type": "object",
+          "properties": {
+            "damage": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "growth": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "combat": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "vision": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "objective": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "deaths": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "win": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            }
+          },
+          "required": [
+            "damage",
+            "growth",
+            "combat",
+            "vision",
+            "objective",
+            "deaths",
+            "win"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "matchKey",
+        "memberId",
+        "role",
+        "scoringVersion",
+        "score",
+        "rank",
+        "breakdown"
+      ],
+      "additionalProperties": false
+    },
+    "RecordStats": {
+      "type": "object",
+      "properties": {
+        "games": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wins": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "losses": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kills": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deaths": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "assists": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kda": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "perfect": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "games",
+        "wins",
+        "losses",
+        "kills",
+        "deaths",
+        "assists",
+        "kda",
+        "perfect"
+      ],
+      "additionalProperties": false
+    },
+    "MemberStats": {
+      "type": "object",
+      "properties": {
+        "games": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wins": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "losses": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kills": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deaths": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "assists": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kda": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "perfect": {
+          "type": "boolean"
+        },
+        "memberId": {
+          "type": "string"
+        },
+        "adjustedScore": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rank": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "enum": [
+            "unrated",
+            "provisional",
+            "ranked"
+          ]
+        },
+        "winRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "byRole": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/RecordStats"
+          }
+        },
+        "byChampion": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/RecordStats"
+          }
+        }
+      },
+      "required": [
+        "games",
+        "wins",
+        "losses",
+        "kills",
+        "deaths",
+        "assists",
+        "kda",
+        "perfect",
+        "memberId",
+        "adjustedScore",
+        "rank",
+        "status",
+        "winRate",
+        "byRole",
+        "byChampion"
+      ],
+      "additionalProperties": false
+    },
+    "RankingRow": {
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "stats": {
+          "$ref": "#/$defs/MemberStats"
+        }
+      },
+      "required": [
+        "displayName",
+        "stats"
+      ],
+      "additionalProperties": false
+    },
+    "Rankings": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "const": "ready"
+        },
+        "generationId": {
+          "type": "string"
+        },
+        "sourceRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "scoringVersion": {
+          "type": "string"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RankingRow"
+          }
+        }
+      },
+      "required": [
+        "status",
+        "generationId",
+        "sourceRevision",
+        "scoringVersion",
+        "members"
+      ],
+      "additionalProperties": false
+    },
+    "Profile": {
+      "type": "object",
+      "properties": {
+        "member": {
+          "$ref": "#/$defs/PublicMember"
+        },
+        "stats": {
+          "$ref": "#/$defs/MemberStats"
+        },
+        "generationId": {
+          "type": "string"
+        },
+        "sourceRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "scoringVersion": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "member",
+        "stats",
+        "generationId",
+        "sourceRevision",
+        "scoringVersion"
+      ],
+      "additionalProperties": false
+    },
+    "TeamSeat": {
+      "type": "object",
+      "properties": {
+        "memberId": {
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/$defs/Role"
+        }
+      },
+      "required": [
+        "memberId",
+        "role"
+      ],
+      "additionalProperties": false
+    },
+    "TeamCandidate": {
+      "type": "object",
+      "properties": {
+        "teamA": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamSeat"
+          },
+          "minItems": 5,
+          "maxItems": 5
+        },
+        "teamB": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamSeat"
+          },
+          "minItems": 5,
+          "maxItems": 5
+        },
+        "skillDifference": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 500
+        }
+      },
+      "required": [
+        "teamA",
+        "teamB",
+        "skillDifference"
+      ],
+      "additionalProperties": false
+    },
+    "TeamRecommendation": {
+      "type": "object",
+      "properties": {
+        "candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamCandidate"
+          },
+          "maxItems": 3
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceRevision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "candidates",
+        "reason",
+        "sourceRevision"
+      ],
+      "additionalProperties": false
+    },
+    "TeamInput": {
+      "type": "object",
+      "properties": {
+        "memberIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 10,
+          "maxItems": 10,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "memberIds"
+      ],
+      "additionalProperties": false
+    },
+    "ScoringRuleSet": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,100}$"
+        },
+        "algorithmVersion": {
+          "const": "objective-provisional-v1"
+        },
+        "weightsByRole": {
+          "type": "object",
+          "properties": {
+            "TOP": {
+              "type": "object",
+              "properties": {
+                "damage": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "growth": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "combat": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "vision": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "objective": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "deaths": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "win": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 5
+                }
+              },
+              "required": [
+                "damage",
+                "growth",
+                "combat",
+                "vision",
+                "objective",
+                "deaths",
+                "win"
+              ],
+              "additionalProperties": false
+            },
+            "JUNGLE": {
+              "type": "object",
+              "properties": {
+                "damage": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "growth": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "combat": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "vision": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "objective": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "deaths": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "win": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 5
+                }
+              },
+              "required": [
+                "damage",
+                "growth",
+                "combat",
+                "vision",
+                "objective",
+                "deaths",
+                "win"
+              ],
+              "additionalProperties": false
+            },
+            "MIDDLE": {
+              "type": "object",
+              "properties": {
+                "damage": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "growth": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "combat": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "vision": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "objective": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "deaths": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "win": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 5
+                }
+              },
+              "required": [
+                "damage",
+                "growth",
+                "combat",
+                "vision",
+                "objective",
+                "deaths",
+                "win"
+              ],
+              "additionalProperties": false
+            },
+            "BOTTOM": {
+              "type": "object",
+              "properties": {
+                "damage": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "growth": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "combat": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "vision": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "objective": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "deaths": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "win": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 5
+                }
+              },
+              "required": [
+                "damage",
+                "growth",
+                "combat",
+                "vision",
+                "objective",
+                "deaths",
+                "win"
+              ],
+              "additionalProperties": false
+            },
+            "UTILITY": {
+              "type": "object",
+              "properties": {
+                "damage": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "growth": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "combat": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "vision": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "objective": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "deaths": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "win": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 5
+                }
+              },
+              "required": [
+                "damage",
+                "growth",
+                "combat",
+                "vision",
+                "objective",
+                "deaths",
+                "win"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "TOP",
+            "JUNGLE",
+            "MIDDLE",
+            "BOTTOM",
+            "UTILITY"
+          ],
+          "additionalProperties": false
+        },
+        "metricMix": {
+          "type": "object",
+          "properties": {
+            "damagePerMinute": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "damageShare": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "csPerMinute": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "goldPerMinute": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "supportParticipation": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "supportAssists": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "required": [
+            "damagePerMinute",
+            "damageShare",
+            "csPerMinute",
+            "goldPerMinute",
+            "supportParticipation",
+            "supportAssists"
+          ],
+          "additionalProperties": false
+        },
+        "normalization": {
+          "type": "object",
+          "properties": {
+            "neutral": {
+              "const": 50
+            },
+            "peerCompression": {
+              "const": 0.5
+            },
+            "historyPseudoCount": {
+              "const": 5
+            },
+            "historyPrior": {
+              "const": 10
+            },
+            "historyWeight": {
+              "const": 20
+            },
+            "min": {
+              "const": 5
+            },
+            "max": {
+              "const": 95
+            },
+            "deathMinutes": {
+              "const": 10
+            },
+            "roleSkillPrior": {
+              "const": 5
+            },
+            "rankedGames": {
+              "const": 3
+            },
+            "teamTolerance": {
+              "const": 5
+            }
+          },
+          "required": [
+            "neutral",
+            "peerCompression",
+            "historyPseudoCount",
+            "historyPrior",
+            "historyWeight",
+            "min",
+            "max",
+            "deathMinutes",
+            "roleSkillPrior",
+            "rankedGames",
+            "teamTolerance"
+          ],
+          "additionalProperties": false
+        },
+        "cumulativePrior": {
+          "const": 5
+        }
+      },
+      "required": [
+        "id",
+        "algorithmVersion",
+        "weightsByRole",
+        "metricMix",
+        "normalization",
+        "cumulativePrior"
+      ],
+      "additionalProperties": false
+    },
+    "RoleReferenceSample": {
+      "type": "object",
+      "properties": {
+        "puuid": {
+          "type": "string"
+        },
+        "source": {
+          "const": "solo420"
+        },
+        "gameId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "playedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Role"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidence": {
+          "type": "object",
+          "properties": {
+            "officialPuuid": {
+              "type": "string"
+            },
+            "queueId": {
+              "const": 420
+            },
+            "teamPosition": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Role"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "durationSeconds": {
+              "type": "integer",
+              "minimum": 300,
+              "maximum": 9223372036854775807
+            },
+            "earlyEnded": {
+              "const": false
+            }
+          },
+          "required": [
+            "officialPuuid",
+            "queueId",
+            "teamPosition",
+            "durationSeconds",
+            "earlyEnded"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "puuid",
+        "source",
+        "gameId",
+        "playedAt",
+        "role",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "ReferenceImport": {
+      "type": "object",
+      "properties": {
+        "memberId": {
+          "type": "string"
+        },
+        "officialPuuid": {
+          "type": "string"
+        },
+        "confirmedMapping": {
+          "const": true
+        },
+        "samples": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RoleReferenceSample"
+          },
+          "maxItems": 200
+        }
+      },
+      "required": [
+        "memberId",
+        "officialPuuid",
+        "confirmedMapping",
+        "samples"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

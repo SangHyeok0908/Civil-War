@@ -28,7 +28,7 @@ public abstract class DatabaseTestSupport {
     @BeforeEach void resetDatabase() {
         // Test profile has a dedicated DB. Fail loudly if pointed at anything else.
         if(!jdbc.queryForObject("select current_database()",String.class).equals("cw_test")) throw new IllegalStateException("Integration tests require cw_test database");
-        jdbc.execute("TRUNCATE audit_log, recalculation_jobs, match_participants, matches, collector_credentials, admin_sessions, enrollment_codes, members CASCADE");
+        jdbc.execute("TRUNCATE evaluation_generations, scoring_versions, audit_log, recalculation_jobs, match_participants, matches, collector_credentials, admin_sessions, enrollment_codes, members CASCADE");
         jdbc.update("update service_state set source_revision=0, desired_scoring_version=null, active_generation_id=null");
         for(int i=1;i<=11;i++) {
             MemberEntity m=new MemberEntity(); m.id="member-"+i; m.puuid=String.format("fixture-player-%02d",i);
