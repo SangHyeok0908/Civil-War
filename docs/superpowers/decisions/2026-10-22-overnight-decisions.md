@@ -50,3 +50,19 @@
 - 결정: C01은 도구가 전혀 실행되지 않은 정상 경기 A, C02는 다음 정상 경기 B 전 idle 요청 0건과 종료 후 명시 조회를 기록한다. C02의 B를 종료 후 새 프로세스로 조회해 동일 게임 수치를 비교한다. C01의 A와 C02의 B를 같은 경기로 비교하거나 B의 control을 도구 미실행 C01로 주장하지 않는다.
 - 이유·검증: 한 경기에서 ‘어떤 도구도 미실행’과 ‘도구를 미리 실행’을 동시에 만족시킬 수 없다. 두 정상 경기와 B의 제어 조회로 조건을 분리했고 실제 도구 옵션/session 필드와 대조했다. 새 Windows 실행은 아직 없다.
 - 되돌리기 비용: 관측 양식만 수정 가능하며 실측 결과의 의미를 소급 변경하지 않는다. 추가 비정상 게임이나 별도 PC는 필요 없다.
+
+## D07 — 단계 1 도구와 계약 표현
+
+- 결정: OpenJDK 25.0.1+8-27(현재 로컬 설치), Spring Boot 4.1.1, 공식 Gradle 9.8.2 Wrapper와 SHA-256, PostgreSQL 18.6 digest 고정, Boot BOM 관리 Flyway/Jackson 3/JUnit을 사용한다. 일반 저장/조회는 JPA, 필터는 Specification, JSON 계약은 언어 중립 문서와 Java records 및 공통 후보 fixture로 유지한다.
+- 이유·검증: 사용자 지정 Java/Boot/JPA/Groovy와 일치한다. 공식 Boot 요구사항 페이지는 4.1.1·Java 26까지·Gradle 9.x 지원을 표시했다. Wrapper 공식 task 생성, 다운로드 checksum 검증 및 T01 8개 테스트 PASS. JDK 패치 업그레이드와 운영 이미지 검증은 배포 단계에서 별도 수행한다.
+- 되돌리기 비용: 빌드 버전/CI 변경과 전체 테스트, JSON 어댑터 변경 시 계약 소비자 동시 갱신. raw/normalized는 PostgreSQL text JSON으로 분리하여 정밀도 손실 없는 원문 수치 재처리가 가능하다.
+
+## D08 — 단계 1의 작은 규모 트랜잭션 직렬화
+
+- 결정: 모든 데이터 mutation은 singleton `service_state` 행의 pessimistic write lock을 먼저 획득한다. DB `(platform_id,game_id)` UNIQUE를 함께 유지하고 읽기는 잠그지 않는다. 신규 임시 저장은 revision을 올리지 않으며 실제 확정/정정/취소/회원 팀 입력 변경만 revision과 durable job을 함께 저장한다.
+- 이유: 30명 규모에서는 한 트랜잭션 경계가 명확하며 중복·확정·코드 소비·복구 경합의 결과가 결정적이다. 별도 브로커와 분산 락이 필요 없다.
+- 되돌리기 비용: 요청량이 증가하면 행별 잠금/원자 upsert로 분리하고 동시성 회귀 테스트를 확장한다. 현재에는 mutation 처리량이 한 DB 트랜잭션씩 제한된다.
+
+## 외부 실기 접근 후속 확인
+
+코디네이터가 Chrome Remote Desktop 앱/탭을 나중에 발견했으나 Orca GUI는 OS 접근성 권한이 없었고 기존 원격 탭의 브라우저 접근은 사용자 origin 접근 거절로 정책상 차단되었다. 우회하지 않으며 Windows 실측 HOLD를 유지한다. 이전 ‘Orca에 연결된 Windows 호스트 없음’은 Orca inventory 확인 범위의 기록이다.

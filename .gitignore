@@ -7,3 +7,5 @@
 lockfile
 lockfile.*
 node_modules/
+.gradle/
+build/
