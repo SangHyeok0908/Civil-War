@@ -10,7 +10,7 @@ const historyRoot = '/lol-match-history/v1/products/lol/';
 const gameId = /^\d{1,30}$/;
 const puuid = /^[A-Za-z0-9_-]{1,128}$/;
 const help = [
-  'LCU read-only probe (Node.js 24; Windows measurement required)',
+  'LCU read-only probe 1.0.2 (Node.js 24; Windows measurement required)',
   'node tools/lcu-probe/probe.mjs --lockfile "C:\\Riot Games\\League of Legends\\lockfile" --out .private/lcu/run-01',
   'Options: --interactive | --game ID | --timeline ID | --friends | --player PUUID',
   'History page: --begin 0 --count 20 (1..100). No automatic polling or pagination.',
@@ -37,7 +37,8 @@ function validateOperation(operation, value) {
   if (['game', 'timeline'].includes(operation) && !gameId.test(value ?? '')) {
     throw new ProbeError('INVALID_GAME_ID');
   }
-  if (operation === 'player' && !puuid.test(value ?? '')) throw new ProbeError('INVALID_PUUID');
+  if (operation === 'player' && (!puuid.test(value ?? '') ||
+    /^REPLACE_WITH_PUUID$/i.test(value))) throw new ProbeError('INVALID_PUUID');
   if (!['history', 'player', 'game', 'timeline', 'friends'].includes(operation)) {
     throw new ProbeError('INVALID_COMMAND');
   }
@@ -51,7 +52,7 @@ export async function collect(options) {
   const startedAt = new Date().toISOString();
   const directory = await mkdtemp(join(out, startedAt.replace(/[:.]/g, '-') + '-'));
   const manifest = {
-    schemaVersion: 1, probeVersion: '1.0.0', gate: 'HOLD', evidence: 'unverified-capture',
+    schemaVersion: 1, probeVersion: '1.0.2', gate: 'HOLD', evidence: 'unverified-capture',
     startedAt, platform: process.platform, osRelease: release(), arch: arch(), node: process.version,
     clientVersion: options.clientVersion ?? null, clientVersionSource: 'manual-or-unknown',
     region: options.region ?? null, label: options.label ?? null,
@@ -79,6 +80,7 @@ export async function collect(options) {
       if (error.status !== undefined) entry.status = error.status;
       entry.state = 'request-failed';
       entry.error = error.code;
+      if (error.sensitivity !== undefined) entry.sensitivity = error.sensitivity;
     }
     entry.completedAt = new Date().toISOString();
     return { entry, data };
@@ -90,7 +92,7 @@ export async function collect(options) {
     await request('current-summoner', '/lol-summoner/v1/current-summoner');
     const result = await request('history', historyRoot +
       (operation === 'player' ? value : 'current-summoner') +
-      '/matches?beginIndex=' + begin + '&endIndex=' + (begin + count - 1));
+      '/matches?begIndex=' + begin + '&endIndex=' + (begin + count - 1));
     const games = result.data?.games?.games;
     if (result.entry.state !== 'ok') manifest.historyState = 'request-failed';
     else if (!Array.isArray(games)) manifest.historyState = 'unknown-schema';
@@ -199,6 +201,12 @@ export async function main(args, { cwd = process.cwd(), input = process.stdin, o
       say('Capture ' + relative(out, result.directory) + ': requests=' + result.manifest.requestCount +
         ', errors=' + result.manifest.errors + ', history=' + (result.manifest.historyState ?? 'n/a') +
         ', gate=HOLD');
+      for (const entry of result.manifest.responses) {
+        if (entry.state === 'ok' && entry.parseState === 'json') continue;
+        say('  ' + entry.kind + ': HTTP=' + (entry.status ?? 'n/a') + ' ' +
+          (entry.error ?? (entry.state === 'ok' ? entry.parseState : entry.state)) +
+          (entry.sensitivity ? ' sensitivity=' + JSON.stringify(entry.sensitivity) : ''));
+      }
     };
     if (operation === 'interactive') {
       const lines = createInterface({ input, crlfDelay: Infinity, terminal: false });

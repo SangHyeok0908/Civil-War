@@ -65,7 +65,10 @@ test('rejectNonLoopback: credentials cannot reach other hosts or arbitrary route
   for (const path of [
     'https://example.com/', '//example.com/', '/lol-chat/v1/conversations',
     '/lol-match-history/v1/games/../1', '/lol-match-history/v1/games/1?redirect=x',
-    historyPath + '?beginIndex=0&endIndex=19&other=1',
+    historyPath + '?beginIndex=0&endIndex=19',
+    historyPath + '?begIndex=0&endIndex=19&other=1',
+    historyPath + '?begIndex=0&endIndex=100',
+    historyPath + '?begIndex=99999&endIndex=100001',
   ]) {
     await assert.rejects(lcuGet(base, path), { code: 'INVALID_ENDPOINT' });
   }
@@ -167,7 +170,11 @@ test('oversized and credential-bearing responses are not persisted', async t => 
 test('history stores exact response, metadata and bounded details without polling', async t => {
   const history = '{"games":{"games":[{"gameId":9007199254740993123},{"gameId":12},{"gameId":12}]}}';
   const remote = await server(t, (req, res) => {
-    if (req.url.startsWith(historyPath)) res.end(history);
+    if (req.url === historyPath + '?begIndex=20&endIndex=39') res.end(history);
+    else if (req.url.startsWith(historyPath)) {
+      res.statusCode = 400;
+      res.end('{"errorCode":"BAD_REQUEST","httpStatus":400,"message":"Unknown argument \'beginIndex\' for \'GetLolMatchHistoryV1ProductsLolCurrentSummonerMatches\'."}');
+    }
     else if (req.url === '/lol-patch/v1/game-version') res.end('"test-patch"');
     else res.end('{"stats":{"visionScore":0}}');
   });
@@ -178,7 +185,7 @@ test('history stores exact response, metadata and bounded details without pollin
   });
   assert.deepEqual(remote.requests.map(r => r.path), [
     '/lol-patch/v1/game-version', '/lol-summoner/v1/current-summoner',
-    historyPath + '?beginIndex=20&endIndex=39',
+    historyPath + '?begIndex=20&endIndex=39',
     '/lol-match-history/v1/games/9007199254740993123', '/lol-match-history/v1/games/12',
   ]);
   assert.equal(result.manifest.historyState, 'available');
@@ -189,6 +196,168 @@ test('history stores exact response, metadata and bounded details without pollin
   assert.ok(files.some(f => f.text === history));
   assert.equal(JSON.stringify(files).includes(password), false);
   assert.equal(result.manifest.gate, 'HOLD');
+});
+
+test('player history uses the documented begIndex query on the PUUID route', async t => {
+  const remote = await server(t, (req, res) => {
+    if (req.url === '/lol-patch/v1/game-version') res.end('"test-patch"');
+    else if (req.url === '/lol-summoner/v1/current-summoner') res.end('{}');
+    else if (req.url === '/lol-match-history/v1/products/lol/synthetic-puuid/matches?begIndex=0&endIndex=19') {
+      res.end('{"games":{"games":[]}}');
+    } else {
+      res.statusCode = 400;
+      res.end('{"errorCode":"BAD_REQUEST","message":"Unknown argument"}');
+    }
+  });
+  const dir = await temporary(t);
+  const result = await collect({ lockfile: await lockfile(dir, remote.port),
+    out: join(dir, 'captures'), operation: 'player', value: 'synthetic-puuid' });
+  assert.equal(result.manifest.historyState, 'empty');
+  assert.equal(result.manifest.errors, 0);
+  assert.equal(remote.requests.length, 3);
+});
+
+test('sensitive friend responses record fixed classifications without leaking keys or values', async t => {
+  const cases = [
+    { body: '[{"lol":{"challengeTokensSelected":"synthetic-private-value"}}]',
+      want: { rules: ['sensitive-key'], keyCategories: ['token'], recognizedFields: ['challengeTokensSelected'] } },
+    { body: '{"token-synthetic-private-key":"synthetic-private-value"}',
+      want: { rules: ['sensitive-key'], keyCategories: ['token'], recognizedFields: [] } },
+    { body: '{"note":"Bearer synthetic-private-value"}',
+      want: { rules: ['credential-marker'], keyCategories: [], recognizedFields: [] } },
+    { body: JSON.stringify({ note: password }).replace('synthetic', '\\u0073ynthetic'),
+      want: { rules: ['credential-value'], keyCategories: [], recognizedFields: [] } },
+    { body: JSON.stringify({ [password]: 'synthetic-private-value' }),
+      want: { rules: ['credential-value', 'sensitive-key'], keyCategories: ['password'], recognizedFields: [] } },
+    { body: '[{"lol":{"challengeTokenNamesSelected":"synthetic-private-value"},"refreshToken":"synthetic-other-secret","cookie":"synthetic-cookie"}]',
+      want: { rules: ['sensitive-key'], keyCategories: ['cookie', 'token'], recognizedFields: ['challengeTokenNamesSelected'] } },
+  ];
+  let body;
+  const remote = await server(t, (_req, res) => res.end(body));
+  const dir = await temporary(t);
+  const path = await lockfile(dir, remote.port);
+  for (const row of cases) {
+    body = row.body;
+    const result = await collect({ lockfile: path, out: join(dir, 'captures'), operation: 'friends' });
+    const entry = result.manifest.responses[0];
+    assert.equal(entry.status, 200);
+    assert.equal(entry.error, 'SENSITIVE_RESPONSE');
+    assert.deepEqual(entry.sensitivity, row.want);
+    assert.equal('bodyFile' in entry, false);
+    assert.deepEqual(await readdir(result.directory), ['manifest.json']);
+  }
+  const saved = JSON.stringify(await filesUnder(join(dir, 'captures')));
+  for (const secret of [password, 'token-synthetic-private-key', 'synthetic-private-value',
+    'synthetic-other-secret', 'synthetic-cookie']) assert.equal(saved.includes(secret), false);
+});
+
+test('CLI shows safe failure diagnostics and keeps sensitive response bodies out of output', async t => {
+  const remote = await server(t, (_req, res) =>
+    res.end('[{"lol":{"challengeTokensSelected":"synthetic-private-value"}}]'));
+  const dir = await temporary(t);
+  const output = new PassThrough();
+  let log = '';
+  output.on('data', data => { log += data; });
+  assert.equal(await main(['--lockfile', await lockfile(dir, remote.port),
+    '--out', '.private/lcu/friends', '--friends'], { cwd: dir, output }), 2);
+  assert.match(log, /friends.*HTTP=200.*SENSITIVE_RESPONSE/);
+  assert.match(log, /sensitive-key/);
+  assert.match(log, /challengeTokensSelected/);
+  assert.equal(log.includes('synthetic-private-value'), false);
+  assert.equal(log.includes(password), false);
+});
+
+test('friends persist numeric challenge selections at the exact lol field without altering raw JSON', async t => {
+  let raw;
+  const remote = await server(t, (_req, res) => res.end(raw));
+  const dir = await temporary(t);
+  const path = await lockfile(dir, remote.port);
+  for (const selection of ['', '0', '101001', '101001,202002,303003']) {
+    raw = JSON.stringify([{ puuid: 'synthetic-friend', note: 'Display text: {"x":1,"x":2} []',
+      lol: { challengeTokensSelected: selection } }]) + '\n';
+    const result = await collect({ lockfile: path, out: join(dir, 'captures'), operation: 'friends' });
+    assert.equal(result.manifest.errors, 0);
+    const entry = result.manifest.responses[0];
+    assert.equal(entry.state, 'ok');
+    assert.equal(entry.status, 200);
+    assert.equal(entry.sensitivity, undefined);
+    assert.equal(await readFile(join(result.directory, entry.bodyFile), 'utf8'), raw);
+  }
+});
+
+test('challenge selection exception cannot admit arbitrary tokens, locations or value shapes', async t => {
+  let raw;
+  const remote = await server(t, (_req, res) => res.end(raw));
+  const connection = { port: remote.port, password, protocol: 'https' };
+  for (const body of [
+    [{ lol: { challengeTokensSelected: '101001,202002,303003', accessToken: 'other-credential' } }],
+    [{ lol: { challengeTokensSelected: 'other-credential' } }],
+    [{ lol: { challengeTokensSelected: { accessToken: 'other-credential' } } }],
+    [{ lol: { challengeTokensSelected: ['101001'] } }],
+    [{ lol: { challengeTokensSelected: '1,2,3,4' } }],
+    [{ lol: { challengeTokensSelected: null } }],
+    [{ lol: { challengeTokenNamesSelected: '101001' } }],
+    [{ challengeTokensSelected: '101001' }],
+    { lol: { challengeTokensSelected: '101001' } },
+    [{ lol: { nested: { challengeTokensSelected: '101001' } } }],
+    [{ lol: [{ challengeTokensSelected: '101001' }] }],
+  ]) {
+    raw = JSON.stringify(body);
+    await assert.rejects(lcuGet(connection, '/lol-chat/v1/friends'), { code: 'SENSITIVE_RESPONSE' });
+  }
+  raw = '[{"lol":{"challengeTokensSelected":"101001"}}]';
+  await assert.rejects(lcuGet(connection, '/lol-match-history/v1/games/1'), { code: 'SENSITIVE_RESPONSE' });
+});
+
+test('known credential values stay blocked even inside a valid numeric challenge selection', async t => {
+  const numericPassword = '101001';
+  const remote = await server(t, (_req, res) =>
+    res.end('[{"lol":{"challengeTokensSelected":"101001,202002"}}]'));
+  const dir = await temporary(t);
+  const result = await collect({ lockfile: await lockfile(dir, remote.port, numericPassword),
+    out: join(dir, 'captures'), operation: 'friends' });
+  const entry = result.manifest.responses[0];
+  assert.equal(entry.error, 'SENSITIVE_RESPONSE');
+  assert.deepEqual(entry.sensitivity.rules, ['credential-value']);
+  assert.equal(entry.bodyFile, undefined);
+  assert.equal(JSON.stringify(await filesUnder(join(dir, 'captures'))).includes(numericPassword), false);
+});
+
+test('duplicate JSON keys cannot hide discarded credentials behind allowed challenge selections', async t => {
+  let raw;
+  const remote = await server(t, (_req, res) => res.end(raw));
+  const dir = await temporary(t);
+  const path = await lockfile(dir, remote.port);
+  for (const body of [
+    '[{"lol":{"challengeTokensSelected":"\\u0073ynthetic-password-DO-NOT-USE","challengeTokensSelected":"101001"}}]',
+    '[{"lol":{"challenge\\u0054okensSelected":"\\u0073ynthetic-password-DO-NOT-USE","challengeTokensSelected":"101001"}}]',
+    '[{"lol":{"accessToken":"other-credential"},"lol":{"challengeTokensSelected":"101001"}}]',
+    '[{"lol":{"challengeTokensSelected":"101001"},"a\\\"b":1,"a\\u0022b":2}]',
+  ]) {
+    raw = body;
+    const result = await collect({ lockfile: path, out: join(dir, 'captures'), operation: 'friends' });
+    const entry = result.manifest.responses[0];
+    assert.equal(entry.status, 200);
+    assert.equal(entry.error, 'DUPLICATE_JSON_KEYS');
+    assert.equal(entry.bodyFile, undefined);
+    assert.deepEqual(await readdir(result.directory), ['manifest.json']);
+  }
+  const saved = JSON.stringify(await filesUnder(join(dir, 'captures')));
+  assert.equal(saved.includes(password), false);
+  assert.equal(saved.includes('other-credential'), false);
+});
+
+test('README placeholder PUUID is rejected before creating a session or sending requests', async t => {
+  const remote = await server(t);
+  const dir = await temporary(t);
+  const output = new PassThrough();
+  let log = '';
+  output.on('data', data => { log += data; });
+  assert.equal(await main(['--lockfile', await lockfile(dir, remote.port),
+    '--out', '.private/lcu/player', '--player', 'REPLACE_WITH_PUUID'], { cwd: dir, output }), 1);
+  assert.match(log, /INVALID_PUUID/);
+  assert.equal(remote.requests.length, 0);
+  await assert.rejects(readFile(join(dir, '.private/lcu/player/session.json')), { code: 'ENOENT' });
 });
 
 test('unknown history schema is retained and not reported as empty history', async t => {

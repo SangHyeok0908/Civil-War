@@ -2,15 +2,17 @@ import https from 'node:https';
 import { readFile } from 'node:fs/promises';
 
 export class ProbeError extends Error {
-  constructor(code, status) {
+  constructor(code, status, sensitivity) {
     super(code);
     this.name = 'ProbeError';
     this.code = code;
     if (status !== undefined) this.status = status;
+    if (sensitivity !== undefined) this.sensitivity = sensitivity;
   }
 }
 
-const secretKey = /password|authorization|token|secret|cookie|lockfile/i;
+const secretKey = /password|authorization|token|secret|cookie|lockfile/gi;
+const diagnosticFields = new Set(['challengeTokensSelected', 'challengeTokenNamesSelected']);
 const accountKey = /^(gameId|accountId|currentAccountId|summonerId)$/;
 
 // Node 24's reviver source preserves integer identifiers before Number rounding.
@@ -46,7 +48,7 @@ function validPath(path) {
     '/lol-patch/v1/game-version',
   ].includes(path)) return true;
   if (/^\/lol-match-history\/v1\/(games|game-timelines)\/\d{1,30}$/.test(path)) return true;
-  const history = /^\/lol-match-history\/v1\/products\/lol\/[A-Za-z0-9_-]{1,128}\/matches(?:\?beginIndex=(\d+)&endIndex=(\d+))?$/.exec(path);
+  const history = /^\/lol-match-history\/v1\/products\/lol\/[A-Za-z0-9_-]{1,128}\/matches(?:\?begIndex=(\d+)&endIndex=(\d+))?$/.exec(path);
   if (!history) return false;
   if (history[1] === undefined) return true;
   const begin = Number(history[1]);
@@ -55,11 +57,71 @@ function validPath(path) {
     begin >= 0 && end >= begin && end - begin < 100 && end <= 100000;
 }
 
-function sensitive(value, secrets) {
-  if (typeof value === 'string') return secrets.some(secret => value.includes(secret));
-  if (!value || typeof value !== 'object') return false;
-  return Object.entries(value).some(([key, child]) =>
-    secretKey.test(key) || secrets.some(secret => key.includes(secret)) || sensitive(child, secrets));
+function hasDuplicateJsonKeys(text) {
+  // The caller has already validated JSON syntax. Track object scopes in the
+  // original text because JSON.parse discards earlier duplicate members.
+  const scopes = [];
+  for (const match of text.matchAll(/"(?:[^"\\]|\\[\s\S])*"|[{}\[\]]/g)) {
+    const token = match[0];
+    if (token === '{') scopes.push(new Set());
+    else if (token === '[') scopes.push(null);
+    else if (token === '}' || token === ']') scopes.pop();
+    else {
+      let after = match.index + token.length;
+      while (after < text.length && /\s/.test(text[after])) after++;
+      if (text[after] !== ':') continue;
+      const key = JSON.parse(token);
+      const keys = scopes.at(-1);
+      if (keys.has(key)) return true;
+      keys.add(key);
+    }
+  }
+  return false;
+}
+
+function sensitivityDetails(body, decoded, secrets, path) {
+  const rules = new Set();
+  const keyCategories = new Set();
+  const recognizedFields = new Set();
+  const friendLolObjects = new WeakSet();
+  if (path === '/lol-chat/v1/friends' && Array.isArray(decoded)) {
+    for (const friend of decoded) {
+      if (friend && !Array.isArray(friend) && friend.lol &&
+        typeof friend.lol === 'object' && !Array.isArray(friend.lol)) {
+        friendLolObjects.add(friend.lol);
+      }
+    }
+  }
+  if (secrets.some(secret => body.includes(secret))) rules.add('credential-value');
+  if (/authorization\s*[:=]|bearer\s+/i.test(body)) rules.add('credential-marker');
+  const pending = [decoded];
+  while (pending.length) {
+    const value = pending.pop();
+    if (typeof value === 'string') {
+      if (secrets.some(secret => value.includes(secret))) rules.add('credential-value');
+    } else if (value && typeof value === 'object') {
+      for (const [key, child] of Object.entries(value)) {
+        if (secrets.some(secret => key.includes(secret))) rules.add('credential-value');
+        // Challenge badges are gameplay data. Exempt only this exact friends
+        // field with empty or up to three comma-separated decimal IDs. Continue
+        // scanning its value, and retain all credential-value/marker checks.
+        const challengeSelection = friendLolObjects.has(value) && key === 'challengeTokensSelected' &&
+          typeof child === 'string' && /^(?:\d{1,10}(?:,\d{1,10}){0,2})?$/.test(child);
+        const categories = challengeSelection ? [] : key.match(secretKey) ?? [];
+        if (categories.length) {
+          rules.add('sensitive-key');
+          for (const category of categories) keyCategories.add(category.toLowerCase());
+          // Only fixed, reviewed field labels may leave this function. Never echo
+          // arbitrary keys, paths or values: any of them may contain credentials.
+          if (diagnosticFields.has(key)) recognizedFields.add(key);
+        }
+        pending.push(child);
+      }
+    }
+  }
+  if (!rules.size) return undefined;
+  return { rules: [...rules].sort(), keyCategories: [...keyCategories].sort(),
+    recognizedFields: [...recognizedFields].sort() };
 }
 
 export async function lcuGet(connection, path, { timeoutMs = 8000, maxBytes = 16 * 1024 * 1024 } = {}) {
@@ -113,9 +175,13 @@ export async function lcuGet(connection, path, { timeoutMs = 8000, maxBytes = 16
             return;
           }
         }
-        if (secrets.some(secret => body.includes(secret)) ||
-          /authorization\s*[:=]|bearer\s+/i.test(body) || sensitive(decoded, secrets)) {
-          reject(new ProbeError('SENSITIVE_RESPONSE', response.statusCode));
+        if (hasDuplicateJsonKeys(body)) {
+          reject(new ProbeError('DUPLICATE_JSON_KEYS', response.statusCode));
+          return;
+        }
+        const sensitivity = sensitivityDetails(body, decoded, secrets, path);
+        if (sensitivity) {
+          reject(new ProbeError('SENSITIVE_RESPONSE', response.statusCode, sensitivity));
         } else {
           resolve({ status: response.statusCode, body });
         }
