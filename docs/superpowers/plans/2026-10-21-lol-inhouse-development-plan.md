@@ -167,17 +167,19 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 각 작업에서 Java 테스트 클래스 실행을 지시하면 `test --tests '패키지를 포함한 클래스명'`을 사용한다. 여러 클래스는 `--tests`를 반복한다. 현재 계획의 단위·통합 테스트는 모두 `src/test/java`에 두고 `test` 작업으로 실행하며, 통합 테스트에는 T02의 전용 PostgreSQL 환경이 필요하다. `bootJar`와 전체 `build`는 Spring Boot 플러그인 설정 및 T03의 애플리케이션 진입점 구현 후 사용한다. 이 명령들은 후속 구현용이며 현재 실행 가능한 서버 프로젝트가 생성된 상태는 아니다.
 
+**단계 1 실행 기록 (2026-10-22):** T01–T04는 provisional 구현 및 실제 PostgreSQL 검증 완료. [63개 서버 테스트·복구 CLI·제한 사항](../../validation/stage1-report.md)을 참조한다. 단계 0 HOLD와 운영 계약 미확정은 유지한다. 클래스/SQL 파일명은 구현 책임에 맞게 분리했으며 migration은 Flyway 표준 `V1__core.sql`이다. 단계 2 이후 체크박스는 변경하지 않았다.
+
 ### T01. 검증된 경기 계약과 정규화
 
 **Files:** Create `apps/server/build.gradle`, `apps/server/settings.gradle`, `apps/server/gradlew`, `apps/server/gradlew.bat`, `apps/server/gradle/wrapper/gradle-wrapper.jar`, `apps/server/gradle/wrapper/gradle-wrapper.properties`, `apps/server/src/main/java/cw/contracts/`의 경기·회원·인증·평가·팀 모델, `apps/server/src/main/java/cw/lcu/MatchNormalizer.java`, `apps/server/src/main/java/cw/matches/MatchInputValidator.java`; Test `apps/server/src/test/java/cw/lcu/MatchNormalizerTest.java`. Wrapper 파일은 선택한 Gradle 버전의 공식 Wrapper 작업으로 생성한다. Modify `.gitignore`.
 
 **Interfaces:** 운영 확정 시 V2 `fixtures/lcu/verified/*`와 필드 맵을 소비한다. HOLD 중 draft는 `fixtures/lcu/candidates/h2-20261021/*`와 [후보 계약](../../validation/lcu-candidate-contract.md)을 사용하며 합성 metadata와 미확정 의미를 유지한다. Produces `normalizeMatch(rawJson) -> NormalizedMatch`, `validateIngest(input) -> ValidationResult`, `validateConfirmation(input, match) -> ValidationResult`의 Java 구현과 위 JSON 계약. `ValidationResult={ok,issues:[{path,code}]}`. 정규화 실패는 같은 issues 구조를 가진 `MatchValidationError`로 반환하고 validator는 이를 결과로 변환한다. rawJson의 Java 자료형은 JSON 처리 도구 결정 시 확정한다.
 
-- [ ] **1. 정규화 테스트를 작성한다.** `completeTenPlayers`, `rejectNineOrDuplicatePlayers`, `missingIsNotZero`, `preserveStringGameId`: 참가자 수 10, 경기 ID 원문 문자열과 동일, 시야 점수 누락 시 `participants.0.visionScore/REQUIRED` 오류를 검증한다. 숫자 범위·팀당 5명·양 팀 승패 일치·양의 경기 시간을 포함한다.
-- [ ] **2. Gradle 설정 후 테스트 실패를 확인한다.** `./apps/server/gradlew -p apps/server test --tests 'cw.lcu.MatchNormalizerTest'` → 미구현 정규화로 실패. 테스트 환경 오류를 기능 실패로 간주하지 않는다. 이 단계 이전에 확정된 Java 25·Spring Boot 4.1.x 정책에 따라 정확한 패치 버전을 기록하고, JDK 배포판·Gradle 세부 버전과 JSON 처리·검증·테스트 도구를 확정한다.
-- [ ] **3. 필드 맵으로 Java 정규화와 입력 검증을 구현한다.** 사용자 설정/SR 구분값은 V2에서 확인한 값을 사용한다. 아이템 빈 슬롯과 없는 필드를 구별한다. 원본과 UI 수치는 자동 수집값만 사용한다. 이후 어댑터를 변경해도 저장된 과거 원본과 미전송 대기를 읽을 수 있도록 schemaVersion별 디코더를 유지한다. 클라이언트 사전 검사와 서버 최종 검증은 같은 fixture와 기대 결과를 사용한다.
-- [ ] **4. 서버 컴파일·단위 테스트를 통과한다.** `./apps/server/gradlew -p apps/server classes testClasses`와 위 `MatchNormalizerTest` 실행 → PASS. 실행 JAR 패키징은 T03에서 애플리케이션 진입점을 구현한 뒤 검증한다. 클라이언트 타입 검사·테스트·빌드 명령은 해당 도구를 확정한 뒤 기록한다.
-- [ ] **5. 커밋한다.** `feat: define verified match contracts and normalization`.
+- [x] **1. 정규화 테스트를 작성한다.** `completeTenPlayers`, `rejectNineOrDuplicatePlayers`, `missingIsNotZero`, `preserveStringGameId`: 참가자 수 10, 경기 ID 원문 문자열과 동일, 시야 점수 누락 시 `participants.0.visionScore/REQUIRED` 오류를 검증한다. 숫자 범위·팀당 5명·양 팀 승패 일치·양의 경기 시간을 포함한다.
+- [x] **2. Gradle 설정 후 테스트 실패를 확인한다.** `./apps/server/gradlew -p apps/server test --tests 'cw.lcu.MatchNormalizerTest'` → 미구현 정규화로 실패. 테스트 환경 오류를 기능 실패로 간주하지 않는다. 이 단계 이전에 확정된 Java 25·Spring Boot 4.1.x 정책에 따라 정확한 패치 버전을 기록하고, JDK 배포판·Gradle 세부 버전과 JSON 처리·검증·테스트 도구를 확정한다.
+- [x] **3. 필드 맵으로 Java 정규화와 입력 검증을 구현한다.** 사용자 설정/SR 구분값은 V2에서 확인한 값을 사용한다. 아이템 빈 슬롯과 없는 필드를 구별한다. 원본과 UI 수치는 자동 수집값만 사용한다. 이후 어댑터를 변경해도 저장된 과거 원본과 미전송 대기를 읽을 수 있도록 schemaVersion별 디코더를 유지한다. 클라이언트 사전 검사와 서버 최종 검증은 같은 fixture와 기대 결과를 사용한다.
+- [x] **4. 서버 컴파일·단위 테스트를 통과한다.** `./apps/server/gradlew -p apps/server classes testClasses`와 위 `MatchNormalizerTest` 실행 → PASS. 실행 JAR 패키징은 T03에서 애플리케이션 진입점을 구현한 뒤 검증한다. 클라이언트 타입 검사·테스트·빌드 명령은 해당 도구를 확정한 뒤 기록한다.
+- [x] **5. 커밋한다.** `feat: define provisional match contracts and normalization`.
 
 ### T02. PostgreSQL 임시 저장·등록 확정과 중복 무반영
 
@@ -185,11 +187,11 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 **Interfaces:** Consumes T01 계약/정규화. Produces `ingestMatch(input, actor) -> IngestMatchAck`, `registerMatch(input, actor) -> RegistrationAck`, `getCollectorMatch(key, actor) -> CollectorMatch`의 Java 서비스, `JpaRepository` 기반 `MatchRepository`. T04의 동적 조회를 위해 `JpaSpecificationExecutor<MatchEntity>`를 함께 지원한다. 테스트 DB 설정은 `DatabaseTestSupport`에서 로드하며 OS별 쉘 환경변수 문법에 의존하지 않는다.
 
-- [ ] **1. 실제 DB 트랜잭션 테스트를 작성한다.** `pendingExcludedUntilConfirmed`, `concurrentDuplicateIngest`, `concurrentConfirmation`, `retryAfterLostReply`, `duplicateDoesNotRecalculate`, `retryCannotChangeRoles`, `canceledCannotReturn`, `allTenMustBeMembers`: 경기 수 1, pending 수신 전후 revision 동일, 중복 확정 후 revision 불변, 최초 확정 포지션 보존, 취소 경기 재수신 후 canceled 유지. 비참가자의 조회·확정 거절과 다른 인증된 참가자의 확정 허용도 검사한다.
-- [ ] **2. 실패를 확인한다.** `docker compose -f infra/compose.test.yml up -d --wait`, Java `RegistrationIntegrationTest` 실행 → 등록 함수 미구현으로 실패. 테스트 DB는 운영 DB와 다른 이름·포트·볼륨을 사용한다.
-- [ ] **3. JPA 매핑·DB UNIQUE·서비스 트랜잭션으로 두 단계를 구현한다.** 신규 ingest는 원본+정규화 자료+pending 상태+감사 이력을 저장하고, 등록 확정은 역할 검증 후 상태 전환+확정 포지션+감사 이력+revision/job을 함께 기록한다. ingest 충돌 시 상태를 읽어 응답하고 UPDATE하지 않는다. registered의 재확정은 already_registered, canceled의 ingest는 already_canceled, canceled의 확정은 409/MATCH_CANCELED다. 서버는 ingest 원본을 검증하며 확정 요청에서는 저장된 원본을 사용한다.
-- [ ] **4. 동시 요청과 롤백을 검증한다.** 동일 명령 → PASS; 중간 저장 오류 시 참가자 일부나 재계산 작업만 남지 않아야 한다.
-- [ ] **5. 커밋한다.** `feat: persist idempotent inhouse registrations`.
+- [x] **1. 실제 DB 트랜잭션 테스트를 작성한다.** `pendingExcludedUntilConfirmed`, `concurrentDuplicateIngest`, `concurrentConfirmation`, `retryAfterLostReply`, `duplicateDoesNotRecalculate`, `retryCannotChangeRoles`, `canceledCannotReturn`, `allTenMustBeMembers`: 경기 수 1, pending 수신 전후 revision 동일, 중복 확정 후 revision 불변, 최초 확정 포지션 보존, 취소 경기 재수신 후 canceled 유지. 비참가자의 조회·확정 거절과 다른 인증된 참가자의 확정 허용도 검사한다.
+- [x] **2. 실패를 확인한다.** `docker compose -f infra/compose.test.yml up -d --wait`, Java `RegistrationIntegrationTest` 실행 → 등록 함수 미구현으로 실패. 테스트 DB는 운영 DB와 다른 이름·포트·볼륨을 사용한다.
+- [x] **3. JPA 매핑·DB UNIQUE·서비스 트랜잭션으로 두 단계를 구현한다.** 신규 ingest는 원본+정규화 자료+pending 상태+감사 이력을 저장하고, 등록 확정은 역할 검증 후 상태 전환+확정 포지션+감사 이력+revision/job을 함께 기록한다. ingest 충돌 시 상태를 읽어 응답하고 UPDATE하지 않는다. registered의 재확정은 already_registered, canceled의 ingest는 already_canceled, canceled의 확정은 409/MATCH_CANCELED다. 서버는 ingest 원본을 검증하며 확정 요청에서는 저장된 원본을 사용한다.
+- [x] **4. 동시 요청과 롤백을 검증한다.** 동일 명령 → PASS; 중간 저장 오류 시 참가자 일부나 재계산 작업만 남지 않아야 한다.
+- [x] **5. 커밋한다.** `feat: persist idempotent inhouse registrations`.
 
 ### T03. 코드 인증·회원 관리 API와 로컬 복구
 
@@ -197,11 +199,11 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 **Interfaces:** Consumes T02 DB. Produces `POST /api/admin/session`, `POST /api/collector/enroll`, `POST /api/admin/codes`, `DELETE /api/admin/sessions/:id`, `DELETE /api/admin/collector-credentials/:id`, `GET/POST/PATCH /api/admin/members[/:id]`, `GET /api/collector/members`, `POST /api/collector/matches/ingest`, `GET /api/collector/matches?state=pending`, `GET /api/collector/matches/:key`, `POST /api/collector/matches/:key/confirm`, `POST /api/admin/logout`. 경기 API는 T02를 사용한다. `requireAdmin()`/`requireCollector()`가 검증한 principal을 반환한다. 수집기 enroll은 `{code,currentPuuid}`를 받아 `{token,memberId,credentialId,puuid}`를 반환한다. 수집기 경기 조회는 본인이 참가한 경기로 제한하고, 인증된 회원 명단 조회만 매칭용 PUUID를 제공한다.
 
-- [ ] **1. 인증·등록 테스트를 작성한다.** `oneUseAtomic`, `codeScopeIsolation`, `expiredAndRevoked`, `csrfAndOrigin`, `localRecovery`, `memberIdentityStable`: 동시 코드 소비 성공 1회, 수집자 자격의 관리자 접근 403, 이름 변경 전후 회원 ID 동일. 비밀값 로그 부재와 seedSkill 범위를 확인한다.
-- [ ] **2. 실패를 확인한다.** Java `AuthMembersIntegrationTest` 실행 → 라우트/인증 미구현으로 실패.
-- [ ] **3. 인증 기본값과 API를 구현한다.** 가입 시 코드 소유 회원과 현재 LCU PUUID를 대조한다. seedSkill은 운영자가 입력하며 자동 티어 추정은 하지 않는다. 회원 비활성화로 과거 기록을 삭제하지 않는다. rate limit·요청 본문 상한·로그 비밀값 제거를 Spring Boot 서버의 공통 요청 처리 설정에 넣는다. 개발 HTTP 쿠키 예외는 개발 모드에서만 허용한다.
-- [ ] **4. 복구 CLI까지 검증한다.** 테스트 → PASS; 테스트 DB를 대상으로 Java 관리 명령의 `admin:code --revoke-all` 복구 동작 실행 후 이전 운영자 세션·미소비 운영자 코드는 거절되어야 한다. 새 코드는 명령 실행자의 터미널에 한 번만 표시하고 일반 로그에 저장하지 않는다.
-- [ ] **5. 커밋한다.** `feat: add scoped enrollment and owner administration`.
+- [x] **1. 인증·등록 테스트를 작성한다.** `oneUseAtomic`, `codeScopeIsolation`, `expiredAndRevoked`, `csrfAndOrigin`, `localRecovery`, `memberIdentityStable`: 동시 코드 소비 성공 1회, 수집자 자격의 관리자 접근 403, 이름 변경 전후 회원 ID 동일. 비밀값 로그 부재와 seedSkill 범위를 확인한다.
+- [x] **2. 실패를 확인한다.** Java `AuthMembersIntegrationTest` 실행 → 라우트/인증 미구현으로 실패.
+- [x] **3. 인증 기본값과 API를 구현한다.** 가입 시 코드 소유 회원과 현재 LCU PUUID를 대조한다. seedSkill은 운영자가 입력하며 자동 티어 추정은 하지 않는다. 회원 비활성화로 과거 기록을 삭제하지 않는다. rate limit·요청 본문 상한·로그 비밀값 제거를 Spring Boot 서버의 공통 요청 처리 설정에 넣는다. 개발 HTTP 쿠키 예외는 개발 모드에서만 허용한다.
+- [x] **4. 복구 CLI까지 검증한다.** 테스트 → PASS; 테스트 DB를 대상으로 Java 관리 명령의 `admin:code --revoke-all` 복구 동작 실행 후 이전 운영자 세션·미소비 운영자 코드는 거절되어야 한다. 새 코드는 명령 실행자의 터미널에 한 번만 표시하고 일반 로그에 저장하지 않는다.
+- [x] **5. 커밋한다.** `feat: add scoped enrollment and owner administration`.
 
 ### T04. 전적 조회·운영자 포지션 정정·등록 취소
 
@@ -209,11 +211,11 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 **Interfaces:** Consumes T02 저장/T03 인증. Produces `GET /api/matches`, `GET /api/matches/:key`, `GET /api/members`, `GET /api/members/:id/matches`, `PATCH /api/admin/matches/:key/roles`, `POST /api/admin/matches/:key/cancel`. 목록은 cursor/limit(기본 20, 최대 100), memberId·championId·role·win 필터를 지원한다.
 
-- [ ] **1. 권한·공개 범위·동적 조회 테스트를 작성한다.** `publicSafeDto`, `pendingNotPublic`, `onlyOwnerEdits`, `cancelHidesImmediately`, `profileRoleDoesNotRewriteHistory`: 공개 JSON의 PUUID 부재, pending/canceled 공개 조회 404, 수집자의 수정 요청 403 응답을 확인한다. `optionalFiltersCompose`와 `filteredMatchesAppearOnce`는 조건 없음·단일 조건·복합 조건, 같은 참가자에 대한 선수/챔피언/포지션/승패 조건 적용, 참가자 조인 후 경기 중복 및 페이지 누락 방지를 검증한다.
-- [ ] **2. 실패를 확인한다.** Java `MatchAccessIntegrationTest` 실행 → 미구현 라우트로 실패.
-- [ ] **3. Specification 기반 조회 DTO와 JPA 운영자 변경을 구현한다.** `MatchSpecifications`에서 선택된 필터를 조합한다. 공개 목록의 registered 조건은 모든 필터 조합에 적용하고, 운영자는 확인 대기·취소 자료와 변경 이력도 조회한다. 등록 완료 경기의 포지션 정정은 양 팀 각 역할 1명 검증 후 감사 이력과 revision/job을 함께 기록한다. 수치 수정·취소 복원 엔드포인트는 만들지 않는다.
-- [ ] **4. 검증한다.** 테스트 → PASS; 등록 수치·포지션·취소 상태·감사 이력이 트랜잭션 단위로 일치하고 공개에 원본/인증값이 나오지 않아야 한다.
-- [ ] **5. 커밋한다.** `feat: expose match records and owner corrections`.
+- [x] **1. 권한·공개 범위·동적 조회 테스트를 작성한다.** `publicSafeDto`, `pendingNotPublic`, `onlyOwnerEdits`, `cancelHidesImmediately`, `profileRoleDoesNotRewriteHistory`: 공개 JSON의 PUUID 부재, pending/canceled 공개 조회 404, 수집자의 수정 요청 403 응답을 확인한다. `optionalFiltersCompose`와 `filteredMatchesAppearOnce`는 조건 없음·단일 조건·복합 조건, 같은 참가자에 대한 선수/챔피언/포지션/승패 조건 적용, 참가자 조인 후 경기 중복 및 페이지 누락 방지를 검증한다.
+- [x] **2. 실패를 확인한다.** Java `MatchAccessIntegrationTest` 실행 → 미구현 라우트로 실패.
+- [x] **3. Specification 기반 조회 DTO와 JPA 운영자 변경을 구현한다.** `MatchSpecifications`에서 선택된 필터를 조합한다. 공개 목록의 registered 조건은 모든 필터 조합에 적용하고, 운영자는 확인 대기·취소 자료와 변경 이력도 조회한다. 등록 완료 경기의 포지션 정정은 양 팀 각 역할 1명 검증 후 감사 이력과 revision/job을 함께 기록한다. 수치 수정·취소 복원 엔드포인트는 만들지 않는다.
+- [x] **4. 검증한다.** 테스트 → PASS; 등록 수치·포지션·취소 상태·감사 이력이 트랜잭션 단위로 일치하고 공개에 원본/인증값이 나오지 않아야 한다.
+- [x] **5. 커밋한다.** `feat: expose match records and owner corrections`.
 
 ### T05. Windows LCU 연결·계정 인식·기기 인증 보호
 

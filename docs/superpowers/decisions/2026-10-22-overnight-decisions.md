@@ -1,6 +1,6 @@
 # 야간 단계 0–3 결정 기록
 
-작성일: 2026-10-22 KST. 본 파일은 최신 사용자 승인으로 위임받은 판단과 코디네이터 ruling을 기록한다. 단계 0의 실기 판정은 **HOLD**이며 미실측을 성공으로 바꾸지 않는다. 이 dispatch의 구현 범위는 단계 0이다. 이후 단계의 세부 기술 결정은 해당 담당자가 근거·검증·되돌리기 비용과 함께 추가한다.
+작성일: 2026-10-22 KST. 본 파일은 최신 사용자 승인으로 위임받은 판단과 코디네이터 ruling을 기록한다. 단계 0의 실기 판정은 **HOLD**이며 미실측을 성공으로 바꾸지 않는다. 이 파일은 단계 0–3의 누적 결정 기록이다. 각 단계 담당자는 자신의 구현 범위와 근거·검증·되돌리기 비용을 아래에 이어서 기록한다.
 
 ## D01 — HOLD 중 단계 1–3의 조건부 draft 개발
 
@@ -66,3 +66,32 @@
 ## 외부 실기 접근 후속 확인
 
 코디네이터가 Chrome Remote Desktop 앱/탭을 나중에 발견했으나 Orca GUI는 OS 접근성 권한이 없었고 기존 원격 탭의 브라우저 접근은 사용자 origin 접근 거절로 정책상 차단되었다. 우회하지 않으며 Windows 실측 HOLD를 유지한다. 이전 ‘Orca에 연결된 Windows 호스트 없음’은 Orca inventory 확인 범위의 기록이다.
+
+## D09 — 보존·마이그레이션·후속 평가 경계
+
+- 결정: raw JSON과 정규화 JSON은 별도 `text` 열로 저장하고 JPA participant 행에는 회원/팀/챔피언/승패/최종 역할을 둔다. 원본은 추가 필드를 보존하되 중복 JSON 키는 거절한다. Flyway 표준 이름 `V1__core.sql`을 사용하며 이후 단계는 V2 이상 migration을 추가한다. `service_state`와 durable `recalculation_jobs`를 먼저 만들고 평가 세대/점수/참고 표본 테이블은 T08–T12에서 추가한다.
+- 이유·검증: JSON 파싱이 큰 정수 토큰을 lossless 보존하며 30자리 ID 문자열과 원본 수치를 훼손하지 않는다. SQL 검색은 필요한 participant 열과 Specification EXISTS를 사용하므로 raw JSON 검색 인덱스가 필요 없다. 전체 원문 바이트/공백이 아니라 JSON 값의 보존이다. JUnit 실제 PostgreSQL 테스트에서 ingest/confirm 중 audit/job 실패를 주입해 전체 rollback을 확인했다.
+- 되돌리기 비용: JSONB가 필요해지면 새 migration에서 캐스팅하고 기존 raw 보존 정책을 유지한다. job/세대 테이블 확장은 기존 revision 의미를 지켜야 한다. 아직 평가가 없어 공개 DTO는 계산 중으로만 표시한다.
+
+## D10 — 인증과 HTTP 기본값의 명시적 운영 한계
+
+- 결정: 고엔트로피 코드/토큰의 SHA-256만 DB 보관, 관리자 쿠키와 동일 origin+CSRF, 1 MiB write body cap, 직접 remote IP의 bounded 메모리 인증 실패 제한을 사용한다. 기본은 Secure `__Host-cw-admin`; dev/test profile과 명시 설정이 함께 있을 때만 HTTP `cw-admin-dev`를 쓴다. CSRF는 인증된 `GET /api/admin/session`에서 재확보한다. forwarded 헤더는 기본 비신뢰다.
+- 이유·검증: 추가 로그인 제품 없이 한 운영자/친구 모임 모델에 맞는다. 동시 코드 소비 양 scope, 만료/폐기/계정 불일치, 실제 chunked HTTP, 쿠키 플래그, 코드/계정 로그 비노출, 실제 실행 JAR 복구를 검사했다. 로컬 복구는 웹 리스너 없이 종료하고 새 코드 1회 출력만 한다.
+- 되돌리기 비용: 분산 인스턴스나 운영 proxy를 도입하면 중앙 rate-limit/신뢰 proxy 설정을 바꾸고 HTTP 보안 테스트를 재실행한다. 현재 limiter는 재시작 시 초기화되고 proxy 뒤 사용자가 같은 remote IP로 묶일 수 있으므로 T14에서 고정된 proxy 범위를 설정해야 한다.
+
+## D11 — v1 소비자 계약과 안정적 조회
+
+- 결정: 계약은 `docs/contracts/stage1-api.md`, JSON Schema `$defs`, Java records, 별도 독립 매핑 G1–G3 expected JSON으로 제공한다. 평가/팀 모델은 T08–T12 handoff 타입이며 stage 1에서 점수 계산을 수행하지 않는다. 공개 페이지는 `(startedAt,matchKey)` 내림차순 keyset cursor와 한 참가자에 대한 correlated EXISTS Specification을 사용한다. 내부 pending 큐는 소규모 전체 배열이다.
+- 이유·검증: 서버 Java와 수집기 TypeScript의 구현을 공유하지 않고도 wire-format을 대조한다. 공개 DTO에서 PUUID/raw/auth를 제외하며 같은 timestamp와 여러 matching participant에서도 중복/누락 없이 페이지를 순회한다. allowedRoles의 순서만 바뀐 요청은 의미 있는 변경이 아니므로 역할 순서를 정규화하여 audit/revision/job을 만들지 않는다.
+- 되돌리기 비용: API를 변경하면 schemaVersion/문서/기대값과 모든 소비 테스트를 함께 바꾼다. 내부 큐가 커지면 public과 같은 cursor 계약을 별도 버전으로 추가한다. cursor는 페이지 간 DB snapshot을 고정하지 않으며 새로 수정/취소된 자료는 최신 공개 상태를 따른다.
+
+## D12 — 재현 빌드와 CI 범위
+
+- 결정: Java dependencies는 Boot 4.1.1 BOM과 Gradle lockfile로 고정하고 Wrapper checksum을 기록한다. CI는 immutable action SHA, Java 25, 동일 Compose PostgreSQL, 전체 Gradle build를 실행한다. 운영 배포는 포함하지 않는다.
+- 이유·검증: 로컬 OpenJDK 25.0.1과 CI Temurin 25.0.1은 같은 toolchain major와 update를 준수한다. 현재 로컬 전체 빌드/실DB 검증을 완료하고 GitHub Actions 실제 실행은 코디네이터 push 후 확인한다. mock-only/H2 skip 경로가 없다.
+- 되돌리기 비용: 버전 업그레이드 때 lockfile/checksum/image digest와 전체 회귀 테스트를 갱신한다. CI는 Temurin 25.0.1과 ubuntu-24.04를 명시한다. 운영용 JDK patch 갱신과 배포판은 T14에서 다시 검증한다.
+
+## 단계 1 마지막 검토 보완
+
+- 인증 경로는 raw URI 문자열 접두사가 아니라 Spring MVC가 실제로 매핑하는 decoded path segments를 사용한다. matrix parameter/percent-encoded 경로의 인증 우회가 두 실패 테스트에서 재현되었고 수정 후 MockMvc와 실제 HTTP 회귀가 모두 통과했다. 이 검증은 일반 라우트 테스트만으로 인증 경계를 보장할 수 없다는 발견이며, canonical 경로 처리를 우회하는 새 라우팅 계층을 도입할 때 동일 테스트를 유지한다.
+- 현재 clean build는 서버 **63/63**, 기존 Node **31/31**, skipped 0이다. CLI 복구의 sanitized 결과와 한계는 stage1-report에 보존했다. 역할 집합 순서만 바꾸는 요청과 일반 framework 오류 형식도 실패 후 수정했다. 별도 fresh review는 코디네이터 소유다.
