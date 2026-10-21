@@ -78,12 +78,14 @@ export async function lcuGet(connection, path, { timeoutMs = 8000, maxBytes = 16
   const secrets = [connection.password, encoded];
   return new Promise((resolve, reject) => {
     let timer;
+    let receivedStatus;
     const request = https.request({
       hostname: '127.0.0.1', port: connection.port, path, method: 'GET',
       headers: { Authorization: 'Basic ' + encoded, Accept: 'application/json' },
       // Local LCU uses its own certificate. Never change global TLS settings.
       rejectUnauthorized: false, agent: false,
     }, response => {
+      receivedStatus = response.statusCode;
       const chunks = [];
       let size = 0;
       response.on('data', chunk => {
@@ -97,7 +99,7 @@ export async function lcuGet(connection, path, { timeoutMs = 8000, maxBytes = 16
       });
       response.on('error', () => {
         clearTimeout(timer);
-        reject(new ProbeError('RESPONSE_INTERRUPTED'));
+        reject(new ProbeError('RESPONSE_INTERRUPTED', receivedStatus));
       });
       response.on('end', () => {
         clearTimeout(timer);
@@ -124,7 +126,7 @@ export async function lcuGet(connection, path, { timeoutMs = 8000, maxBytes = 16
       clearTimeout(timer);
       const code = error instanceof ProbeError ? error.code
         : error.code === 'ECONNREFUSED' ? 'LCU_UNAVAILABLE' : 'LCU_NETWORK_ERROR';
-      reject(new ProbeError(code));
+      reject(new ProbeError(code, receivedStatus));
     });
     request.end();
   });

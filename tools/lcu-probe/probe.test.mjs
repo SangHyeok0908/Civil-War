@@ -337,3 +337,31 @@ test('offline redaction writes consistent private candidates and refuses public 
   assert.equal(await redactMain([...args, '--out', '.private/lcu/candidates'],
     { cwd: dir, output }), 1);
 });
+
+test('interrupted body retains received HTTP status in capture evidence', async t => {
+  const remote = await server(t, (_req, res) => {
+    res.writeHead(503);
+    res.write('{"incomplete":');
+    setTimeout(() => res.destroy(), 20);
+  });
+  const dir = await temporary(t);
+  const result = await collect({ lockfile: await lockfile(dir, remote.port),
+    out: join(dir, 'captures'), operation: 'friends' });
+  assert.equal(result.manifest.responses[0].error, 'RESPONSE_INTERRUPTED');
+  assert.equal(result.manifest.responses[0].status, 503);
+  assert.equal('bodyFile' in result.manifest.responses[0], false);
+});
+
+test('timeout after receiving headers retains HTTP status without exposing partial body', async t => {
+  const remote = await server(t, (_req, res) => {
+    res.writeHead(503);
+    res.write('{"partial":"sensitive');
+  });
+  await assert.rejects(lcuGet({ port: remote.port, password, protocol: 'https' },
+    '/lol-chat/v1/friends', { timeoutMs: 80 }), error => {
+    assert.equal(error.code, 'LCU_TIMEOUT');
+    assert.equal(error.status, 503);
+    assert.equal(JSON.stringify(error).includes('sensitive'), false);
+    return true;
+  });
+});
