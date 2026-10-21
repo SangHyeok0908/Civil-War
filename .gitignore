@@ -1,0 +1,9 @@
+.private/
+.superpowers/
+.DS_Store
+.env
+.env.*
+!.env.example
+lockfile
+lockfile.*
+node_modules/
