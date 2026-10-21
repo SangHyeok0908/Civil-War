@@ -4,6 +4,7 @@
 - 관련 판정: [LCU 검증 보고서](lcu-report.md), 전체 `gate: HOLD`
 - 증거 H2: 제공된 `lcu-probe-kit-1.0.1.zip` 안의 `.private/lcu/pc-a-history-20261021-220717/2026-10-21T13-07-18-049Z-0IDsnC/`.
 - G1=`004-game.json`, G2=`005-game.json`, G3=`006-game.json`; H2 목록=`003-history.json`.
+- [테스트 자료 준비 결과](lcu-test-data.md): 같은 계정 가명을 유지한 G1–G3 후보·비교표·기대값 준비 완료. 원본 수치 대조와 식별자 잔존 검사를 마쳤으며 실기 gate는 HOLD다.
 - 아래 경로·타입·존재 여부는 실제 JSON 관찰이다. 단위·게임 내 의미·결과 화면 수치와의 일치는 별도 검증이며 제품 데이터 계약을 확정하지 않는다. 실제 계정명·PUUID·경기 ID는 문서에 싣지 않는다.
 - 친구 목록 조회는 사용자 요청으로 범위에서 제외한다. 참가자 식별에는 경기 상세를 사용하며, 확보한 PUUID로 다른 참가자 기록·솔로랭크 접근 범위를 확인하는 검증은 유지한다.
 
@@ -19,7 +20,7 @@
 | 경기 일시 | `gameCreation`, `gameCreationDate` | 정수 epoch 밀리초와 ISO UTC 문자열이 같은 시각을 나타냄; KST 2026-10-10 | 경기 시작/생성 시각이며 종료 시각과 구분 | G1–G3 |
 | 경기 시간 | `gameDuration` | 정수 1942, 3062, 2003; 초로 해석하면 32:22, 51:02, 33:23 | 단위·화면 시간 대조 대기. 누락을 0으로 채우지 않음 | G1–G3 |
 | 참가자 식별 | `participantIdentities[].player.puuid` | 문자열; 경기마다 비어 있지 않은 고유 PUUID 10개 | 이름 대신 PUUID로 연결 검토; 두 수집자 대조 대기 | G1–G3 |
-| 보조 계정 ID | `participantIdentities[].player.accountId`, `.summonerId` | 원본 JSON 정수; 도구에서 문자열 보존 | PUUID 대체 여부 임의 결정 금지 | G1–G3 |
+| 보조 계정 ID | `participantIdentities[].player.accountId`, `.currentAccountId`, `.summonerId` | 원본 JSON 정수; 도구에서 문자열 보존. 두 accountId 필드는 30행 모두 0이며 summonerId는 별도 값 | 0인 공통 자리표시 값을 계정 연결 키로 사용하지 않음. PUUID 대체 여부 임의 결정 금지 | G1–G3 |
 | Riot ID·이름 | `participantIdentities[].player.gameName`, `.tagLine`, `.summonerName` | 문자열 필드 존재 | 표시용이며 계정 식별 키와 분리 | G1–G3 |
 | 참가자 연결 | `participants[].participantId`, `participantIdentities[].participantId` | 각 경기 두 배열의 ID 집합 일치; 각각 10명 | 중복·누락 시 보류 | G1–G3 |
 | 팀 구성 | `participants[].teamId`, `teams[].teamId` | 팀 100/200, 각 5명 | 실제 화면 팀 구성 대조 대기 | G1–G3 |
@@ -50,5 +51,6 @@
 - **0 / 누락 / null:** 표의 기본 필드는 30/30 존재하고 null이 없다. 피해량·아이템 등에서 실제 0이 관찰됐다. 누락값 보정은 수행하지 않았다.
 - **스키마:** 세 경기의 참가자 `stats` 키 집합이 모두 동일하다. 서로 다른 패치·큐의 구조 일치는 아직 검증하지 않았다.
 - **목록 페이지:** `begIndex=0&endIndex=2` 요청에 `gameIndexBegin=0`, `gameIndexEnd=2`, `gameCount=3`과 3개 경기가 반환됐다. 이번 페이지는 끝 인덱스 포함 동작과 일치한다. 다른 범위의 포함 규칙·최대 페이지·보관 기한은 미확인이다.
+- **목록과 상세의 참가자 범위:** 목록의 각 경기는 수집자 1명의 참가자 통계만 포함하며 해당 통계는 상세와 일치한다. 전체 10명 비교에는 경기 상세를 사용한다.
 - **과거 범위:** 이번에 약 12일 전 사용자 설정 경기 3건을 조회했다. 전체 보관 기간이나 최소 보장 기간으로 일반화하지 않는다.
 - **아직 필요한 증거:** 결과 화면, 같은 경기의 두 번째 참가자 PC, 클라이언트 재시작 전후 비교, 새 경기 종료 후 반영 지연, 다른 참가자 기록·솔로랭크 접근 범위.
