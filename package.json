@@ -14,7 +14,10 @@
     "build": "node scripts/build-collector.mjs && pnpm build:web",
     "dev:collector": "pnpm build && electron apps/collector/dist/main.cjs",
     "test:probe": "node --test tools/lcu-probe/*.test.mjs",
-    "format:check": "prettier --check apps/collector/src apps/web/src packages tests/e2e tests/web scripts/build-collector.mjs scripts/web-test-server.mjs *.config.ts package.json pnpm-workspace.yaml tsconfig.json",
+    "format": "prettier --write apps/collector/src apps/web/src apps/web/index.html \"apps/*/package.json\" packages tests scripts \"tools/lcu-probe/*.mjs\" .github .vscode infra \"*.config.ts\" .prettierrc.json package.json pnpm-workspace.yaml tsconfig.json",
+    "format:check": "prettier --check apps/collector/src apps/web/src apps/web/index.html \"apps/*/package.json\" packages tests scripts \"tools/lcu-probe/*.mjs\" .github .vscode infra \"*.config.ts\" .prettierrc.json package.json pnpm-workspace.yaml tsconfig.json",
+    "format:java": "node scripts/format-java.mjs spotlessApply",
+    "format:java:check": "node scripts/format-java.mjs spotlessCheck",
     "build:web": "vite build --config vite.web.config.ts",
     "test:web": "playwright test -c playwright.web.config.ts"
   },

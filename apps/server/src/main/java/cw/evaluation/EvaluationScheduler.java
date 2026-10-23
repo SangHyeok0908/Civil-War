@@ -9,17 +9,17 @@ import org.springframework.scheduling.annotation.*;
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @ConditionalOnProperty(name = "cw.evaluation.enabled", havingValue = "true", matchIfMissing = true)
 public class EvaluationScheduler {
-  private final RecalculationWorker worker;
-  private boolean first = true;
+    private final RecalculationWorker worker;
+    private boolean first = true;
 
-  public EvaluationScheduler(RecalculationWorker worker) {
-    this.worker = worker;
-  }
+    public EvaluationScheduler(RecalculationWorker worker) {
+        this.worker = worker;
+    }
 
-  @Scheduled(
-      fixedDelayString = "${cw.evaluation.poll-ms:1000}",
-      initialDelayString = "${cw.evaluation.initial-delay-ms:1000}")
-  public void tick() {
-    if (worker.runOnce(first)) first = false;
-  }
+    @Scheduled(
+            fixedDelayString = "${cw.evaluation.poll-ms:1000}",
+            initialDelayString = "${cw.evaluation.initial-delay-ms:1000}")
+    public void tick() {
+        if (worker.runOnce(first)) first = false;
+    }
 }

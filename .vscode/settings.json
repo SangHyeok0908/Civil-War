@@ -1,0 +1,13 @@
+{
+  "editor.formatOnSave": true,
+  "[javascript][javascriptreact][typescript][typescriptreact][json][jsonc][css][html][yaml]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "java.format.enabled": false,
+  "java.import.gradle.wrapper.enabled": true,
+  "[java]": {
+    "editor.defaultFormatter": "richardwillis.vscode-spotless-gradle",
+    "editor.tabSize": 4,
+    "spotlessGradle.format.enable": true
+  }
+}

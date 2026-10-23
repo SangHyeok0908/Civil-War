@@ -1,7 +1,10 @@
 package cw.auth;
+
 import jakarta.persistence.*;
 import java.time.Instant;
-@Entity @Table(name="admin_sessions")
+
+@Entity
+@Table(name = "admin_sessions")
 public class AdminSession {
     @Id public String id;
     public String secretHash;

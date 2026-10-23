@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'org.springframework.boot' version '4.1.1'
+    id 'com.diffplug.spotless' version '8.10.4'
 }
 group = 'cw'
 version = '0.1.0-provisional'
@@ -32,6 +33,15 @@ tasks.named('wrapper') {
     distributionSha256Sum = '21bd5da2de49b642904077f38c0efdc7778e92b3ed0889392dca61b97e389607'
 }
 dependencyLocking { lockAllConfigurations() }
+
+spotless {
+    java {
+        target 'src/main/java/**/*.java', 'src/test/java/**/*.java'
+        googleJavaFormat('1.36.1').aosp()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+}
 
 // Clean builds always package the same-origin UI; no pre-existing dist directory is assumed.
 tasks.register('buildWeb', Exec) {
