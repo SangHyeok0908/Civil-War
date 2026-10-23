@@ -44,8 +44,21 @@
 
 **Interfaces:** Keep all public signatures, output order and API response types unchanged. Private helper methods may name existing steps.
 
-- [ ] Use existing recommendation, match API and SQLite tests to verify behavior before edits.
-- [ ] Replace ambiguous local names, extract coherent recommendation/query steps and expand embedded SQL.
-- [ ] Apply formatters and run TypeScript checks/tests, Java/PostgreSQL tests, probe tests and browser/Electron regression tests as applicable.
-- [ ] Commit refactoring separately.
-- [ ] Request a fresh final code review; address material findings and verify the resulting change.
+- [x] Use existing recommendation, match API and SQLite tests to verify behavior before edits.
+- [x] Replace ambiguous local names, extract coherent recommendation/query steps and expand embedded SQL.
+- [x] Apply formatters and run TypeScript checks/tests, Java/PostgreSQL tests, probe tests and browser/Electron regression tests as applicable.
+- [x] Commit refactoring separately.
+- [x] Request a fresh final code review; address material findings and verify the resulting change.
+
+## Verification results
+
+- Java formatting: 83 files reformatted; non-import code tokens matched the original before refactoring.
+- Prettier and Java format checks pass; Gradle `build` includes Java format enforcement.
+- TypeScript typecheck and 50 unit tests pass.
+- Java/PostgreSQL: 108 tests pass, none skipped; 126-partition recommendation benchmark took 37ms.
+- Local HTTPS probe regression: 31 tests pass.
+- Web browser checks: 14 pass, comprising 11 actual-server checks and 3 injected UI-state checks.
+- Electron checks: 7 pass against built main/preload/renderer and SQLite with simulated LCU/server responses.
+- Embedded SQL tokens, SQLite table/index/foreign-key definitions and migration version are unchanged.
+- Fresh review found a missing nested Gradle discovery setting; added `gradle.nestedProjects: ["apps/server"]` and checked against the Gradle extension's documented configuration.
+- Windows launcher branch and editor configuration were reviewed; no actual Windows or interactive editor session was exercised.

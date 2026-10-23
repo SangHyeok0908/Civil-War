@@ -17,7 +17,7 @@ pnpm format:java:check
 
 ## 에디터
 
-VS Code에서 저장소를 열고 `.vscode/extensions.json`의 권장 확장을 설치하면 저장 시 포맷을 사용할 수 있다. Java는 Java 25로 Gradle 프로젝트 `apps/server`를 가져오고 Spotless Gradle 확장을 사용한다. 프런트엔드에는 Prettier 확장을 사용한다. 다른 에디터도 `.editorconfig`를 읽도록 하고, Java에는 AOSP 스타일로 설정한 google-java-format 또는 Spotless 연동을 사용한다. 최종 기준은 위 명령의 검사 결과다.
+VS Code에서 저장소를 열고 `.vscode/extensions.json`의 권장 확장을 설치하면 저장 시 포맷을 사용할 수 있다. `gradle.nestedProjects` 설정이 루트 아래의 `apps/server` 프로젝트를 검색하도록 지정한다. Java는 Java 25로 이 Gradle 프로젝트를 가져오고 Spotless Gradle 확장을 사용한다. 프런트엔드에는 Prettier 확장을 사용한다. 다른 에디터도 `.editorconfig`를 읽도록 하고, Java에는 AOSP 스타일로 설정한 google-java-format 또는 Spotless 연동을 사용한다. 최종 기준은 위 명령의 검사 결과다.
 
 ## 코드 작성
 

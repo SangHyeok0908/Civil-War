@@ -1,32 +1,40 @@
 package cw.matches;
 
-import cw.contracts.*;
+import cw.contracts.ApiException;
+import cw.contracts.EvaluationContracts.GameScore;
+import cw.contracts.MatchContracts.ParticipantRecord;
+import cw.contracts.Role;
 import cw.db.ServiceState;
-import cw.members.*;
-import jakarta.persistence.*;
+import cw.evaluation.EvaluationRepository;
+import cw.members.MemberRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.*;
-import org.springframework.data.domain.*;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Transactional(
-        readOnly = true,
-        isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+@Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
 public class PublicMatchQuery {
     private final MatchRepository matches;
     private final MemberRepository members;
     private final MatchViews views;
-    private final cw.evaluation.EvaluationRepository evaluations;
-    @PersistenceContext private EntityManager em;
+    private final EvaluationRepository evaluations;
+    @PersistenceContext private EntityManager entityManager;
 
     public PublicMatchQuery(
             MatchRepository matches,
             MemberRepository members,
             MatchViews views,
-            cw.evaluation.EvaluationRepository evaluations) {
+            EvaluationRepository evaluations) {
         this.matches = matches;
         this.members = members;
         this.views = views;
@@ -64,88 +72,99 @@ public class PublicMatchQuery {
             String scoringVersion,
             long sourceRevision,
             String generationId,
-            List<cw.contracts.EvaluationContracts.GameScore> scores) {}
+            List<GameScore> scores) {}
 
     public record MatchPage(List<PublicMatch> items, String nextCursor) {}
 
     public PublicMatch get(String key) {
         var entity =
                 matches.findById(key)
-                        .filter(m -> m.state.equals("registered"))
+                        .filter(match -> match.state.equals("registered"))
                         .orElseThrow(() -> new ApiException(404, "NOT_FOUND"));
         return view(entity);
     }
 
     public MatchPage list(MatchSpecifications.Filters filters, String cursor, int limit) {
-        if (limit < 1 || limit > 100 || (filters.championId() != null && filters.championId() < 1))
+        if (limit < 1
+                || limit > 100
+                || (filters.championId() != null && filters.championId() < 1)) {
             throw new ApiException(400, "INVALID_FILTER");
+        }
         var rows =
                 matches.findAll(
-                                MatchSpecifications.registered(filters, decode(cursor)),
+                                MatchSpecifications.registered(filters, decodeCursor(cursor)),
                                 PageRequest.of(
                                         0,
                                         limit + 1,
                                         Sort.by(Sort.Direction.DESC, "startedAt", "id")))
                         .getContent();
-        boolean more = rows.size() > limit;
-        var selected = rows.subList(0, Math.min(limit, rows.size()));
+        boolean hasNextPage = rows.size() > limit;
+        var pageMatches = rows.subList(0, Math.min(limit, rows.size()));
         return new MatchPage(
-                selected.stream().map(this::view).toList(),
-                more ? encode(selected.getLast()) : null);
+                pageMatches.stream().map(this::view).toList(),
+                hasNextPage ? encodeCursor(pageMatches.getLast()) : null);
     }
 
     public PublicMatch view(MatchEntity entity) {
         var normalized = views.normalized(entity);
-        Map<String, MatchParticipantEntity> participants = new HashMap<>();
-        for (var p : entity.participants) participants.put(p.puuid, p);
-        var rows =
+        Map<String, MatchParticipantEntity> participantsByPuuid = new HashMap<>();
+        for (var participant : entity.participants) {
+            participantsByPuuid.put(participant.puuid, participant);
+        }
+        var participants =
                 normalized.participants().stream()
                         .map(
-                                p -> {
-                                    var stored = participants.get(p.puuid());
-                                    var member = members.findById(stored.memberId).orElseThrow();
-                                    return new PublicParticipant(
-                                            member.id,
-                                            member.displayName,
-                                            p.teamId(),
-                                            p.win(),
-                                            p.championId(),
-                                            stored.role,
-                                            p.kills(),
-                                            p.deaths(),
-                                            p.assists(),
-                                            p.championDamage(),
-                                            p.damageTaken(),
-                                            p.laneCs(),
-                                            p.neutralCs(),
-                                            p.goldEarned(),
-                                            p.visionScore(),
-                                            p.objectiveDamage(),
-                                            p.turretDamage(),
-                                            p.items());
-                                })
+                                record ->
+                                        participantView(
+                                                record, participantsByPuuid.get(record.puuid())))
                         .toList();
-        var state = em.find(ServiceState.class, 1);
+        var state = entityManager.find(ServiceState.class, 1);
         var generation = evaluations.current();
+        var gameScores =
+                generation == null
+                        ? List.<GameScore>of()
+                        : generation.gameScores().stream()
+                                .filter(gameScore -> gameScore.matchKey().equals(entity.id))
+                                .toList();
         return new PublicMatch(
                 entity.id,
                 normalized.startedAtUtc(),
                 normalized.durationSeconds(),
                 normalized.mapId(),
                 normalized.patch(),
-                rows,
+                participants,
                 generation == null ? "recalculating" : "ready",
                 generation == null ? null : generation.scoringVersion(),
                 state.sourceRevision,
                 generation == null ? null : generation.id(),
-                generation == null
-                        ? List.of()
-                        : generation.gameScores().stream()
-                                .filter(s -> s.matchKey().equals(entity.id))
-                                .toList());
+                gameScores);
     }
 
-    private static String encode(MatchEntity entity) {
+    private PublicParticipant participantView(
+            ParticipantRecord record, MatchParticipantEntity stored) {
+        var member = members.findById(stored.memberId).orElseThrow();
+        return new PublicParticipant(
+                member.id,
+                member.displayName,
+                record.teamId(),
+                record.win(),
+                record.championId(),
+                stored.role,
+                record.kills(),
+                record.deaths(),
+                record.assists(),
+                record.championDamage(),
+                record.damageTaken(),
+                record.laneCs(),
+                record.neutralCs(),
+                record.goldEarned(),
+                record.visionScore(),
+                record.objectiveDamage(),
+                record.turretDamage(),
+                record.items());
+    }
+
+    private static String encodeCursor(MatchEntity entity) {
         return Base64.getUrlEncoder()
                 .withoutPadding()
                 .encodeToString(
@@ -153,16 +172,21 @@ public class PublicMatchQuery {
                                 .getBytes(StandardCharsets.UTF_8));
     }
 
-    private static MatchSpecifications.Cursor decode(String cursor) {
-        if (cursor == null) return null;
+    private static MatchSpecifications.Cursor decodeCursor(String cursor) {
+        if (cursor == null) {
+            return null;
+        }
         try {
-            if (cursor.length() > 300) throw new IllegalArgumentException();
-            var split =
+            if (cursor.length() > 300) {
+                throw new IllegalArgumentException();
+            }
+            var cursorParts =
                     new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8)
                             .split("\\|", -1);
-            if (split.length != 2 || !split[1].matches("[A-Z0-9]{1,16}:[0-9]{1,30}"))
+            if (cursorParts.length != 2 || !cursorParts[1].matches("[A-Z0-9]{1,16}:[0-9]{1,30}")) {
                 throw new IllegalArgumentException();
-            return new MatchSpecifications.Cursor(Instant.parse(split[0]), split[1]);
+            }
+            return new MatchSpecifications.Cursor(Instant.parse(cursorParts[0]), cursorParts[1]);
         } catch (RuntimeException e) {
             throw new ApiException(400, "INVALID_CURSOR");
         }

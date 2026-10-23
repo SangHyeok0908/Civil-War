@@ -13,16 +13,20 @@ import {
   metricName,
 } from "../../components/Common";
 import { ChampionItemIcon } from "../../components/ChampionItemIcon";
+
 const isPending = (match: Match) => match.evaluationStatus !== "ready";
 export function MatchDetail({ matchKey }: { matchKey: string }) {
   const result = useRemote<Match>(
     "/api/matches/" + encodeURIComponent(matchKey),
     isPending,
   );
-  if (result.loading) return <Loading />;
-  if (result.error)
+  if (result.loading) {
+    return <Loading />;
+  }
+  if (result.error) {
     return <ErrorBox error={result.error} retry={result.reload} />;
-  const m = result.data!;
+  }
+  const match = result.data!;
   return (
     <>
       <Heading eyebrow="MATCH REPORT" title="경기 상세">
@@ -31,14 +35,15 @@ export function MatchDetail({ matchKey }: { matchKey: string }) {
         </a>
       </Heading>
       <div className="meta-bar">
-        <span>{kst(m.startedAtUtc)}</span>
+        <span>{kst(match.startedAtUtc)}</span>
         <span>
-          {Math.floor(m.durationSeconds / 60)}분 {m.durationSeconds % 60}초
+          {Math.floor(match.durationSeconds / 60)}분{" "}
+          {match.durationSeconds % 60}초
         </span>
-        <span>패치 {m.patch}</span>
-        <span className="mono">{m.matchKey}</span>
+        <span>패치 {match.patch}</span>
+        <span className="mono">{match.matchKey}</span>
       </div>
-      {m.evaluationStatus !== "ready" && (
+      {match.evaluationStatus !== "ready" && (
         <div role="status" className="notice amber">
           계산 중 · 전적 수치는 확인할 수 있습니다.{" "}
           <button className="secondary" onClick={result.reload}>
@@ -46,64 +51,10 @@ export function MatchDetail({ matchKey }: { matchKey: string }) {
           </button>
         </div>
       )}
-      {[100, 200].map((team) => {
-        const ps = m.participants.filter((p) => p.teamId === team);
-        const wins = ps[0]?.win;
-        return (
-          <section key={team} className="panel team-panel">
-            <div className="panel-heading">
-              <h2>
-                <span className={wins ? "victory" : "defeat"}>
-                  {wins ? "승리" : "패배"}
-                </span>
-                <span className="subtle">
-                  {" "}
-                  {team === 100 ? "블루팀" : "레드팀"}
-                </span>
-              </h2>
-              <span>
-                {ps.reduce((s, p) => s + p.kills, 0)} 킬 ·{" "}
-                {number(ps.reduce((s, p) => s + p.goldEarned, 0))} 골드
-              </span>
-            </div>
-            <div
-              className="table-scroll"
-              tabIndex={0}
-              aria-label={`${team === 100 ? "블루" : "레드"}팀 전적 표 가로 스크롤`}
-            >
-              <table className="records">
-                <thead>
-                  <tr>
-                    {[
-                      "참가자 / 챔피언",
-                      "포지션",
-                      "K / D / A",
-                      "가한 피해",
-                      "받은 피해",
-                      "CS",
-                      "골드",
-                      "시야",
-                      "오브젝트 / 포탑",
-                      "최종 아이템",
-                      "활약",
-                    ].map((x) => (
-                      <th key={x} scope="col">
-                        {x}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {ps.map((p) => (
-                    <PlayerRow key={p.memberId} p={p} m={m} />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        );
-      })}
-      <RuleNote version={m.scoringVersion} />
+      {([100, 200] as const).map((teamId) => (
+        <TeamReport key={teamId} teamId={teamId} match={match} />
+      ))}
+      <RuleNote version={match.scoringVersion} />
       <p className="caption">
         점수·순위·누적 통계는 같은 평가 세대를 사용합니다. 원본 수치는 운영자도
         편집할 수 없습니다.
@@ -111,52 +62,142 @@ export function MatchDetail({ matchKey }: { matchKey: string }) {
     </>
   );
 }
-function PlayerRow({ p, m }: { p: PublicParticipant; m: Match }) {
-  const s = m.scores.find((s) => s.memberId === p.memberId);
+
+function TeamReport({ teamId, match }: { teamId: 100 | 200; match: Match }) {
+  const participants = match.participants.filter(
+    (participant) => participant.teamId === teamId,
+  );
+  const isWinner = participants[0]?.win;
+
+  return (
+    <section className="panel team-panel">
+      <div className="panel-heading">
+        <h2>
+          <span className={isWinner ? "victory" : "defeat"}>
+            {isWinner ? "승리" : "패배"}
+          </span>
+          <span className="subtle">
+            {" "}
+            {teamId === 100 ? "블루팀" : "레드팀"}
+          </span>
+        </h2>
+        <span>
+          {participants.reduce(
+            (total, participant) => total + participant.kills,
+            0,
+          )}{" "}
+          킬 ·{" "}
+          {number(
+            participants.reduce(
+              (total, participant) => total + participant.goldEarned,
+              0,
+            ),
+          )}{" "}
+          골드
+        </span>
+      </div>
+      <div
+        className="table-scroll"
+        tabIndex={0}
+        aria-label={`${teamId === 100 ? "블루" : "레드"}팀 전적 표 가로 스크롤`}
+      >
+        <table className="records">
+          <thead>
+            <tr>
+              {[
+                "참가자 / 챔피언",
+                "포지션",
+                "K / D / A",
+                "가한 피해",
+                "받은 피해",
+                "CS",
+                "골드",
+                "시야",
+                "오브젝트 / 포탑",
+                "최종 아이템",
+                "활약",
+              ].map((column) => (
+                <th key={column} scope="col">
+                  {column}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {participants.map((participant) => (
+              <PlayerRow
+                key={participant.memberId}
+                participant={participant}
+                match={match}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function PlayerRow({
+  participant,
+  match,
+}: {
+  participant: PublicParticipant;
+  match: Match;
+}) {
+  const playerScore = match.scores.find(
+    (gameScore) => gameScore.memberId === participant.memberId,
+  );
   return (
     <tr data-testid="player-row">
       <td>
-        <a className="player-name" href={"/members/" + p.memberId}>
-          {p.displayName}
+        <a className="player-name" href={"/members/" + participant.memberId}>
+          {participant.displayName}
         </a>
-        <ChampionItemIcon id={p.championId} />
+        <ChampionItemIcon id={participant.championId} />
       </td>
       <td>
-        <span className="role">{roleName[p.role]}</span>
+        <span className="role">{roleName[participant.role]}</span>
       </td>
       <td className="nowrap">
-        <Kda stats={p} />
+        <Kda stats={participant} />
       </td>
-      <td>{number(p.championDamage)}</td>
-      <td>{number(p.damageTaken)}</td>
-      <td>{number(p.laneCs + p.neutralCs)}</td>
-      <td>{number(p.goldEarned)}</td>
-      <td>{number(p.visionScore)}</td>
+      <td>{number(participant.championDamage)}</td>
+      <td>{number(participant.damageTaken)}</td>
+      <td>{number(participant.laneCs + participant.neutralCs)}</td>
+      <td>{number(participant.goldEarned)}</td>
+      <td>{number(participant.visionScore)}</td>
       <td>
-        {number(p.objectiveDamage)}
-        <small>{number(p.turretDamage)}</small>
+        {number(participant.objectiveDamage)}
+        <small>{number(participant.turretDamage)}</small>
       </td>
       <td>
         <div className="items">
-          {p.items.map((id, i) => (
-            <ChampionItemIcon key={i + ":" + id} id={id} kind="item" />
+          {participant.items.map((itemId, index) => (
+            <ChampionItemIcon
+              key={index + ":" + itemId}
+              id={itemId}
+              kind="item"
+            />
           ))}
         </div>
       </td>
       <td>
-        {s ? (
+        {playerScore ? (
           <details>
             <summary>
-              <strong className="score">{score(s.score)}</strong>
+              <strong className="score">{score(playerScore.score)}</strong>
               <small>
-                {m.scores.filter((x) => x.rank === s.rank).length > 1
+                {match.scores.filter(
+                  (gameScore) => gameScore.rank === playerScore.rank,
+                ).length > 1
                   ? "공동 "
                   : ""}
-                {s.rank}위
+                {playerScore.rank}위
               </small>
             </summary>
             <dl className="breakdown">
-              {Object.entries(s.breakdown).map(([key, value]) => (
+              {Object.entries(playerScore.breakdown).map(([key, value]) => (
                 <div key={key}>
                   <dt>{metricName[key]}</dt>
                   <dd>{score(value)}</dd>
