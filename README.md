@@ -2,7 +2,9 @@
 
 Java 25 / Spring Boot 4.1.1 / PostgreSQL 18.6 / JPA + Specification / Gradle Groovy.
 
-**Provisional stage 3.** 공개 전적·누적 통계·활약 랭킹·팀 추천과 운영자 웹, 포지션별 평가 및 PostgreSQL 재계산 작업자를 구현했다. [stage 3 검증과 한계](docs/validation/stage3-report.md)를 참조한다. LCU 실기 gate는 계속 **HOLD**이며 실제 Windows/League/DPAPI, 설치·배포·백업·시범 운영은 완료하지 않았다. fixture의 ID·PUUID·시각은 합성/가명이며 운영 seed가 아니다.
+**Provisional stage 3.** 공개 전적·누적 통계·활약 랭킹·팀 추천과 운영자 웹, 포지션별 평가 및 PostgreSQL 재계산 작업자를 구현했다. [stage 3 검증과 한계](docs/validation/stage3-report.md)를 참조한다. LCU 검증의 남은 보류 사유는 포탑·오브젝트 피해량의 의미 확인(C07)이다. 실제 Windows 인증 정보 보호, 설치·업데이트, 서버 외부 접속과 백업·복원은 아직 확인하지 않았다. fixture의 ID·PUUID·시각은 합성/가명이며 운영 seed가 아니다.
+
+2026-10-23 사용자 결정으로 경기 종료 후 첫 조회(C01), 미리 실행한 도구와의 조회 비교(C02), 반영 시간·과거 조회 범위 측정(C10), 실제 3–5경기 시범 운영(T15)을 작업·완료 조건에서 제외했다. 제외 항목을 검증 성공으로 바꾸지는 않는다. 이후 작업은 **피해량 의미와 점수 기준 확정 → Windows 설치·업데이트 검증 → 서버 외부 접속과 백업·복원**이다. [범위 변경 기록 D22](docs/superpowers/decisions/2026-10-22-overnight-decisions.md#d22--2026-10-23-사용자-요청에-따른-검증-작업-제외).
 
 웹: `/matches`, `/matches/:key`, `/members`, `/members/:id`, `/rankings`, `/teams`. 운영자: `/admin`에서 일회용 코드 로그인 후 참가자·코드/인증·경기 정정/취소·평가 기준·재계산·감사 이력을 관리한다. 빌드된 웹과 API는 같은 Spring JAR에서 제공한다. [현재 API 계약](docs/contracts/stage3-api.md) · [현재 JSON Schema](docs/contracts/stage3.schema.json) · [수집기 검증](docs/validation/stage2-report.md).
 
@@ -109,4 +111,4 @@ pnpm format:check
 
 솔로 참고 가져오기는 운영자가 확인한 **LCU 회원 ↔ 공식 API PUUID 매핑**을 반드시 요구한다. 최근 최대 20개의 검증된 솔로/등록 내전 역할로 주·부 역할을 제안하며 수동 설정은 자동 변경하지 않는다. 제안을 편집란에 적용하고 저장하는 두 번의 명시적 동작이 필요하다. 수집기의 실시간 솔로 export는 여전히 이용 불가이며, 직접 Riot HTTP 차단을 우회하지 않는다. 상세 import 형식은 현재 API 계약을 따른다.
 
-운영용 DB·Tunnel·설치/업데이트·외부 백업/복원은 T13–T15 후속 범위다. 로컬/호스팅 fixture 성공은 실제 Windows/League, 운영 보안 또는 가용성 검증을 대신하지 않는다.
+운영용 DB·Tunnel·설치/업데이트·외부 백업/복원은 T13–T14 후속 범위다. T15 시범 운영은 사용자 결정으로 제외했다. 로컬/호스팅 fixture 성공은 실제 Windows 인증 정보 보호, 운영 보안 또는 가용성 검증을 대신하지 않는다.

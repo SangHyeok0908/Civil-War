@@ -1,5 +1,7 @@
 # Stage 2 — T05–T07 provisional collector verification
 
+**Scope update, 2026-10-23:** C01/C02 lookup-timing comparisons, C10 delay/history-range measurements, and T15 pilot games are excluded by user decision. They are not pending Windows acceptance tasks. C07 damage semantics/scoring and T13–T14 installation, credential preservation, deployment, and restore remain. See [D22](../superpowers/decisions/2026-10-22-overnight-decisions.md#d22--2026-10-23-사용자-요청에-따른-검증-작업-제외).
+
 - Date: 2026-10-22 KST.
 - Base: `8e48b3a` (stage 1 final reviewed head); branch `codex/stage-2-windows-collector`.
 - Scope: client workspace, TypeScript contracts/LCU adapter, Windows Electron collector, SQLite outbox, Korean review UI, fixture tests and client CI.
@@ -73,15 +75,14 @@ Captured from the real Electron fixture UI and visually inspected by the impleme
 
 ## Exact outstanding Windows manual run — HOLD
 
-Use a real Windows account, actual League installation, HTTPS server and pre-registered real members. Keep raw capture/credentials in private storage; do not put them in this report.
+Use the target Windows installation and existing collected records or isolated test records for installation/update and credential-preservation checks. No new normal game, lookup-timing comparison, history-range measurement, or fixed game count is required. Keep raw capture/credentials in private storage; do not put them in this report.
 
 1. Install exact Node/pnpm; `pnpm install --frozen-lockfile`, `pnpm build`; set `CW_SERVER_ORIGIN` and `CW_LCU_LOCKFILE`; `pnpm dev:collector`. Verify default `%APPDATA%\Civil War Collector` location and SQLite reopen on the target filesystem.
-2. League stopped, logged out, then started: verify account states and **zero history/detail calls before the button**. Restart League so lockfile port/password change and verify reconnect uses the new file. Verify renderer devtools sees no LCU credential/device token/raw match and cannot use Node or arbitrary IPC.
+2. Verify account states and **zero history/detail calls before the button**. Verify renderer devtools sees no LCU credential/device token/raw match and cannot use Node or arbitrary IPC. The previously excluded real-client restart comparison is not required.
 3. Enroll with the owner's code; restart under the same Windows user and verify actual safeStorage decryption. Verify unavailable/corrupted protected storage gives re-enrollment, not plaintext. Verify a mismatched LCU account cannot consume the owner's enrollment code. Actual DPAPI/user-profile behavior remains untested here.
-4. Perform the stage 0 C01/C02 normal-game observation procedure from the existing validation documents. Click history after completion and compare actual paginated history/details to the official client screen. Do not reinterpret fixture success as C01/C02/C07/C10 PASS.
-5. After first online enrollment/roster cache, block the server and collect via the button. Verify 전송 대기, review all 5+5 roles and explicit inhouse checkbox, then verify 등록 대기. Exit/restart while offline; reconnect and observe ingest before confirm and registered state. A second unconfirmed match must remain 확인 대기.
-6. Interrupt the network after server ingest and after server confirmation commits; reconnect and verify one server match/registration, preserved original roles, and no new history call during retry. Repeat query and another participant's upload; confirm no scores/roles/raw overwrite.
-7. With pending work, switch LCU accounts, revoke credentials and enroll a new same-member credential. Verify no cross-owner send; only explicit owner-verified resume works. Stop League and verify saved original-owner upload/confirmation still works. Test cancel response, disk-full enqueue failure, and expired LCU history with server pending reload.
+4. After first online enrollment/roster cache, block the server and collect via the button. Verify 전송 대기, review all 5+5 roles and explicit inhouse checkbox, then verify 등록 대기. Exit/restart while offline; reconnect and observe ingest before confirm and registered state. A second unconfirmed match must remain 확인 대기.
+5. Interrupt the network after server ingest and after server confirmation commits; reconnect and verify one server match/registration, preserved original roles, and no new history call during retry. Repeat query and another participant's upload; confirm no scores/roles/raw overwrite.
+6. With pending work, switch LCU accounts, revoke credentials and enroll a new same-member credential. Verify no cross-owner send; only explicit owner-verified resume works. Stop League and verify saved original-owner upload/confirmation still works. Test cancel response, disk-full enqueue failure, and expired LCU history with server pending reload.
 
 ## Stage 3 handoff
 
@@ -92,4 +93,4 @@ Use a real Windows account, actual League installation, HTTPS server and pre-reg
 - Preload interface: `getAccount`, `snapshot`, `enroll`, `queryPastMatches`, `loadPendingMatches`, `saveDraft`, `confirmRegistration(matchKey,rolesByPuuid,inhouse)`, `resumeOwnRequests`, `exportMemberReferences`. There is no renderer transport or credential getter.
 - Local DB schema version **1** is in `outbox-migrations.ts`; future changes must migrate forward, preserve owner fields and unfinished requests, and keep the stable userData path. Confirmed roles never become initial role suggestions automatically.
 - Main-local methods are `Outbox.enqueueCollected(input,actor,normalizedMatch)`, `enqueueConfirmation(matchKey,input,actor)`, `listOutbox()` and `Uploader.drainOutbox()`. SQLite methods are synchronous transactional operations; service/IPC methods are async. The already validated normalized match is passed separately to avoid parsing a preserved raw body twice. These are internal implementation interfaces, not additional HTTP endpoints.
-- Remaining deployment work: real Windows acceptance, installer/signing T13, production origin/configuration/backup T14, stage 0 closure and pilot T15. No operating-readiness claim is made.
+- Remaining work: C07 damage semantics and scoring finalization, Windows installer/update and credential-preservation checks T13, production origin/configuration and backup/restore T14. C01/C02/C10 and pilot T15 are excluded by user decision. No operating-readiness claim is made.

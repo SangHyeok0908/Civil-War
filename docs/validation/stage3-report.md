@@ -1,5 +1,7 @@
 # Stage 3 verification — provisional T08–T12
 
+**Current scope, 2026-10-23:** By explicit user decision, C01/C02 (new-game lookup timing comparisons), C10 (availability-delay/history-range measurements), and T15 (3–5 real pilot games) are excluded from pending work and acceptance conditions. Exclusion does not establish a successful measurement. C07 objective/turret semantics and scoring finalization, T13 Windows installation/upgrades, and T14 external access/backup/restore remain. See [D22](../superpowers/decisions/2026-10-22-overnight-decisions.md#d22--2026-10-23-사용자-요청에-따른-검증-작업-제외).
+
 Implemented on `codex/stage-3-evaluation-web` from reviewed stage 2 `d762a152f0bee3e0d363ab9943a4f8120c1e7d27`. Implementation commit: `b659db1`. No push or PR was performed by this worker. Coordinator owns independent review and integration. This report covers local synthetic-fixture correctness, not release acceptance or actual League compatibility.
 
 ## Delivered behavior
@@ -43,10 +45,10 @@ Pinned Korean asset metadata uses Data Dragon **16.20.1**, checked against [Riot
 
 ## Remaining acceptance limits
 
-- **C01/C02/C07/C10 remain HOLD**: actual Windows/League/DPAPI, LCU restarts/session states, item/objective interpretation and installation/update evidence have not been supplied. Stage 0 is not fulfilled. Stage 1–3 remain provisional drafts.
+- **C07 remains HOLD** for objective/turret damage semantics and final scoring policy. C01/C02/C10 are excluded by user decision, as are the previously waived client-restart and other-PC comparisons. Actual Windows credential protection and installation/update acceptance remain under T13. Stage 1–3 remain provisional drafts.
 - Direct official Riot API export is unavailable under the existing network gate. Explicit mapping/import is implemented and tested; no live export/import identity flow is claimed.
 - Independent stage 3 code review and hosted stage 3 CI remain coordinator work. Stage 2 hosted Windows fixture CI at `d762a15` was reported successful by the coordinator ([run 39650156211](https://github.com/SangHyeok0908/Civil-War/actions/runs/39650156211)); this does not validate actual Windows League behavior.
-- External HTTPS/domain/Tunnel access, production topology and rate-limit proxy tuning, installation, backups/restore and 3–5 real pilot games belong to T13–T15 and remain unperformed. T12's external-network management acceptance is still open; local real cookie/CSRF/admin flows pass.
+- External HTTPS/domain/Tunnel access, production topology and rate-limit proxy tuning, installation, and backups/restore belong to T13–T14 and remain unperformed. T15 pilot games have been removed from the plan and are not an acceptance condition. T12's external-network management acceptance is still open; local real cookie/CSRF/admin flows pass.
 - In-process public limiter resets on restart and uses direct remote IP; a reverse proxy may share one bucket until trusted proxy deployment is deliberately configured. Rules editor changes weights/mixes; alternative normalization algorithms require implementation of another supported algorithm version.
 
 Local logs: `/tmp/cw-stage3-final-server.log`, `/tmp/cw-stage3-final-web.log`, `/tmp/cw-stage3-final-electron.log`, `/tmp/cw-stage3-final-probe.log`; Gradle XML under `apps/server/build/test-results/test`. Runtime credentials/traces are gitignored in `test-results`; they are synthetic test DB artifacts and are not committed.
