@@ -2,11 +2,17 @@ package cw.auth;
 
 import static org.assertj.core.api.Assertions.*;
 
+import cw.auth.AuthService.CodeReply;
 import cw.support.DatabaseTestSupport;
 import java.io.ByteArrayInputStream;
 import java.net.URI;
-import java.net.http.*;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpRequest.BodyPublisher;
+import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,12 +29,15 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
     @Test
     void realChunkedRequestWithoutLengthIsCapped() throws Exception {
         byte[] bytes = new byte[ApiSecurityFilter.MAX_BODY_BYTES + 1];
-        java.util.Arrays.fill(bytes, (byte) 'x');
-        var publisher =
+        Arrays.fill(bytes, (byte) 'x');
+
+        BodyPublisher publisher =
                 HttpRequest.BodyPublishers.ofInputStream(() -> new ByteArrayInputStream(bytes));
         assertThat(publisher.contentLength()).isEqualTo(-1);
-        try (var client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build()) {
-            var req =
+
+        try (HttpClient client =
+                HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build()) {
+            HttpRequest req =
                     HttpRequest.newBuilder(
                                     URI.create(
                                             "http://localhost:" + port + "/api/collector/enroll"))
@@ -36,7 +45,7 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
                             .header("Content-Type", "application/json")
                             .POST(publisher)
                             .build();
-            var response = client.send(req, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = client.send(req, HttpResponse.BodyHandlers.ofString());
             assertThat(response.statusCode()).isEqualTo(413);
             assertThat(response.body()).contains("BODY_TOO_LARGE");
         }
@@ -44,9 +53,9 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void realEncodedAndMatrixPathsRemainProtected() throws Exception {
-        try (var client = HttpClient.newHttpClient()) {
+        try (HttpClient client = HttpClient.newHttpClient()) {
             for (String path :
-                    java.util.List.of(
+                    List.of(
                             "/api/admin;ignored/members",
                             "/api/admin%3Bignored/members",
                             "/api/admin%3bignored/members",
@@ -65,12 +74,13 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
                             "/api/%2Fadmin/members",
                             "/api%5cadmin/members",
                             "/api/%252fadmin/members")) {
-                var req =
+                HttpRequest req =
                         HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
                                 .timeout(Duration.ofSeconds(5))
                                 .GET()
                                 .build();
-                var response = client.send(req, HttpResponse.BodyHandlers.ofString());
+                HttpResponse<String> response =
+                        client.send(req, HttpResponse.BodyHandlers.ofString());
                 assertThat(response.statusCode()).as(path).isIn(400, 401, 403, 404);
                 assertThat(response.body()).doesNotContain("fixture-player");
             }
@@ -80,11 +90,13 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
     @Test
     void encodedMatchKeyColonWorksForCollectorAndPublicRequests() throws Exception {
         ingest.ingestMatch(input(), actor(1));
-        var code = auth.issueCode("collector", "member-1", "test");
-        var token = auth.enroll(code.code(), actor(1).puuid()).token();
+
+        CodeReply code = auth.issueCode("collector", "member-1", "test");
+        String token = auth.enroll(code.code(), actor(1).puuid()).token();
         String encodedKey = KEY.replace(":", "%3A");
-        try (var client = HttpClient.newHttpClient()) {
-            var confirm =
+
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            HttpRequest confirm =
                     HttpRequest.newBuilder(
                                     URI.create(
                                             "http://localhost:"
@@ -106,8 +118,9 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
                             .build();
             assertThat(client.send(confirm, HttpResponse.BodyHandlers.ofString()).statusCode())
                     .isEqualTo(200);
-            for (String prefix : java.util.List.of("/api/collector/matches/", "/api/matches/")) {
-                var request =
+
+            for (String prefix : List.of("/api/collector/matches/", "/api/matches/")) {
+                HttpRequest request =
                         HttpRequest.newBuilder(
                                         URI.create(
                                                 "http://localhost:" + port + prefix + encodedKey))
@@ -115,7 +128,8 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
                                 .header("Authorization", "Bearer " + token)
                                 .GET()
                                 .build();
-                var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                HttpResponse<String> response =
+                        client.send(request, HttpResponse.BodyHandlers.ofString());
                 assertThat(response.statusCode()).isEqualTo(200);
                 assertThat(json.readTree(response.body()).get("matchKey").asString())
                         .isEqualTo(KEY);
@@ -125,9 +139,10 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void productionCookieHasHostProtection() throws Exception {
-        var code = auth.issueCode("admin", null, "test");
-        try (var client = HttpClient.newHttpClient()) {
-            var req =
+        CodeReply code = auth.issueCode("admin", null, "test");
+
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            HttpRequest req =
                     HttpRequest.newBuilder(
                                     URI.create("http://localhost:" + port + "/api/admin/session"))
                             .timeout(Duration.ofSeconds(5))
@@ -137,7 +152,7 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
                                     HttpRequest.BodyPublishers.ofString(
                                             json.writeValueAsString(Map.of("code", code.code()))))
                             .build();
-            var response = client.send(req, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = client.send(req, HttpResponse.BodyHandlers.ofString());
             assertThat(response.statusCode()).isEqualTo(200);
             assertThat(response.headers().firstValue("Set-Cookie").orElseThrow())
                     .contains("__Host-cw-admin=", "Secure", "HttpOnly", "SameSite=Strict", "Path=/")

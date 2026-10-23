@@ -1,11 +1,14 @@
 package cw.matches;
 
 import cw.contracts.ApiException;
+import cw.contracts.EvaluationContracts.EvaluationGeneration;
 import cw.contracts.EvaluationContracts.GameScore;
+import cw.contracts.MatchContracts.NormalizedMatch;
 import cw.contracts.MatchContracts.ParticipantRecord;
 import cw.contracts.Role;
 import cw.db.ServiceState;
 import cw.evaluation.EvaluationRepository;
+import cw.members.MemberEntity;
 import cw.members.MemberRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -77,7 +80,7 @@ public class PublicMatchQuery {
     public record MatchPage(List<PublicMatch> items, String nextCursor) {}
 
     public PublicMatch get(String key) {
-        var entity =
+        MatchEntity entity =
                 matches.findById(key)
                         .filter(match -> match.state.equals("registered"))
                         .orElseThrow(() -> new ApiException(404, "NOT_FOUND"));
@@ -90,7 +93,8 @@ public class PublicMatchQuery {
                 || (filters.championId() != null && filters.championId() < 1)) {
             throw new ApiException(400, "INVALID_FILTER");
         }
-        var rows =
+
+        List<MatchEntity> rows =
                 matches.findAll(
                                 MatchSpecifications.registered(filters, decodeCursor(cursor)),
                                 PageRequest.of(
@@ -99,33 +103,38 @@ public class PublicMatchQuery {
                                         Sort.by(Sort.Direction.DESC, "startedAt", "id")))
                         .getContent();
         boolean hasNextPage = rows.size() > limit;
-        var pageMatches = rows.subList(0, Math.min(limit, rows.size()));
+        List<MatchEntity> pageMatches = rows.subList(0, Math.min(limit, rows.size()));
+
         return new MatchPage(
                 pageMatches.stream().map(this::view).toList(),
                 hasNextPage ? encodeCursor(pageMatches.getLast()) : null);
     }
 
     public PublicMatch view(MatchEntity entity) {
-        var normalized = views.normalized(entity);
+        NormalizedMatch normalized = views.normalized(entity);
+
         Map<String, MatchParticipantEntity> participantsByPuuid = new HashMap<>();
-        for (var participant : entity.participants) {
+
+        for (MatchParticipantEntity participant : entity.participants) {
             participantsByPuuid.put(participant.puuid, participant);
         }
-        var participants =
+
+        List<PublicParticipant> participants =
                 normalized.participants().stream()
                         .map(
                                 record ->
                                         participantView(
                                                 record, participantsByPuuid.get(record.puuid())))
                         .toList();
-        var state = entityManager.find(ServiceState.class, 1);
-        var generation = evaluations.current();
-        var gameScores =
+        ServiceState state = entityManager.find(ServiceState.class, 1);
+        EvaluationGeneration generation = evaluations.current();
+        List<GameScore> gameScores =
                 generation == null
                         ? List.<GameScore>of()
                         : generation.gameScores().stream()
                                 .filter(gameScore -> gameScore.matchKey().equals(entity.id))
                                 .toList();
+
         return new PublicMatch(
                 entity.id,
                 normalized.startedAtUtc(),
@@ -142,7 +151,7 @@ public class PublicMatchQuery {
 
     private PublicParticipant participantView(
             ParticipantRecord record, MatchParticipantEntity stored) {
-        var member = members.findById(stored.memberId).orElseThrow();
+        MemberEntity member = members.findById(stored.memberId).orElseThrow();
         return new PublicParticipant(
                 member.id,
                 member.displayName,
@@ -176,16 +185,20 @@ public class PublicMatchQuery {
         if (cursor == null) {
             return null;
         }
+
         try {
             if (cursor.length() > 300) {
                 throw new IllegalArgumentException();
             }
-            var cursorParts =
+
+            String[] cursorParts =
                     new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8)
                             .split("\\|", -1);
+
             if (cursorParts.length != 2 || !cursorParts[1].matches("[A-Z0-9]{1,16}:[0-9]{1,30}")) {
                 throw new IllegalArgumentException();
             }
+
             return new MatchSpecifications.Cursor(Instant.parse(cursorParts[0]), cursorParts[1]);
         } catch (RuntimeException e) {
             throw new ApiException(400, "INVALID_CURSOR");

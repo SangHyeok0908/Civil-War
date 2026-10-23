@@ -2,12 +2,15 @@ package cw.auth;
 
 import static org.assertj.core.api.Assertions.*;
 
+import cw.auth.AuthService.CodeReply;
+import cw.auth.AuthService.LoginReply;
 import cw.contracts.ApiException;
 import cw.support.DatabaseTestSupport;
-import java.nio.file.*;
-import java.time.*;
-import java.util.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
@@ -18,12 +21,13 @@ class LocalRecoveryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void packagedLocalRecoveryRevokesAndPrintsCodeExactlyOnce() throws Exception {
-        var consumed = auth.issueCode("admin", null, "test");
-        var session = auth.login(consumed.code());
-        var oldCode = auth.issueCode("admin", null, "test");
+        CodeReply consumed = auth.issueCode("admin", null, "test");
+        LoginReply session = auth.login(consumed.code());
+        CodeReply oldCode = auth.issueCode("admin", null, "test");
         Path output = Files.createTempFile("cw-cli-test-", ".log");
+
         try {
-            var command =
+            ProcessBuilder command =
                     new ProcessBuilder(
                             Path.of(System.getProperty("java.home"), "bin", "java").toString(),
                             "-jar",
@@ -41,20 +45,27 @@ class LocalRecoveryIntegrationTest extends DatabaseTestSupport {
                             "DATABASE_PASSWORD",
                             env.getRequiredProperty("spring.datasource.password"));
             command.environment().remove("SPRING_PROFILES_ACTIVE");
-            var process = command.redirectErrorStream(true).redirectOutput(output.toFile()).start();
+
+            Process process =
+                    command.redirectErrorStream(true).redirectOutput(output.toFile()).start();
             boolean exited = process.waitFor(40, TimeUnit.SECONDS);
+
             if (!exited) {
                 process.destroyForcibly();
             }
+
             assertThat(exited).as("CLI must exit without starting a web listener").isTrue();
             assertThat(process.exitValue()).isZero();
+
             String captured = Files.readString(output);
-            var codes = captured.lines().filter(line -> line.startsWith("ADMIN_CODE=")).toList();
+            List<String> codes =
+                    captured.lines().filter(line -> line.startsWith("ADMIN_CODE=")).toList();
             assertThat(codes).hasSize(1);
+
             String fresh = codes.getFirst().substring("ADMIN_CODE=".length());
             assertThat(fresh).matches("[A-Za-z0-9_-]{43}");
             assertThat(captured).doesNotContain("Tomcat started", session.token(), oldCode.code());
-            assertThat(captured.split(java.util.regex.Pattern.quote(fresh), -1)).hasSize(2);
+            assertThat(captured.split(Pattern.quote(fresh), -1)).hasSize(2);
             assertThatThrownBy(() -> auth.requireAdmin(session.token()))
                     .isInstanceOf(ApiException.class);
             assertThatThrownBy(() -> auth.login(oldCode.code())).isInstanceOf(ApiException.class);

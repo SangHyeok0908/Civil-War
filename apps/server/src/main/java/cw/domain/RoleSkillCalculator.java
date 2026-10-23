@@ -1,16 +1,19 @@
 package cw.domain;
 
-import cw.contracts.*;
-import cw.contracts.EvaluationContracts.*;
+import cw.contracts.EvaluationContracts.GameScore;
+import cw.contracts.EvaluationContracts.RoleSkill;
 import cw.contracts.MemberContracts.Member;
-import java.util.*;
+import cw.contracts.Role;
+import java.util.ArrayList;
+import java.util.List;
 
 public class RoleSkillCalculator {
     public List<RoleSkill> calculate(List<Member> members, List<GameScore> scores) {
         List<RoleSkill> result = new ArrayList<>();
-        for (var m : members) {
-            for (var role : Role.values()) {
-                var selected =
+
+        for (Member m : members) {
+            for (Role role : Role.values()) {
+                List<GameScore> selected =
                         scores.stream()
                                 .filter(s -> s.memberId().equals(m.id()) && s.role() == role)
                                 .toList();
@@ -26,6 +29,7 @@ public class RoleSkillCalculator {
                                 selected.size()));
             }
         }
+
         return List.copyOf(result);
     }
 }

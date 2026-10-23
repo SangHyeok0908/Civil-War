@@ -1,8 +1,10 @@
 package cw.auth;
 
 import cw.contracts.ApiException;
-import java.time.*;
-import java.util.*;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import org.springframework.stereotype.Component;
 
 /** Bounded local limiter; trusted proxy forwarding is deliberately disabled. */
@@ -20,7 +22,9 @@ public class AuthRateLimiter {
     public synchronized void check(String ip) {
         attempts.entrySet()
                 .removeIf(e -> !e.getValue().start().plusSeconds(600).isAfter(clock.instant()));
-        var a = attempts.get(ip);
+
+        Attempts a = attempts.get(ip);
+
         if (a != null && a.count() >= 5) {
             throw new ApiException(429, "RATE_LIMITED");
         }
@@ -30,7 +34,8 @@ public class AuthRateLimiter {
         if (attempts.size() >= 10000 && !attempts.containsKey(ip)) {
             throw new ApiException(429, "RATE_LIMITED");
         }
-        var old = attempts.get(ip);
+
+        Attempts old = attempts.get(ip);
         attempts.put(
                 ip,
                 new Attempts(

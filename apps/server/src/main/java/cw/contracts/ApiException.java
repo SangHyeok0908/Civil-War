@@ -15,6 +15,7 @@ public class ApiException extends RuntimeException {
 
     public ApiException(int status, String code, List<Issue> details) {
         super(code);
+
         this.status = status;
         this.code = code;
         this.details = details;

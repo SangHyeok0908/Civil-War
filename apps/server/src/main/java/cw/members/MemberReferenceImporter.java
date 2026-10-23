@@ -1,14 +1,21 @@
 package cw.members;
 
-import cw.contracts.*;
+import cw.contracts.ApiException;
 import cw.contracts.EvaluationContracts.RoleReferenceSample;
+import cw.contracts.MemberContracts.Member;
+import cw.contracts.Role;
 import cw.db.MutationCoordinator;
 import cw.domain.RoleSuggester;
-import jakarta.persistence.*;
-import java.time.*;
-import java.util.*;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 @Service
@@ -37,6 +44,7 @@ public class MemberReferenceImporter {
     @Transactional
     public RoleSuggester.Suggestion importReferences(ImportInput input) {
         mutations.lock();
+
         if (input == null
                 || input.memberId() == null
                 || input.officialPuuid() == null
@@ -47,26 +55,34 @@ public class MemberReferenceImporter {
                 || input.samples().size() > 200) {
             throw new ApiException(422, "INVALID_REFERENCE_MAPPING");
         }
-        var member = members.get(input.memberId());
-        var link = em.find(ReferenceLinkEntity.class, member.id());
+
+        Member member = members.get(input.memberId());
+        ReferenceLinkEntity link = em.find(ReferenceLinkEntity.class, member.id());
+
         if (link != null && !link.officialPuuid.equals(input.officialPuuid())) {
             throw new ApiException(409, "REFERENCE_MAPPING_CONFLICT");
         }
-        for (var sample : input.samples()) {
+
+        for (RoleReferenceSample sample : input.samples()) {
             validate(sample, member.puuid(), input.officialPuuid());
         }
+
         if (link == null) {
             link = new ReferenceLinkEntity();
             link.memberId = member.id();
             link.officialPuuid = input.officialPuuid();
             link.confirmedAt = clock.instant();
+
             em.persist(link);
         }
+
         int imported = 0;
-        for (var sample : input.samples()) {
+
+        for (RoleReferenceSample sample : input.samples()) {
             if (sample.role() == null) {
                 continue;
             }
+
             long existing =
                     em.createQuery(
                                     "select count(s) from ReferenceSampleEntity s where s.memberId=:m and"
@@ -75,10 +91,12 @@ public class MemberReferenceImporter {
                             .setParameter("m", member.id())
                             .setParameter("g", sample.gameId())
                             .getSingleResult();
+
             if (existing > 0) {
                 continue;
             }
-            var row = new ReferenceSampleEntity();
+
+            ReferenceSampleEntity row = new ReferenceSampleEntity();
             row.id = UUID.randomUUID().toString();
             row.memberId = member.id();
             row.source = "solo420";
@@ -86,11 +104,14 @@ public class MemberReferenceImporter {
             row.playedAt = sample.playedAt();
             row.role = sample.role();
             row.evidenceJson = json.writeValueAsString(sample.evidence());
+
             em.persist(row);
             imported++;
         }
+
         mutations.audit(
                 "references_imported", "owner", member.id(), "{\"count\":" + imported + "}");
+
         return suggest(member.id());
     }
 
@@ -106,7 +127,9 @@ public class MemberReferenceImporter {
                 || sample.playedAt().isBefore(Instant.EPOCH)) {
             invalid();
         }
-        var e = sample.evidence();
+
+        JsonNode e = sample.evidence();
+
         if (e == null
                 || !e.isObject()
                 || !e.path("officialPuuid").isString()
@@ -121,6 +144,7 @@ public class MemberReferenceImporter {
                 || e.path("earlyEnded").asBoolean()) {
             invalid();
         }
+
         if (sample.role() != null
                 && !sample.role().name().equals(e.path("teamPosition").asString())) {
             invalid();
@@ -133,8 +157,10 @@ public class MemberReferenceImporter {
 
     public RoleSuggester.Suggestion suggest(String id) {
         members.get(id);
+
         List<RoleSuggester.Sample> samples = new ArrayList<>();
-        for (var s :
+
+        for (ReferenceSampleEntity s :
                 em.createQuery(
                                 "from ReferenceSampleEntity where memberId=:m order by playedAt desc,gameId",
                                 ReferenceSampleEntity.class)
@@ -143,7 +169,8 @@ public class MemberReferenceImporter {
                         .getResultList()) {
             samples.add(new RoleSuggester.Sample(s.source, s.gameId, s.playedAt, s.role));
         }
-        var inhouse =
+
+        List<Object[]> inhouse =
                 em.createQuery(
                                 "select m.id,m.startedAt,p.role from MatchEntity m join m.participants p where"
                                         + " m.state='registered' and p.memberId=:m order by m.startedAt desc,m.id",
@@ -151,11 +178,13 @@ public class MemberReferenceImporter {
                         .setParameter("m", id)
                         .setMaxResults(20)
                         .getResultList();
-        for (var row : inhouse) {
+
+        for (Object[] row : inhouse) {
             samples.add(
                     new RoleSuggester.Sample(
                             "inhouse", (String) row[0], (Instant) row[1], (Role) row[2]));
         }
+
         return new RoleSuggester().suggest(samples);
     }
 }

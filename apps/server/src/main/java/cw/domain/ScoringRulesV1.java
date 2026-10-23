@@ -1,8 +1,14 @@
 package cw.domain;
 
-import cw.contracts.*;
+import cw.contracts.ApiException;
 import cw.contracts.EvaluationContracts.ScoringRuleSet;
-import java.util.*;
+import cw.contracts.Role;
+import java.util.EnumMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Complete immutable parameters of the provisional algorithm, never mutable global tuning. */
@@ -20,15 +26,21 @@ public final class ScoringRulesV1 {
             {40, 25, 15, 5, 5, 5, 5},
             {5, 0, 40, 40, 5, 5, 5}
         };
+
         Map<Role, Map<String, Double>> byRole = new EnumMap<>(Role.class);
-        for (var r : Role.values()) {
+
+        for (Role r : Role.values()) {
             Map<String, Double> w = new LinkedHashMap<>();
+
             for (int i = 0; i < 7; i++) {
                 w.put(CATEGORIES.get(i), (double) weights[r.ordinal()][i]);
             }
+
             byRole.put(r, Map.copyOf(w));
         }
-        var json = JsonMapper.builder().build();
+
+        JsonMapper json = JsonMapper.builder().build();
+
         return new ScoringRuleSet(
                 "objective-provisional-v1",
                 "objective-provisional-v1",
@@ -58,8 +70,10 @@ public final class ScoringRulesV1 {
                 || r.weightsByRole().size() != 5) {
             invalid();
         }
-        for (var role : Role.values()) {
-            var w = r.weightsByRole().get(role);
+
+        for (Role role : Role.values()) {
+            Map<String, Double> w = r.weightsByRole().get(role);
+
             if (w == null
                     || !w.keySet().equals(new HashSet<>(CATEGORIES))
                     || w.values().stream().anyMatch(v -> v == null || !Double.isFinite(v) || v < 0)
@@ -69,18 +83,21 @@ public final class ScoringRulesV1 {
                 invalid();
             }
         }
+
         // Algorithm constants are versioned and persisted in full. Changing the algorithm requires
         // a
         // new supported implementation.
-        var d = defaults();
-        var normalization = r.normalization();
+        ScoringRuleSet d = defaults();
+        JsonNode normalization = r.normalization();
+
         if (normalization == null
                 || !normalization.isObject()
                 || !new HashSet<>(normalization.propertyNames())
                         .equals(new HashSet<>(d.normalization().propertyNames()))) {
             invalid();
         }
-        for (var key : d.normalization().propertyNames()) {
+
+        for (String key : d.normalization().propertyNames()) {
             if (!normalization.get(key).isNumber()
                     || Double.compare(
                                     normalization.get(key).asDouble(),
@@ -89,14 +106,17 @@ public final class ScoringRulesV1 {
                 invalid();
             }
         }
-        var mix = r.metricMix();
+
+        JsonNode mix = r.metricMix();
+
         if (mix == null
                 || !mix.isObject()
                 || !new HashSet<>(mix.propertyNames())
                         .equals(new HashSet<>(d.metricMix().propertyNames()))) {
             invalid();
         }
-        for (var k : mix.propertyNames()) {
+
+        for (String k : mix.propertyNames()) {
             if (!mix.get(k).isNumber()
                     || !Double.isFinite(mix.get(k).asDouble())
                     || mix.get(k).asDouble() < 0
@@ -104,7 +124,8 @@ public final class ScoringRulesV1 {
                 invalid();
             }
         }
-        for (var pair :
+
+        for (List<String> pair :
                 List.of(
                         List.of("damagePerMinute", "damageShare"),
                         List.of("csPerMinute", "goldPerMinute"),

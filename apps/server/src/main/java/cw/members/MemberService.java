@@ -1,9 +1,19 @@
 package cw.members;
 
-import cw.contracts.*;
-import cw.contracts.MemberContracts.*;
+import cw.contracts.ApiException;
+import cw.contracts.MemberContracts.Member;
+import cw.contracts.MemberContracts.PublicMember;
+import cw.contracts.Role;
 import cw.db.MutationCoordinator;
-import java.util.*;
+import cw.db.ServiceState;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.UUID;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
@@ -47,15 +57,11 @@ public class MemberService {
     }
 
     public List<Member> list() {
-        return members.findAll(org.springframework.data.domain.Sort.by("id")).stream()
-                .map(this::view)
-                .toList();
+        return members.findAll(Sort.by("id")).stream().map(this::view).toList();
     }
 
     public List<PublicMember> publicList() {
-        return members.findAll(org.springframework.data.domain.Sort.by("id")).stream()
-                .map(this::publicView)
-                .toList();
+        return members.findAll(Sort.by("id")).stream().map(this::publicView).toList();
     }
 
     public Member get(String id) {
@@ -64,9 +70,10 @@ public class MemberService {
 
     @Transactional
     public Member create(JsonNode input) {
-        var state = mutations.lock();
+        ServiceState state = mutations.lock();
         validateFields(input, true);
-        var m = new MemberEntity();
+
+        MemberEntity m = new MemberEntity();
         m.id = UUID.randomUUID().toString();
         m.puuid = text(input, "puuid", 255);
         m.riotId = text(input, "riotId", 255);
@@ -74,25 +81,33 @@ public class MemberService {
         m.active = true;
         m.allowedRoles = "";
         m.seedSkill = seed(input.get("seedSkill"));
+
         apply(m, input, true);
+
         if (members.findByPuuid(m.puuid).isPresent()) {
             throw new ApiException(409, "CONFLICT");
         }
+
         m.profileRevision = 1;
+
         members.save(m);
         mutations.changed(state);
         mutations.audit("member_created", "owner", m.id, "{}");
+
         return view(m);
     }
 
     @Transactional
     public Member patch(String id, JsonNode input) {
-        var state = mutations.lock();
+        ServiceState state = mutations.lock();
         validateFields(input, false);
-        var m = members.findById(id).orElseThrow(() -> new ApiException(404, "NOT_FOUND"));
-        var before = view(m);
+
+        MemberEntity m = members.findById(id).orElseThrow(() -> new ApiException(404, "NOT_FOUND"));
+        Member before = view(m);
         apply(m, input, false);
-        var after = view(m);
+
+        Member after = view(m);
+
         if (!before.equals(after)) {
             boolean teamChanged =
                     before.active() != after.active()
@@ -101,15 +116,18 @@ public class MemberService {
                             || before.secondaryRole() != after.secondaryRole()
                             || !before.allowedRoles().equals(after.allowedRoles());
             m.profileRevision++;
+
             if (teamChanged) {
                 mutations.changed(state);
             }
+
             mutations.audit(
                     "member_updated",
                     "owner",
                     m.id,
                     "{\"profileRevision\":" + m.profileRevision + "}");
         }
+
         return view(m);
     }
 
@@ -117,51 +135,69 @@ public class MemberService {
         if (input.has("riotId")) {
             m.riotId = text(input, "riotId", 255);
         }
+
         if (input.has("displayName")) {
             m.displayName = text(input, "displayName", 100);
         }
+
         if (input.has("active")) {
             if (!input.get("active").isBoolean()) {
                 invalid();
             }
+
             m.active = input.get("active").asBoolean();
         }
+
         if (input.has("seedSkill")) {
             m.seedSkill = seed(input.get("seedSkill"));
         }
+
         if (input.has("primaryRole")) {
             m.primaryRole = role(input.get("primaryRole"));
         }
+
         if (input.has("secondaryRole")) {
             m.secondaryRole = role(input.get("secondaryRole"));
         }
+
         if (m.primaryRole != null && m.primaryRole == m.secondaryRole) {
             invalid();
         }
+
         if (input.has("allowedRoles")) {
-            var a = input.get("allowedRoles");
+            JsonNode a = input.get("allowedRoles");
+
             if (!a.isArray() || a.size() > 5) {
                 invalid();
             }
+
             Set<Role> values = new LinkedHashSet<>();
-            for (var node : a) {
-                var r = role(node);
+
+            for (JsonNode node : a) {
+                Role r = role(node);
+
                 if (r == null || !values.add(r)) {
                     invalid();
                 }
             }
+
             m.allowedRoles = String.join(",", values.stream().sorted().map(Enum::name).toList());
         } else if (create) {
             Set<Role> values = new TreeSet<>();
+
             if (m.primaryRole != null) {
                 values.add(m.primaryRole);
             }
+
             if (m.secondaryRole != null) {
                 values.add(m.secondaryRole);
             }
+
             m.allowedRoles = String.join(",", values.stream().map(Enum::name).toList());
         }
-        var allowed = roles(m.allowedRoles);
+
+        List<Role> allowed = roles(m.allowedRoles);
+
         if ((m.primaryRole != null && !allowed.contains(m.primaryRole))
                 || (m.secondaryRole != null && !allowed.contains(m.secondaryRole))) {
             invalid();
@@ -172,6 +208,7 @@ public class MemberService {
         if (input == null || !input.isObject()) {
             invalid();
         }
+
         Set<String> allowed =
                 new HashSet<>(
                         Set.of(
@@ -182,9 +219,11 @@ public class MemberService {
                                 "secondaryRole",
                                 "allowedRoles",
                                 "seedSkill"));
+
         if (create) {
             allowed.add("puuid");
         }
+
         for (String name : input.propertyNames()) {
             if (!allowed.contains(name)) {
                 invalid();
@@ -202,9 +241,11 @@ public class MemberService {
         if (value.isNull()) {
             return null;
         }
+
         if (!value.isString()) {
             invalid();
         }
+
         try {
             return Role.valueOf(value.asString());
         } catch (IllegalArgumentException e) {
@@ -221,14 +262,17 @@ public class MemberService {
                 || value.asInt() > 100) {
             invalid();
         }
+
         return value.asInt();
     }
 
     private static String text(JsonNode input, String name, int max) {
-        var n = input.get(name);
+        JsonNode n = input.get(name);
+
         if (n == null || !n.isString() || n.asString().isBlank() || n.asString().length() > max) {
             invalid();
         }
+
         return n.asString();
     }
 

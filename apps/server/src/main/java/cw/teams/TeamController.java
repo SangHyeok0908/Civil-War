@@ -3,8 +3,13 @@ package cw.teams;
 import cw.contracts.ApiException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
-import java.util.*;
-import org.springframework.web.bind.annotation.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class TeamController {
@@ -29,13 +34,17 @@ public class TeamController {
         long cutoff = clock.millis() - 600_000;
         requests.values().forEach(v -> v.removeIf(t -> t <= cutoff));
         requests.entrySet().removeIf(e -> e.getValue().isEmpty());
+
         if (!requests.containsKey(ip) && requests.size() >= 10000) {
             throw new ApiException(429, "RATE_LIMITED");
         }
-        var times = requests.computeIfAbsent(ip, k -> new ArrayList<>());
+
+        List<Long> times = requests.computeIfAbsent(ip, k -> new ArrayList<>());
+
         if (times.size() >= 60) {
             throw new ApiException(429, "RATE_LIMITED");
         }
+
         times.add(clock.millis());
     }
 }

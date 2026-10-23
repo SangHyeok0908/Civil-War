@@ -1,21 +1,35 @@
 package cw.domain;
 
-import cw.contracts.*;
-import cw.contracts.EvaluationContracts.*;
-import java.util.*;
+import cw.contracts.EvaluationContracts.EvaluableMatch;
+import cw.contracts.EvaluationContracts.EvaluableParticipant;
+import cw.contracts.EvaluationContracts.EvaluationInput;
+import cw.contracts.EvaluationContracts.GameScore;
+import cw.contracts.EvaluationContracts.ScoringRuleSet;
+import cw.contracts.Role;
+import cw.domain.MatchFeatures.Row;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 public class ScoringService {
     public List<GameScore> scoreMatches(EvaluationInput input) {
         ScoringRulesV1.validate(input.rules());
+
         if (!input.rules().id().equals(input.scoringVersion())) {
             throw new IllegalArgumentException("Mismatched rule version");
         }
-        var rows = MatchFeatures.extract(input.matches(), input.rules());
-        var rules = input.rules();
+
+        List<Row> rows = MatchFeatures.extract(input.matches(), input.rules());
+        ScoringRuleSet rules = input.rules();
+
         List<GameScore> result = new ArrayList<>();
-        for (var row : rows) {
-            var p = row.participant();
-            var other =
+
+        for (Row row : rows) {
+            EvaluableParticipant p = row.participant();
+            Row other =
                     rows.stream()
                             .filter(
                                     q ->
@@ -26,7 +40,7 @@ public class ScoringService {
                                                             .equals(p.memberId()))
                             .findFirst()
                             .orElseThrow();
-            var history =
+            List<Row> history =
                     rows.stream()
                             .filter(
                                     q ->
@@ -34,6 +48,7 @@ public class ScoringService {
                                                     && q.participant().role() == p.role())
                             .toList();
             double[] n = new double[row.metrics().length];
+
             for (int i = 0; i < n.length; i++) {
                 final int metric = i;
                 n[i] =
@@ -43,6 +58,7 @@ public class ScoringService {
                                 history.stream().map(q -> q.metrics()[metric]).toList(),
                                 rules);
             }
+
             Map<String, Double> b = new LinkedHashMap<>();
             b.put(
                     "damage",
@@ -62,6 +78,7 @@ public class ScoringService {
             b.put("objective", p.role() == Role.TOP ? n[8] : n[7]);
             b.put("deaths", 100 - n[9]);
             b.put("win", p.record().win() ? 100. : 0.);
+
             double score =
                     b.entrySet().stream()
                             .mapToDouble(
@@ -82,16 +99,21 @@ public class ScoringService {
                             0,
                             Map.copyOf(b)));
         }
+
         Map<String, Map<String, Integer>> ranks = new HashMap<>();
-        for (var game : input.matches()) {
+
+        for (EvaluableMatch game : input.matches()) {
             Map<String, Double> values = new HashMap<>();
-            for (var s : result) {
+
+            for (GameScore s : result) {
                 if (s.matchKey().equals(game.match().matchKey())) {
                     values.put(s.memberId(), s.score());
                 }
             }
+
             ranks.put(game.match().matchKey(), competitionRanks(values));
         }
+
         return result.stream()
                 .map(
                         s ->
@@ -129,6 +151,7 @@ public class ScoringService {
         double a =
                 history.size()
                         / (history.size() + ScoringRulesV1.parameter(rules, "historyWeight"));
+
         return Math.clamp(
                 (1 - a) * p + a * h,
                 ScoringRulesV1.parameter(rules, "min"),
@@ -140,25 +163,31 @@ public class ScoringService {
     }
 
     public static Map<String, Integer> competitionRanks(Map<String, Double> values) {
-        var sorted =
+        List<String> sorted =
                 values.keySet().stream()
                         .sorted(
                                 Comparator.<String>comparingLong(id -> rounded(values.get(id)))
                                         .reversed()
                                         .thenComparing(id -> id))
                         .toList();
+
         Map<String, Integer> result = new HashMap<>();
         long previous = Long.MIN_VALUE;
         int rank = 0;
+
         for (int i = 0; i < sorted.size(); i++) {
             String id = sorted.get(i);
             long value = rounded(values.get(id));
+
             if (value != previous) {
                 rank = i + 1;
             }
+
             result.put(id, rank);
+
             previous = value;
         }
+
         return result;
     }
 }

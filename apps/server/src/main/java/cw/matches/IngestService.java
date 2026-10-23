@@ -7,8 +7,10 @@ import cw.contracts.MatchContracts.IngestMatchInput;
 import cw.contracts.MatchContracts.NormalizedMatch;
 import cw.contracts.MatchContracts.ParticipantRecord;
 import cw.db.MutationCoordinator;
+import cw.members.MemberEntity;
 import cw.members.MemberRepository;
 import java.time.Clock;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,23 +45,27 @@ public class IngestService {
 
     @Transactional
     public IngestMatchAck ingestMatch(IngestMatchInput input, CollectorPrincipal actor) {
-        var normalized = validator.normalize(input);
+        NormalizedMatch normalized = validator.normalize(input);
         mutations.lock();
-        var existing = matches.findById(normalized.matchKey());
+
+        Optional<MatchEntity> existing = matches.findById(normalized.matchKey());
+
         if (existing.isPresent()) {
             views.requireParticipant(existing.get(), actor);
             return new IngestMatchAck(
                     existing.get().id, existing.get().state, "already_" + existing.get().state);
         }
-        var match = createPendingMatch(input, normalized);
+
+        MatchEntity match = createPendingMatch(input, normalized);
         views.requireParticipant(match, actor);
         matches.save(match);
         mutations.audit("match_ingested", actor.memberId(), match.id, "{}");
+
         return new IngestMatchAck(match.id, match.state, "created_pending");
     }
 
     private MatchEntity createPendingMatch(IngestMatchInput input, NormalizedMatch normalized) {
-        var match = new MatchEntity();
+        MatchEntity match = new MatchEntity();
         match.id = normalized.matchKey();
         match.platformId = normalized.platformId();
         match.gameId = normalized.gameId();
@@ -68,17 +74,20 @@ public class IngestService {
         match.createdAt = clock.instant();
         match.rawJson = json.writeValueAsString(input.rawMatch());
         match.normalizedJson = json.writeValueAsString(normalized);
-        for (var record : normalized.participants()) {
+
+        for (ParticipantRecord record : normalized.participants()) {
             match.participants.add(createParticipant(record, match));
         }
+
         return match;
     }
 
     private MatchParticipantEntity createParticipant(ParticipantRecord record, MatchEntity match) {
-        var member =
+        MemberEntity member =
                 members.findByPuuid(record.puuid())
                         .orElseThrow(() -> new ApiException(422, "UNREGISTERED_PARTICIPANT"));
-        var participant = new MatchParticipantEntity();
+
+        MatchParticipantEntity participant = new MatchParticipantEntity();
         participant.id = UUID.randomUUID().toString();
         participant.match = match;
         participant.memberId = member.id;
@@ -86,6 +95,7 @@ public class IngestService {
         participant.teamId = record.teamId();
         participant.championId = record.championId();
         participant.win = record.win();
+
         return participant;
     }
 }

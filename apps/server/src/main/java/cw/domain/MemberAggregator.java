@@ -1,43 +1,66 @@
 package cw.domain;
 
-import cw.contracts.*;
-import cw.contracts.EvaluationContracts.*;
-import java.util.*;
+import cw.contracts.EvaluationContracts.EvaluableParticipant;
+import cw.contracts.EvaluationContracts.EvaluationInput;
+import cw.contracts.EvaluationContracts.GameScore;
+import cw.contracts.EvaluationContracts.MemberStats;
+import cw.contracts.EvaluationContracts.RecordStats;
+import cw.contracts.MemberContracts.Member;
+import cw.contracts.Role;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 public class MemberAggregator {
     public List<MemberStats> aggregate(EvaluationInput input, List<GameScore> scores) {
         double groupMean = scores.stream().mapToDouble(GameScore::score).average().orElse(0);
+
         Map<String, Double> adjusted = new HashMap<>(), ranked = new HashMap<>();
-        for (var m : input.members()) {
-            var ms = scores.stream().filter(s -> s.memberId().equals(m.id())).toList();
+
+        for (Member m : input.members()) {
+            List<GameScore> ms = scores.stream().filter(s -> s.memberId().equals(m.id())).toList();
+
             if (!ms.isEmpty()) {
                 double value =
                         (ms.stream().mapToDouble(GameScore::score).sum()
                                         + input.rules().cumulativePrior() * groupMean)
                                 / (ms.size() + input.rules().cumulativePrior());
                 adjusted.put(m.id(), value);
+
                 if (ms.size() >= ScoringRulesV1.parameter(input.rules(), "rankedGames")) {
                     ranked.put(m.id(), value);
                 }
             }
         }
-        var ranks = ScoringService.competitionRanks(ranked);
+
+        Map<String, Integer> ranks = ScoringService.competitionRanks(ranked);
+
         List<MemberStats> result = new ArrayList<>();
-        for (var m : input.members()) {
-            var ps =
+
+        for (Member m : input.members()) {
+            List<EvaluableParticipant> ps =
                     input.matches().stream()
                             .flatMap(g -> g.participants().stream())
                             .filter(p -> p.memberId().equals(m.id()))
                             .toList();
-            var total = stats(ps);
+            RecordStats total = stats(ps);
+
             Map<Role, RecordStats> byRole = new EnumMap<>(Role.class);
             Map<Integer, RecordStats> byChampion = new TreeMap<>();
-            for (var role : Role.values()) {
-                var selected = ps.stream().filter(p -> p.role() == role).toList();
+
+            for (Role role : Role.values()) {
+                List<EvaluableParticipant> selected =
+                        ps.stream().filter(p -> p.role() == role).toList();
+
                 if (!selected.isEmpty()) {
                     byRole.put(role, stats(selected));
                 }
             }
+
             for (int champion : ps.stream().map(p -> p.record().championId()).distinct().toList()) {
                 byChampion.put(
                         champion,
@@ -46,6 +69,7 @@ public class MemberAggregator {
                                         .filter(p -> p.record().championId() == champion)
                                         .toList()));
             }
+
             result.add(
                     new MemberStats(
                             m.id(),
@@ -66,6 +90,7 @@ public class MemberAggregator {
                             Map.copyOf(byRole),
                             Map.copyOf(byChampion)));
         }
+
         return result.stream()
                 .sorted(
                         Comparator.comparing(
@@ -78,14 +103,17 @@ public class MemberAggregator {
     private RecordStats stats(List<EvaluableParticipant> ps) {
         long k = 0, d = 0, a = 0;
         int wins = 0;
-        for (var p : ps) {
+
+        for (EvaluableParticipant p : ps) {
             k = Math.addExact(k, p.record().kills());
             d = Math.addExact(d, p.record().deaths());
             a = Math.addExact(a, p.record().assists());
+
             if (p.record().win()) {
                 wins++;
             }
         }
+
         return new RecordStats(
                 ps.size(),
                 wins,

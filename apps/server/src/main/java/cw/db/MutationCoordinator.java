@@ -1,10 +1,13 @@
 package cw.db;
 
-import jakarta.persistence.*;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
 import java.time.Clock;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.*;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @Transactional(propagation = Propagation.MANDATORY)
@@ -23,23 +26,27 @@ public class MutationCoordinator {
     public long changed(ServiceState state) {
         state.sourceRevision++;
         state.activeGenerationId = null;
-        var job = new RecalculationJob();
+
+        RecalculationJob job = new RecalculationJob();
         job.id = UUID.randomUUID().toString();
         job.sourceRevision = state.sourceRevision;
         job.status = "pending";
         job.createdAt = clock.instant();
+
         em.persist(job);
+
         return state.sourceRevision;
     }
 
     public void audit(String action, String actor, String target, String details) {
-        var entry = new AuditEntry();
+        AuditEntry entry = new AuditEntry();
         entry.id = UUID.randomUUID().toString();
         entry.action = action;
         entry.actorId = actor;
         entry.targetId = target;
         entry.details = details;
         entry.createdAt = clock.instant();
+
         em.persist(entry);
     }
 }

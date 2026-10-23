@@ -2,13 +2,18 @@ package cw.members;
 
 import static org.assertj.core.api.Assertions.*;
 
-import cw.contracts.*;
-import cw.contracts.EvaluationContracts.*;
+import cw.contracts.ApiException;
+import cw.contracts.EvaluationContracts.RoleReferenceSample;
+import cw.contracts.MemberContracts.Member;
+import cw.contracts.Role;
+import cw.domain.RoleSuggester.Suggestion;
+import cw.members.MemberReferenceImporter.ImportInput;
 import cw.support.DatabaseTestSupport;
 import java.time.Instant;
-import java.util.*;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import tools.jackson.databind.node.ObjectNode;
 
 class MemberReferenceIntegrationTest extends DatabaseTestSupport {
     @Autowired MemberReferenceImporter importer;
@@ -32,10 +37,10 @@ class MemberReferenceIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void referenceDoesNotOverwriteManualAndSoloNeverEntersRanking() {
-        var before = memberService.get("member-1");
+        Member before = memberService.get("member-1");
         long rev = revision();
         long count = matches.count();
-        var result = importer.importReferences(input(true));
+        Suggestion result = importer.importReferences(input(true));
         assertThat(result.primary()).isEqualTo(Role.JUNGLE);
         assertThat(memberService.get("member-1")).isEqualTo(before);
         assertThat(revision()).isEqualTo(rev);
@@ -46,9 +51,9 @@ class MemberReferenceIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void overflowingEvidenceIsRejected() {
-        var base = input(true);
-        var sample = base.samples().getFirst();
-        var evidence = (tools.jackson.databind.node.ObjectNode) sample.evidence();
+        ImportInput base = input(true);
+        RoleReferenceSample sample = base.samples().getFirst();
+        ObjectNode evidence = (ObjectNode) sample.evidence();
         evidence.put("queueId", 4294967716L);
         assertThatThrownBy(() -> importer.importReferences(base)).isInstanceOf(ApiException.class);
     }
@@ -58,7 +63,8 @@ class MemberReferenceIntegrationTest extends DatabaseTestSupport {
         assertThatThrownBy(() -> importer.importReferences(input(false)))
                 .isInstanceOf(ApiException.class);
         importer.importReferences(input(true));
-        var i = input(true);
+
+        ImportInput i = input(true);
         assertThatThrownBy(
                         () ->
                                 importer.importReferences(

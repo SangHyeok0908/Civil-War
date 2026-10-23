@@ -3,16 +3,19 @@ package cw.auth;
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 
-import cw.contracts.*;
+import cw.auth.AuthService.CodeReply;
 import cw.support.DatabaseTestSupport;
 import jakarta.servlet.http.Cookie;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.test.web.servlet.*;
+import org.springframework.boot.webmvc.test.autoconfigure.MockMvcPrint;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.web.servlet.MockMvc;
 
-@AutoConfigureMockMvc(print = org.springframework.boot.webmvc.test.autoconfigure.MockMvcPrint.NONE)
+@AutoConfigureMockMvc(print = MockMvcPrint.NONE)
 class AuthMembersIntegrationTest extends DatabaseTestSupport {
     @Autowired MockMvc mvc;
     @Autowired AuthService auth;
@@ -20,8 +23,8 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
     record Login(Cookie cookie, String csrf) {}
 
     Login login() throws Exception {
-        var code = auth.issueCode("admin", null, "test");
-        var response =
+        CodeReply code = auth.issueCode("admin", null, "test");
+        MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/admin/session")
                                         .header("Origin", "http://localhost:8080")
@@ -32,14 +35,15 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                         .andReturn()
                         .getResponse();
         assertThat(response.getStatus()).isEqualTo(200);
+
         return new Login(
                 response.getCookie("cw-admin-dev"),
                 json.readTree(response.getContentAsString()).get("csrfToken").asString());
     }
 
     String enroll(int member) throws Exception {
-        var code = auth.issueCode("collector", "member-" + member, "test");
-        var response =
+        CodeReply code = auth.issueCode("collector", "member-" + member, "test");
+        MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/collector/enroll")
                                         .contentType("application/json")
@@ -53,16 +57,17 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                         .andReturn()
                         .getResponse();
         assertThat(response.getStatus()).isEqualTo(200);
+
         return json.readTree(response.getContentAsString()).get("token").asString();
     }
 
     @Test
     void oneUseAtomic() throws Exception {
-        var code = auth.issueCode("collector", "member-1", "test");
-        var body =
+        CodeReply code = auth.issueCode("collector", "member-1", "test");
+        String body =
                 json.writeValueAsString(
                         Map.of("code", code.code(), "currentPuuid", actor(1).puuid()));
-        var result =
+        List<Integer> result =
                 concurrent(
                         () ->
                                 mvc.perform(
@@ -87,9 +92,9 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void adminCodeOneUseAtomic() throws Exception {
-        var code = auth.issueCode("admin", null, "test");
-        var body = json.writeValueAsString(Map.of("code", code.code()));
-        var results =
+        CodeReply code = auth.issueCode("admin", null, "test");
+        String body = json.writeValueAsString(Map.of("code", code.code()));
+        List<Integer> results =
                 concurrent(
                         () ->
                                 mvc.perform(
@@ -117,12 +122,13 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
     @Test
     void ownerCanRevokeCredentialAndUnusedCodeOverHttp() throws Exception {
         String token = enroll(1);
-        var code = auth.issueCode("collector", "member-2", "test");
-        var login = login();
+        CodeReply code = auth.issueCode("collector", "member-2", "test");
+        Login login = login();
         String credential =
                 jdbc.queryForObject("select id from collector_credentials limit 1", String.class);
+
         for (String path :
-                java.util.List.of(
+                List.of(
                         "/api/admin/collector-credentials/" + credential,
                         "/api/admin/codes/" + code.id())) {
             assertThat(
@@ -136,6 +142,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                     .getStatus())
                     .isEqualTo(204);
         }
+
         assertThat(
                         mvc.perform(
                                         get("/api/collector/members")
@@ -163,7 +170,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void absoluteSessionLifetimeCannotBeExtendedByActivity() throws Exception {
-        var login = login();
+        Login login = login();
         jdbc.update(
                 "update admin_sessions set created_at=now()-interval '31 days', last_seen_at=now()");
         assertThat(
@@ -185,7 +192,8 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                 .getResponse()
                                 .getStatus())
                 .isEqualTo(403);
-        var code = auth.issueCode("collector", "member-1", "test");
+
+        CodeReply code = auth.issueCode("collector", "member-1", "test");
         assertThat(
                         mvc.perform(
                                         post("/api/admin/session")
@@ -198,7 +206,8 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                 .getResponse()
                                 .getStatus())
                 .isEqualTo(401);
-        var adminCode = auth.issueCode("admin", null, "test");
+
+        CodeReply adminCode = auth.issueCode("admin", null, "test");
         assertThat(
                         mvc.perform(
                                         post("/api/collector/enroll")
@@ -218,7 +227,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void expiredAndRevoked() throws Exception {
-        var code = auth.issueCode("collector", "member-1", "test");
+        CodeReply code = auth.issueCode("collector", "member-1", "test");
         jdbc.update(
                 "update enrollment_codes set expires_at=now()-interval '1 second' where id=?",
                 code.id());
@@ -237,6 +246,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                 .getResponse()
                                 .getStatus())
                 .isEqualTo(401);
+
         String token = enroll(1);
         jdbc.update("update collector_credentials set revoked=true");
         assertThat(
@@ -247,7 +257,8 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                 .getResponse()
                                 .getStatus())
                 .isEqualTo(401);
-        var login = login();
+
+        Login login = login();
         jdbc.update("update admin_sessions set last_seen_at=now()-interval '8 days'");
         assertThat(
                         mvc.perform(get("/api/admin/members").cookie(login.cookie()))
@@ -259,7 +270,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void csrfAndOrigin() throws Exception {
-        var login = login();
+        Login login = login();
         String body = "{\"scope\":\"admin\"}";
         assertThat(
                         mvc.perform(
@@ -300,8 +311,8 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void localRecovery() throws Exception {
-        var login = login();
-        var old = auth.issueCode("admin", null, "test");
+        Login login = login();
+        CodeReply old = auth.issueCode("admin", null, "test");
         auth.recoverAdmin(true);
         assertThat(
                         mvc.perform(get("/api/admin/members").cookie(login.cookie()))
@@ -330,8 +341,8 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void memberIdentityStable() throws Exception {
-        var login = login();
-        var response =
+        Login login = login();
+        MockHttpServletResponse response =
                 mvc.perform(
                                 patch("/api/admin/members/member-1")
                                         .cookie(login.cookie())
@@ -361,8 +372,8 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void accountMismatchDoesNotConsumeCode() throws Exception {
-        var code = auth.issueCode("collector", "member-1", "test");
-        var response =
+        CodeReply code = auth.issueCode("collector", "member-1", "test");
+        MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/collector/enroll")
                                         .contentType("application/json")
@@ -389,7 +400,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void tokensAreHashedAndLogoutRevokes() throws Exception {
-        var login = login();
+        Login login = login();
         assertThat(
                         jdbc.queryForObject(
                                 "select secret_hash from admin_sessions limit 1", String.class))

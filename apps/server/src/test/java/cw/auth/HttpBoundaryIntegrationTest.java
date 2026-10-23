@@ -3,17 +3,26 @@ package cw.auth;
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 
+import cw.auth.AuthService.CodeReply;
 import cw.support.DatabaseTestSupport;
 import jakarta.servlet.http.Cookie;
-import java.util.*;
+import java.math.BigInteger;
+import java.net.URI;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.MockMvcPrint;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.node.ObjectNode;
 
-@AutoConfigureMockMvc(print = org.springframework.boot.webmvc.test.autoconfigure.MockMvcPrint.NONE)
-@org.junit.jupiter.api.extension.ExtendWith(
-        org.springframework.boot.test.system.OutputCaptureExtension.class)
+@AutoConfigureMockMvc(print = MockMvcPrint.NONE)
+@ExtendWith(OutputCaptureExtension.class)
 class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
     @Autowired MockMvc mvc;
     @Autowired AuthService auth;
@@ -23,8 +32,9 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     Login login() throws Exception {
         limiter.succeeded("127.0.0.1");
-        var code = auth.issueCode("admin", null, "test");
-        var response =
+
+        CodeReply code = auth.issueCode("admin", null, "test");
+        MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/admin/session")
                                         .header("Origin", "http://localhost:8080")
@@ -35,17 +45,18 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
                         .andReturn()
                         .getResponse();
         assertThat(response.getStatus()).isEqualTo(200);
+
         return new Login(
                 response.getCookie("cw-admin-dev"),
                 json.readTree(response.getContentAsString()).get("csrfToken").asString());
     }
 
     @Test
-    void secretsNeverEnterApplicationLogs(
-            org.springframework.boot.test.system.CapturedOutput captured) throws Exception {
+    void secretsNeverEnterApplicationLogs(CapturedOutput captured) throws Exception {
         limiter.succeeded("127.0.0.1");
+
         String sentinel = "private-code-log-sentinel";
-        var response =
+        MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/collector/enroll")
                                         .contentType("application/json")
@@ -71,7 +82,8 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
                         "/api/collector;ignored/members",
                         "/api/%61dmin/members",
                         "/api/%63ollector/members")) {
-            var response = mvc.perform(get(java.net.URI.create(path))).andReturn().getResponse();
+            MockHttpServletResponse response =
+                    mvc.perform(get(URI.create(path))).andReturn().getResponse();
             assertThat(response.getStatus()).as(path).isIn(400, 401, 403, 404);
             assertThat(response.getContentAsString()).doesNotContain("fixture-player");
         }
@@ -79,7 +91,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void matrixPathCannotIssueAnUnauthenticatedAdminCode() throws Exception {
-        var response =
+        MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/admin;ignored/codes")
                                         .contentType("application/json")
@@ -93,8 +105,8 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void sessionReloadRestoresCsrf() throws Exception {
-        var login = login();
-        var response =
+        Login login = login();
+        MockHttpServletResponse response =
                 mvc.perform(get("/api/admin/session").cookie(login.cookie()))
                         .andReturn()
                         .getResponse();
@@ -106,14 +118,15 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void malformedInputsArePrivateStructuredErrors() throws Exception {
-        var login = login();
+        Login login = login();
+
         for (String value :
                 List.of(
                         "{}",
                         "{\"scope\":null}",
                         "{\"scope\":\"admin\",\"unexpected\":\"private-sentinel\"}",
                         "{\"scope\":\"admin\",\"scope\":\"collector\"}")) {
-            var response =
+            MockHttpServletResponse response =
                     mvc.perform(
                                     post("/api/admin/codes")
                                             .cookie(login.cookie())
@@ -132,7 +145,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void bodyCapWorksWithoutContentLength() throws Exception {
-        var response =
+        MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/collector/enroll")
                                         .contentType("application/json")
@@ -151,6 +164,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
     @Test
     void codeAttemptsLimitedAndSuccessfulLoginResets() throws Exception {
         limiter.succeeded("127.0.0.1");
+
         try {
             for (int i = 0; i < 5; i++) {
                 assertThat(
@@ -164,7 +178,8 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
                                         .getStatus())
                         .isEqualTo(401);
             }
-            var blocked =
+
+            MockHttpServletResponse blocked =
                     mvc.perform(
                                     post("/api/collector/enroll")
                                             .contentType("application/json")
@@ -175,7 +190,8 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
             assertThat(blocked.getHeader("Retry-After")).isEqualTo("600");
             assertThat(blocked.getContentAsString()).doesNotContain("invalid-private-code");
             limiter.succeeded("127.0.0.1");
-            var code = auth.issueCode("collector", "member-1", "test");
+
+            CodeReply code = auth.issueCode("collector", "member-1", "test");
             assertThat(
                             mvc.perform(
                                             post("/api/collector/enroll")
@@ -198,9 +214,9 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void allowedRoleOrderingIsNotAMutation() throws Exception {
-        var login = login();
+        Login login = login();
         long beforeProfile = members.findById("member-1").orElseThrow().profileRevision;
-        var response =
+        MockHttpServletResponse response =
                 mvc.perform(
                                 patch("/api/admin/members/member-1")
                                         .cookie(login.cookie())
@@ -225,7 +241,8 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void seedMutationOnlyCreatesWorkOnceAndIdentityCannotChange() throws Exception {
-        var login = login();
+        Login login = login();
+
         for (int i = 0; i < 2; i++) {
             assertThat(
                             mvc.perform(
@@ -240,6 +257,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
                                     .getStatus())
                     .isEqualTo(200);
         }
+
         assertThat(revision()).isEqualTo(1);
         assertThat(jobs()).isEqualTo(1);
         assertThat(
@@ -258,8 +276,9 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void schemaVersionAndUnknownEnvelopeFieldsNeverCoerce() throws Exception {
-        var code = auth.issueCode("collector", "member-1", "test");
-        var token = auth.enroll(code.code(), actor(1).puuid()).token();
+        CodeReply code = auth.issueCode("collector", "member-1", "test");
+        String token = auth.enroll(code.code(), actor(1).puuid()).token();
+
         for (String version : List.of("1.2", "\"1\"")) {
             String body =
                     "{\"rawMatch\":"
@@ -278,15 +297,17 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
                                     .getStatus())
                     .isEqualTo(400);
         }
+
         assertThat(matches.count()).isZero();
     }
 
     @Test
     void collectorHttpRoundTripKeepsLargeNumericGameId() throws Exception {
-        var code = auth.issueCode("collector", "member-1", "test");
-        var token = auth.enroll(code.code(), actor(1).puuid()).token();
-        var r = raw();
-        r.put("gameId", new java.math.BigInteger("9000000000000000000001"));
+        CodeReply code = auth.issueCode("collector", "member-1", "test");
+        String token = auth.enroll(code.code(), actor(1).puuid()).token();
+        ObjectNode r = raw();
+        r.put("gameId", new BigInteger("9000000000000000000001"));
+
         String request =
                 json.writeValueAsString(
                         Map.of(
@@ -306,7 +327,8 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
                                 .getResponse()
                                 .getStatus())
                 .isEqualTo(200);
-        var response =
+
+        MockHttpServletResponse response =
                 mvc.perform(
                                 get("/api/collector/matches/" + KEY)
                                         .header("Authorization", "Bearer " + token))

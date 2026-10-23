@@ -1,13 +1,24 @@
 package cw.evaluation;
 
-import cw.contracts.EvaluationContracts.*;
+import cw.contracts.EvaluationContracts.EvaluableMatch;
+import cw.contracts.EvaluationContracts.EvaluableParticipant;
+import cw.contracts.EvaluationContracts.EvaluationInput;
+import cw.contracts.EvaluationContracts.ScoringRuleSet;
+import cw.contracts.MatchContracts.NormalizedMatch;
+import cw.contracts.MatchContracts.ParticipantRecord;
 import cw.db.ServiceState;
-import cw.matches.*;
+import cw.matches.MatchEntity;
+import cw.matches.MatchParticipantEntity;
+import cw.matches.MatchViews;
 import cw.members.MemberService;
-import jakarta.persistence.*;
-import java.util.*;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.*;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
 
 @Service
@@ -28,31 +39,37 @@ public class EvaluationSnapshot {
             isolation = Isolation.REPEATABLE_READ,
             propagation = Propagation.REQUIRES_NEW)
     public EvaluationInput capture() {
-        var state = em.find(ServiceState.class, 1);
-        var rules =
+        ServiceState state = em.find(ServiceState.class, 1);
+        ScoringRuleSet rules =
                 json.readValue(
                         em.find(ScoringVersionEntity.class, state.desiredScoringVersion).rulesJson,
                         ScoringRuleSet.class);
-        var matches =
+        List<MatchEntity> matches =
                 em.createQuery(
                                 "select distinct m from MatchEntity m left join fetch m.participants where"
                                         + " m.state='registered' order by m.id",
                                 MatchEntity.class)
                         .getResultList();
+
         List<EvaluableMatch> games = new ArrayList<>();
-        for (var m : matches) {
-            var normalized = views.normalized(m);
+
+        for (MatchEntity m : matches) {
+            NormalizedMatch normalized = views.normalized(m);
+
             List<EvaluableParticipant> ps = new ArrayList<>();
-            for (var p : m.participants) {
-                var record =
+
+            for (MatchParticipantEntity p : m.participants) {
+                ParticipantRecord record =
                         normalized.participants().stream()
                                 .filter(r -> r.puuid().equals(p.puuid))
                                 .findFirst()
                                 .orElseThrow();
                 ps.add(new EvaluableParticipant(p.memberId, p.role, record));
             }
+
             games.add(new EvaluableMatch(normalized, List.copyOf(ps)));
         }
+
         return new EvaluationInput(
                 state.sourceRevision,
                 state.desiredScoringVersion,

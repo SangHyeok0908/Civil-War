@@ -1,15 +1,31 @@
 package cw.auth;
 
+import cw.auth.AuthService.AdminPrincipal;
 import cw.contracts.ApiException;
-import jakarta.servlet.*;
-import jakarta.servlet.http.*;
-import java.io.*;
-import java.util.*;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ReadListener;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletInputStream;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
+import org.springframework.http.server.PathContainer;
+import org.springframework.http.server.PathContainer.Element;
+import org.springframework.http.server.PathContainer.PathSegment;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.ServletRequestPathUtils;
 import tools.jackson.databind.json.JsonMapper;
 
 @Component
@@ -31,6 +47,7 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
         this.json = json;
         this.origin = origin;
         this.devHttp = devHttp && (env.matchesProfiles("dev") || env.matchesProfiles("test"));
+
         if (devHttp && !this.devHttp) {
             throw new IllegalStateException("HTTP cookie exception requires dev or test profile");
         }
@@ -42,12 +59,13 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
 
     public String cookieToken(HttpServletRequest req) {
         if (req.getCookies() != null) {
-            for (var cookie : req.getCookies()) {
+            for (Cookie cookie : req.getCookies()) {
                 if (cookie.getName().equals(cookieName())) {
                     return cookie.getValue();
                 }
             }
         }
+
         return null;
     }
 
@@ -60,37 +78,49 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
         response.setHeader(
                 "Content-Security-Policy",
                 "default-src 'self'; img-src 'self' https://ddragon.leagueoflegends.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self'");
+
         try {
             // Match the decoded path segments used by Spring MVC, including matrix-parameter
             // removal.
             // Raw getRequestURI() prefixes permit alternate spellings to bypass this boundary.
             String path = canonicalPath(request);
+
             if (path.startsWith("/api/")) {
                 response.setHeader("Cache-Control", "no-store");
             }
+
             HttpServletRequest req = request;
+
             if (!Set.of("GET", "HEAD", "OPTIONS").contains(req.getMethod())) {
                 if (req.getContentLengthLong() > MAX_BODY_BYTES) {
                     throw new ApiException(413, "BODY_TOO_LARGE");
                 }
+
                 byte[] body = req.getInputStream().readNBytes(MAX_BODY_BYTES + 1);
+
                 if (body.length > MAX_BODY_BYTES) {
                     throw new ApiException(413, "BODY_TOO_LARGE");
                 }
+
                 req = new BufferedRequest(req, body);
             }
+
             if (path.startsWith("/api/admin/")) {
                 boolean login = path.equals("/api/admin/session") && req.getMethod().equals("POST");
                 boolean write = !Set.of("GET", "HEAD", "OPTIONS").contains(req.getMethod());
+
                 if (write && !origin.equals(req.getHeader("Origin"))) {
                     throw new ApiException(403, "ORIGIN_REJECTED");
                 }
+
                 if (!login) {
                     if (req.getHeader("Authorization") != null) {
                         throw new ApiException(403, "FORBIDDEN");
                     }
-                    var principal = auth.requireAdmin(cookieToken(req));
+
+                    AdminPrincipal principal = auth.requireAdmin(cookieToken(req));
                     req.setAttribute("admin", principal);
+
                     if (write
                             && !AuthService.matchesHash(
                                     req.getHeader("X-CSRF-Token"), principal.csrfHash())) {
@@ -100,11 +130,14 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
             } else if (path.startsWith("/api/collector/")
                     && !path.equals("/api/collector/enroll")) {
                 String header = req.getHeader("Authorization");
+
                 if (header == null || !header.startsWith("Bearer ")) {
                     throw new ApiException(401, "AUTH_REVOKED");
                 }
+
                 req.setAttribute("collector", auth.requireCollector(header.substring(7)));
             }
+
             chain.doFilter(req, response);
         } catch (ApiException e) {
             writeError(response, e);
@@ -113,25 +146,26 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
             if (response.isCommitted()) {
                 throw failure;
             }
+
             writeError(response, new ApiException(500, "INTERNAL_ERROR"));
         }
     }
 
     private static String canonicalPath(HttpServletRequest request) {
         try {
-            var path =
-                    org.springframework.web.util.ServletRequestPathUtils.parseAndCache(request)
-                            .pathWithinApplication();
-            var canonical = new StringBuilder();
-            for (var element : path.elements()) {
-                if (element
-                        instanceof
-                        org.springframework.http.server.PathContainer.PathSegment segment) {
+            PathContainer path =
+                    ServletRequestPathUtils.parseAndCache(request).pathWithinApplication();
+
+            StringBuilder canonical = new StringBuilder();
+
+            for (Element element : path.elements()) {
+                if (element instanceof PathSegment segment) {
                     canonical.append(segment.valueToMatch());
                 } else {
                     canonical.append(element.value());
                 }
             }
+
             return canonical.toString();
         } catch (IllegalArgumentException e) {
             throw new ApiException(400, "INVALID_REQUEST");
@@ -141,9 +175,11 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
     private void writeError(HttpServletResponse response, ApiException e) throws IOException {
         response.setStatus(e.status);
         response.setContentType("application/json");
+
         if (e.status == 429) {
             response.setHeader("Retry-After", "600");
         }
+
         response.getWriter()
                 .write(
                         json.writeValueAsString(
@@ -163,12 +199,13 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
 
         BufferedRequest(HttpServletRequest request, byte[] body) {
             super(request);
+
             this.body = body;
         }
 
         @Override
         public ServletInputStream getInputStream() {
-            var input = new ByteArrayInputStream(body);
+            ByteArrayInputStream input = new ByteArrayInputStream(body);
             return new ServletInputStream() {
                 @Override
                 public int read() {
@@ -195,8 +232,7 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
         @Override
         public BufferedReader getReader() {
             return new BufferedReader(
-                    new InputStreamReader(
-                            getInputStream(), java.nio.charset.StandardCharsets.UTF_8));
+                    new InputStreamReader(getInputStream(), StandardCharsets.UTF_8));
         }
     }
 }

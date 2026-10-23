@@ -2,7 +2,13 @@ package cw.domain;
 
 import cw.contracts.Role;
 import java.time.Instant;
-import java.util.*;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 
 public class RoleSuggester {
     public record Sample(String source, String gameId, Instant playedAt, Role role) {}
@@ -15,7 +21,7 @@ public class RoleSuggester {
             String reason) {}
 
     public Suggestion suggest(List<Sample> input) {
-        var unique = new LinkedHashMap<String, Sample>();
+        LinkedHashMap<String, Sample> unique = new LinkedHashMap<String, Sample>();
         input.stream()
                 .filter(
                         s ->
@@ -28,16 +34,20 @@ public class RoleSuggester {
                                 .thenComparing(Sample::source)
                                 .thenComparing(Sample::gameId))
                 .forEach(s -> unique.putIfAbsent(s.source() + ":" + s.gameId(), s));
-        var samples = unique.values().stream().limit(20).toList();
+
+        List<Sample> samples = unique.values().stream().limit(20).toList();
+
         Map<Role, Long> count = new EnumMap<>(Role.class);
         Map<Role, Instant> recent = new EnumMap<>(Role.class);
         Map<String, Long> sources = new TreeMap<>();
-        for (var s : samples) {
+
+        for (Sample s : samples) {
             count.merge(s.role(), 1L, Long::sum);
             recent.merge(s.role(), s.playedAt(), (a, b) -> a.isAfter(b) ? a : b);
             sources.merge(s.source(), 1L, Long::sum);
         }
-        var roles =
+
+        List<Role> roles =
                 count.keySet().stream()
                         .sorted(
                                 Comparator.<Role>comparingLong(count::get)
@@ -47,6 +57,7 @@ public class RoleSuggester {
                                                         .reversed())
                                         .thenComparingInt(Enum::ordinal))
                         .toList();
+
         return new Suggestion(
                 roles.isEmpty() ? null : roles.getFirst(),
                 roles.size() < 2 ? null : roles.get(1),

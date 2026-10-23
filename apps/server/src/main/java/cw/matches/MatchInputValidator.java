@@ -1,9 +1,19 @@
 package cw.matches;
 
-import cw.contracts.*;
-import cw.contracts.MatchContracts.*;
+import cw.contracts.ApiException;
+import cw.contracts.MatchContracts.ConfirmationInput;
+import cw.contracts.MatchContracts.IngestMatchInput;
+import cw.contracts.MatchContracts.Issue;
+import cw.contracts.MatchContracts.NormalizedMatch;
+import cw.contracts.MatchContracts.ParticipantRecord;
+import cw.contracts.MatchContracts.ValidationResult;
+import cw.contracts.Role;
 import cw.lcu.MatchNormalizer;
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -29,7 +39,9 @@ public class MatchInputValidator {
         if (input == null || input.schemaVersion() != 1) {
             throw new ApiException(422, "UNSUPPORTED_SCHEMA");
         }
+
         submission(input.clientSubmissionId());
+
         return normalizer.normalizeMatch(input.rawMatch());
     }
 
@@ -44,14 +56,18 @@ public class MatchInputValidator {
 
     public void requireRoles(ConfirmationInput input, NormalizedMatch match) {
         submission(input.clientSubmissionId());
+
         if (!match.matchKey().equals(input.matchKey())
                 || input.rolesByPuuid() == null
                 || input.rolesByPuuid().size() != 10) {
             throw invalidRoles();
         }
+
         Map<Integer, Set<Role>> teams = new HashMap<>();
-        for (var p : match.participants()) {
+
+        for (ParticipantRecord p : match.participants()) {
             Role role = input.rolesByPuuid().get(p.puuid());
+
             if (role == null
                     || !teams.computeIfAbsent(p.teamId(), k -> new HashSet<>()).add(role)) {
                 throw invalidRoles();

@@ -1,8 +1,12 @@
 package cw.matches;
 
-import cw.contracts.*;
-import cw.contracts.MatchContracts.*;
-import java.util.*;
+import cw.contracts.ApiException;
+import cw.contracts.MatchContracts.CollectorMatch;
+import cw.contracts.MatchContracts.CollectorPrincipal;
+import cw.contracts.MatchContracts.NormalizedMatch;
+import cw.contracts.Role;
+import java.util.Map;
+import java.util.TreeMap;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -31,12 +35,15 @@ public class MatchViews {
 
     public CollectorMatch collector(MatchEntity entity) {
         Map<String, Role> roles = null;
+
         if (!entity.state.equals("pending")) {
             roles = new TreeMap<>();
-            for (var p : entity.participants) {
+
+            for (MatchParticipantEntity p : entity.participants) {
                 roles.put(p.puuid, p.role);
             }
         }
+
         return new CollectorMatch(entity.id, entity.state, normalized(entity), roles);
     }
 }

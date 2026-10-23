@@ -5,6 +5,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import cw.evaluation.RecalculationWorker;
 import cw.support.DatabaseTestSupport;
+import java.util.Map;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -17,11 +19,9 @@ class TeamApiIntegrationTest extends DatabaseTestSupport {
 
     String body() {
         return json.writeValueAsString(
-                java.util.Map.of(
+                Map.of(
                         "memberIds",
-                        java.util.stream.IntStream.rangeClosed(1, 10)
-                                .mapToObj(i -> "member-" + i)
-                                .toList()));
+                        IntStream.rangeClosed(1, 10).mapToObj(i -> "member-" + i).toList()));
     }
 
     @Test
@@ -49,6 +49,7 @@ class TeamApiIntegrationTest extends DatabaseTestSupport {
                                     .content(body()))
                     .andExpect(status().isAccepted());
         }
+
         mvc.perform(
                         post("/api/teams/recommend")
                                 .with(

@@ -49,6 +49,7 @@ tasks.withType(Checkstyle).configureEach {
 spotless {
     java {
         target 'src/main/java/**/*.java', 'src/test/java/**/*.java'
+        shortenFullyQualifiedTypes()
         googleJavaFormat('1.36.1').aosp()
         trimTrailingWhitespace()
         endWithNewline()

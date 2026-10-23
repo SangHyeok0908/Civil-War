@@ -1,11 +1,20 @@
 package cw.auth;
 
+import cw.auth.AuthService.AdminPrincipal;
+import cw.auth.AuthService.EnrollmentReply;
 import cw.contracts.ApiException;
-import jakarta.servlet.http.*;
+import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
 import java.util.Map;
-import org.springframework.http.*;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class AuthController {
@@ -28,14 +37,18 @@ public class AuthController {
     @PostMapping("/api/admin/session")
     public ResponseEntity<?> login(@RequestBody CodeInput input, HttpServletRequest req) {
         limiter.check(req.getRemoteAddr());
+
         AuthService.LoginReply reply;
+
         try {
             reply = auth.login(input.code());
         } catch (ApiException e) {
             limiter.failed(req.getRemoteAddr());
             throw e;
         }
+
         limiter.succeeded(req.getRemoteAddr());
+
         return ResponseEntity.ok()
                 .header(
                         HttpHeaders.SET_COOKIE,
@@ -45,7 +58,7 @@ public class AuthController {
 
     @GetMapping("/api/admin/session")
     public Map<String, String> session(HttpServletRequest req) {
-        var principal = (AuthService.AdminPrincipal) req.getAttribute("admin");
+        AdminPrincipal principal = (AuthService.AdminPrincipal) req.getAttribute("admin");
         return Map.of(
                 "sessionId",
                 principal.sessionId(),
@@ -57,9 +70,11 @@ public class AuthController {
     public AuthService.EnrollmentReply enroll(
             @RequestBody EnrollmentInput input, HttpServletRequest req) {
         limiter.check(req.getRemoteAddr());
+
         try {
-            var reply = auth.enroll(input.code(), input.currentPuuid());
+            EnrollmentReply reply = auth.enroll(input.code(), input.currentPuuid());
             limiter.succeeded(req.getRemoteAddr());
+
             return reply;
         } catch (ApiException e) {
             limiter.failed(req.getRemoteAddr());

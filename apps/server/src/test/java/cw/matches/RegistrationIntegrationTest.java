@@ -2,10 +2,18 @@ package cw.matches;
 
 import static org.assertj.core.api.Assertions.*;
 
-import cw.contracts.*;
-import cw.contracts.MatchContracts.*;
+import cw.contracts.ApiException;
+import cw.contracts.MatchContracts.ConfirmationInput;
+import cw.contracts.MatchContracts.IngestMatchAck;
+import cw.contracts.MatchContracts.IngestMatchInput;
+import cw.contracts.MatchContracts.RegistrationAck;
+import cw.contracts.Role;
 import cw.support.DatabaseTestSupport;
+import java.util.HashMap;
+import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
+import tools.jackson.databind.node.ObjectNode;
 
 class RegistrationIntegrationTest extends DatabaseTestSupport {
     @Test
@@ -21,7 +29,7 @@ class RegistrationIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void concurrentDuplicateIngest() throws Exception {
-        var results =
+        List<IngestMatchAck> results =
                 concurrent(
                         () -> ingest.ingestMatch(input(), actor(1)),
                         () -> ingest.ingestMatch(input(), actor(2)));
@@ -39,7 +47,8 @@ class RegistrationIntegrationTest extends DatabaseTestSupport {
     @Test
     void concurrentConfirmation() throws Exception {
         ingest.ingestMatch(input(), actor(1));
-        var results =
+
+        List<RegistrationAck> results =
                 concurrent(
                         () -> registration.registerMatch(confirmation(false), actor(1)),
                         () -> registration.registerMatch(confirmation(true), actor(2)));
@@ -67,7 +76,8 @@ class RegistrationIntegrationTest extends DatabaseTestSupport {
     @Test
     void duplicateDoesNotRecalculate() {
         registered();
-        var altered = raw();
+
+        ObjectNode altered = raw();
         altered.put("gameDuration", 5555);
         assertThat(
                         ingest.ingestMatch(new IngestMatchInput(altered, "retry", 1), actor(2))
@@ -125,8 +135,9 @@ class RegistrationIntegrationTest extends DatabaseTestSupport {
     @Test
     void invalidRolesCannotPartiallyRegister() {
         ingest.ingestMatch(input(), actor(1));
-        var invalid = new java.util.HashMap<>(roles(false));
-        invalid.put("fixture-player-02", cw.contracts.Role.TOP);
+
+        HashMap<String, Role> invalid = new HashMap<>(roles(false));
+        invalid.put("fixture-player-02", Role.TOP);
         assertThatThrownBy(
                         () ->
                                 registration.registerMatch(
@@ -144,12 +155,14 @@ class RegistrationIntegrationTest extends DatabaseTestSupport {
         ingest.ingestMatch(input(), actor(1));
         jdbc.execute(
                 "alter table recalculation_jobs add constraint injected_job_failure check(source_revision <> 1)");
+
         try {
             assertThatThrownBy(() -> registration.registerMatch(confirmation(false), actor(1)))
-                    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+                    .isInstanceOf(DataIntegrityViolationException.class);
         } finally {
             jdbc.execute("alter table recalculation_jobs drop constraint injected_job_failure");
         }
+
         assertThat(collector.getCollectorMatch(KEY, actor(1)).state()).isEqualTo("pending");
         assertThat(
                         jdbc.queryForObject(
@@ -165,8 +178,9 @@ class RegistrationIntegrationTest extends DatabaseTestSupport {
     @Test
     void duplicateCannotReplaceStoredParticipantAuthorization() {
         ingest.ingestMatch(input(), actor(1));
-        var altered = raw();
-        ((tools.jackson.databind.node.ObjectNode) altered.at("/participantIdentities/0/player"))
+
+        ObjectNode altered = raw();
+        ((ObjectNode) altered.at("/participantIdentities/0/player"))
                 .put("puuid", actor(11).puuid());
         assertThatThrownBy(
                         () ->
@@ -189,12 +203,14 @@ class RegistrationIntegrationTest extends DatabaseTestSupport {
     void rollbackLeavesNoPartialParticipantsOrJob() {
         jdbc.execute(
                 "alter table audit_log add constraint injected_failure check(action <> 'match_ingested')");
+
         try {
             assertThatThrownBy(() -> ingest.ingestMatch(input(), actor(1)))
-                    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+                    .isInstanceOf(DataIntegrityViolationException.class);
         } finally {
             jdbc.execute("alter table audit_log drop constraint injected_failure");
         }
+
         assertThat(matches.count()).isZero();
         assertThat(jdbc.queryForObject("select count(*) from match_participants", Integer.class))
                 .isZero();

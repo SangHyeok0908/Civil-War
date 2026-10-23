@@ -2,11 +2,18 @@ package cw.evaluation;
 
 import static org.assertj.core.api.Assertions.*;
 
-import cw.contracts.EvaluationContracts.*;
+import cw.contracts.EvaluationContracts.EvaluationGeneration;
+import cw.contracts.EvaluationContracts.EvaluationInput;
+import cw.contracts.EvaluationContracts.GameScore;
+import cw.contracts.EvaluationContracts.ScoringRuleSet;
 import cw.domain.ScoringRulesV1;
+import cw.evaluation.EvaluationRepository.Claim;
 import cw.matches.AdminMatchService;
 import cw.members.MemberService;
 import cw.support.DatabaseTestSupport;
+import java.sql.Connection;
+import java.sql.Statement;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -23,7 +30,8 @@ class RecalculationIntegrationTest extends DatabaseTestSupport {
         registered();
         assertThat(evaluations.current()).isNull();
         assertThat(worker.runOnce()).isTrue();
-        var g = evaluations.current();
+
+        EvaluationGeneration g = evaluations.current();
         assertThat(g.sourceRevision()).isEqualTo(revision());
         assertThat(g.gameScores()).hasSize(10);
         assertThat(g.memberStats()).hasSize(11);
@@ -42,7 +50,8 @@ class RecalculationIntegrationTest extends DatabaseTestSupport {
     void staleGenerationNeverPublishes() {
         registered();
         evaluations.claim(false);
-        var old = snapshot.capture();
+
+        EvaluationInput old = snapshot.capture();
         admin.roles(KEY, roles(true));
         assertThat(evaluations.current()).isNull();
         assertThat(publisher.publish(old, worker.calculate(old), 1)).isFalse();
@@ -55,9 +64,11 @@ class RecalculationIntegrationTest extends DatabaseTestSupport {
     void desiredVersionGuardAndImmutableRules() {
         registered();
         evaluations.claim(false);
-        var old = snapshot.capture();
-        var d = ScoringRulesV1.defaults();
-        var r =
+
+        EvaluationInput old = snapshot.capture();
+        ScoringRuleSet d = ScoringRulesV1.defaults();
+
+        ScoringRuleSet r =
                 new ScoringRuleSet(
                         "v2",
                         d.algorithmVersion(),
@@ -81,8 +92,9 @@ class RecalculationIntegrationTest extends DatabaseTestSupport {
     void desiredVersionGuardEvenIfRevisionEquals() {
         registered();
         evaluations.claim(false);
-        var input = snapshot.capture();
-        var d = ScoringRulesV1.defaults();
+
+        EvaluationInput input = snapshot.capture();
+        ScoringRuleSet d = ScoringRulesV1.defaults();
         evaluations.createRules(
                 new ScoringRuleSet(
                         "guard-v2",
@@ -100,7 +112,8 @@ class RecalculationIntegrationTest extends DatabaseTestSupport {
     void cancelDuringCalculation() {
         registered();
         evaluations.claim(false);
-        var input = snapshot.capture();
+
+        EvaluationInput input = snapshot.capture();
         admin.cancel(KEY);
         assertThat(publisher.publish(input, worker.calculate(input), 1)).isFalse();
         worker.runOnce();
@@ -126,6 +139,7 @@ class RecalculationIntegrationTest extends DatabaseTestSupport {
         jdbc.execute(
                 "CREATE TRIGGER fail_generation BEFORE INSERT ON evaluation_generations FOR EACH ROW"
                         + " EXECUTE FUNCTION fail_generation()");
+
         try {
             worker.runOnce();
             assertThat(evaluations.current()).isNull();
@@ -139,6 +153,7 @@ class RecalculationIntegrationTest extends DatabaseTestSupport {
             jdbc.execute("DROP TRIGGER fail_generation ON evaluation_generations");
             jdbc.execute("DROP FUNCTION fail_generation()");
         }
+
         evaluations.retry();
         worker.runOnce();
         assertThat(evaluations.current()).isNotNull();
@@ -148,11 +163,13 @@ class RecalculationIntegrationTest extends DatabaseTestSupport {
     void seedDoesNotAlterPublicScoresAndNamesAreLive() {
         registered();
         worker.runOnce();
-        var scores = evaluations.current().gameScores();
+
+        List<GameScore> scores = evaluations.current().gameScores();
         memberService.patch("member-1", json.readTree("{\"seedSkill\":99}"));
         assertThat(evaluations.current()).isNull();
         worker.runOnce();
         assertThat(evaluations.current().gameScores()).isEqualTo(scores);
+
         long rev = revision();
         memberService.patch("member-1", json.readTree("{\"displayName\":\"새 이름\"}"));
         assertThat(revision()).isEqualTo(rev);
@@ -162,7 +179,8 @@ class RecalculationIntegrationTest extends DatabaseTestSupport {
     @Test
     void mutationBetweenClaimAndSnapshotKeepsOwnership() {
         registered();
-        var claimed = evaluations.claim(false);
+
+        Claim claimed = evaluations.claim(false);
         admin.roles(KEY, roles(true));
         worker.calculateClaimed(claimed);
         assertThat(evaluations.current()).isNull();
@@ -185,9 +203,10 @@ class RecalculationIntegrationTest extends DatabaseTestSupport {
     @Test
     void recoveredClaimFencesOldAttempt() {
         registered();
-        var first = evaluations.claim(false);
-        var input = snapshot.capture();
-        var second = evaluations.claim(false);
+
+        Claim first = evaluations.claim(false);
+        EvaluationInput input = snapshot.capture();
+        Claim second = evaluations.claim(false);
         assertThat(publisher.publish(input, worker.calculate(input), first.attempts())).isFalse();
         evaluations.failed(first);
         assertThat(
@@ -203,13 +222,15 @@ class RecalculationIntegrationTest extends DatabaseTestSupport {
     @Test
     void singleWorkerClaim() throws Exception {
         registered();
-        try (var c = jdbc.getDataSource().getConnection();
-                var s = c.createStatement()) {
+
+        try (Connection c = jdbc.getDataSource().getConnection();
+                Statement s = c.createStatement()) {
             s.execute("select pg_advisory_lock(731954801)");
             assertThat(worker.runOnce()).isFalse();
             assertThat(evaluations.current()).isNull();
             s.execute("select pg_advisory_unlock(731954801)");
         }
+
         assertThat(worker.runOnce()).isTrue();
     }
 }

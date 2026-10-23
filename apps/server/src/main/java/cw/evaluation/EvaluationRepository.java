@@ -1,15 +1,26 @@
 package cw.evaluation;
 
-import cw.contracts.*;
-import cw.contracts.EvaluationContracts.*;
-import cw.db.*;
+import cw.contracts.ApiException;
+import cw.contracts.EvaluationContracts.EvaluationGeneration;
+import cw.contracts.EvaluationContracts.MemberStats;
+import cw.contracts.EvaluationContracts.ScoringRuleSet;
+import cw.contracts.MemberContracts.PublicMember;
+import cw.db.MutationCoordinator;
+import cw.db.RecalculationJob;
+import cw.db.ServiceState;
 import cw.domain.ScoringRulesV1;
 import cw.members.MemberService;
-import jakarta.persistence.*;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.time.Clock;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.*;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
 
 @Service
@@ -30,28 +41,35 @@ public class EvaluationRepository {
     }
 
     public EvaluationGeneration current() {
-        var s = em.find(ServiceState.class, 1);
+        ServiceState s = em.find(ServiceState.class, 1);
+
         if (s.activeGenerationId == null) {
             return null;
         }
-        var g = em.find(GenerationEntity.class, s.activeGenerationId);
+
+        GenerationEntity g = em.find(GenerationEntity.class, s.activeGenerationId);
+
         if (g == null
                 || g.sourceRevision != s.sourceRevision
                 || !g.scoringVersion.equals(s.desiredScoringVersion)) {
             return null;
         }
+
         return json.readValue(g.resultJson, EvaluationGeneration.class);
     }
 
     public record RankingRow(String displayName, MemberStats stats) {}
 
     public Object rankings() {
-        var g = current();
+        EvaluationGeneration g = current();
+
         if (g == null) {
             throw new ApiException(202, "RECALCULATING");
         }
-        var names = new HashMap<String, String>();
+
+        HashMap<String, String> names = new HashMap<String, String>();
         members.publicList().forEach(m -> names.put(m.id(), m.displayName()));
+
         return Map.of(
                 "status",
                 "ready",
@@ -68,15 +86,17 @@ public class EvaluationRepository {
     }
 
     public Object stats(String id) {
-        var member =
+        PublicMember member =
                 members.publicList().stream()
                         .filter(m -> m.id().equals(id))
                         .findFirst()
                         .orElseThrow(() -> new ApiException(404, "NOT_FOUND"));
-        var g = current();
+        EvaluationGeneration g = current();
+
         if (g == null) {
             throw new ApiException(202, "RECALCULATING");
         }
+
         return Map.of(
                 "member",
                 member,
@@ -94,10 +114,12 @@ public class EvaluationRepository {
     }
 
     public ScoringRuleSet rule(String id) {
-        var entity = em.find(ScoringVersionEntity.class, id);
+        ScoringVersionEntity entity = em.find(ScoringVersionEntity.class, id);
+
         if (entity == null) {
             throw new ApiException(404, "NOT_FOUND");
         }
+
         return json.readValue(entity.rulesJson, ScoringRuleSet.class);
     }
 
@@ -115,22 +137,29 @@ public class EvaluationRepository {
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public ScoringRuleSet createRules(ScoringRuleSet rules) {
         ScoringRulesV1.validate(rules);
-        var state = mutations.lock();
+
+        ServiceState state = mutations.lock();
+
         if (em.find(ScoringVersionEntity.class, rules.id()) != null) {
             throw new ApiException(409, "CONFLICT");
         }
+
         saveRule(rules);
+
         state.desiredScoringVersion = rules.id();
+
         mutations.changed(state);
         mutations.audit("scoring_version_created", "owner", rules.id(), "{}");
+
         return rules;
     }
 
     private void saveRule(ScoringRuleSet rules) {
-        var e = new ScoringVersionEntity();
+        ScoringVersionEntity e = new ScoringVersionEntity();
         e.id = rules.id();
         e.rulesJson = json.writeValueAsString(rules);
         e.createdAt = clock.instant();
+
         em.persist(e);
     }
 
@@ -138,14 +167,18 @@ public class EvaluationRepository {
 
     @Transactional(isolation = Isolation.READ_COMMITTED, propagation = Propagation.REQUIRES_NEW)
     public Claim claim(boolean recoverFailed) {
-        var state = mutations.lock();
+        ServiceState state = mutations.lock();
+
         if (state.desiredScoringVersion == null) {
-            var d = ScoringRulesV1.defaults();
+            ScoringRuleSet d = ScoringRulesV1.defaults();
+
             if (em.find(ScoringVersionEntity.class, d.id()) == null) {
                 saveRule(d);
             }
+
             state.desiredScoringVersion = d.id();
         }
+
         // Caller holds a PostgreSQL session advisory lock. No other live worker can own these jobs.
         em.createQuery("update RecalculationJob set status='pending' where status='running'")
                 .executeUpdate();
@@ -154,37 +187,45 @@ public class EvaluationRepository {
                                 + " sourceRevision<>:revision")
                 .setParameter("revision", state.sourceRevision)
                 .executeUpdate();
-        var rows =
+
+        List<RecalculationJob> rows =
                 em.createQuery(
                                 "from RecalculationJob where sourceRevision=:revision",
                                 RecalculationJob.class)
                         .setParameter("revision", state.sourceRevision)
                         .getResultList();
         RecalculationJob job;
+
         if (rows.isEmpty()) {
             if (state.activeGenerationId != null) {
                 return null;
             }
+
             job = new RecalculationJob();
             job.id = UUID.randomUUID().toString();
             job.sourceRevision = state.sourceRevision;
             job.status = "pending";
             job.createdAt = clock.instant();
+
             em.persist(job);
         } else {
             job = rows.getFirst();
         }
+
         if (recoverFailed && job.status.equals("failed")) {
             job.status = "pending";
         }
+
         if (!job.status.equals("pending")) {
             return null;
         }
+
         job.status = "running";
         job.scoringVersion = state.desiredScoringVersion;
         job.attempts++;
         job.claimedAt = clock.instant();
         job.errorCode = null;
+
         return new Claim(job.sourceRevision, job.scoringVersion, job.attempts);
     }
 
@@ -210,7 +251,7 @@ public class EvaluationRepository {
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public void retry() {
-        var s = mutations.lock();
+        ServiceState s = mutations.lock();
         em.createQuery(
                         "update RecalculationJob set status='pending',errorCode=null where"
                                 + " sourceRevision=:revision and status='failed'")

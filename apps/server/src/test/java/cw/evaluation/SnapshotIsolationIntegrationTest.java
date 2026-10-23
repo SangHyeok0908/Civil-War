@@ -3,10 +3,17 @@ package cw.evaluation;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import cw.matches.*;
+import cw.contracts.EvaluationContracts.EvaluationInput;
+import cw.contracts.Role;
+import cw.matches.AdminMatchService;
+import cw.matches.MatchEntity;
+import cw.matches.MatchViews;
 import cw.members.MemberService;
 import cw.support.DatabaseTestSupport;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -22,12 +29,15 @@ class SnapshotIsolationIntegrationTest extends DatabaseTestSupport {
     void repeatableReadInputSnapshotSurvivesConcurrentMutations() {
         registered();
         worker.runOnce();
+
         long before = revision();
-        var fired = new java.util.concurrent.atomic.AtomicBoolean();
+
+        AtomicBoolean fired = new AtomicBoolean();
         doAnswer(
                         invocation -> {
                             if (fired.compareAndSet(false, true)) {
-                                try (var executor = Executors.newSingleThreadExecutor()) {
+                                try (ExecutorService executor =
+                                        Executors.newSingleThreadExecutor()) {
                                     executor.submit(
                                                     () -> {
                                                         memberService.patch(
@@ -40,11 +50,13 @@ class SnapshotIsolationIntegrationTest extends DatabaseTestSupport {
                                             .get(10, TimeUnit.SECONDS);
                                 }
                             }
+
                             return invocation.callRealMethod();
                         })
                 .when(views)
                 .normalized(any(MatchEntity.class));
-        var input = snapshot.capture();
+
+        EvaluationInput input = snapshot.capture();
         assertThat(input.sourceRevision()).isEqualTo(before);
         assertThat(input.matches()).hasSize(1);
         assertThat(
@@ -60,7 +72,7 @@ class SnapshotIsolationIntegrationTest extends DatabaseTestSupport {
                                 .findFirst()
                                 .orElseThrow()
                                 .role())
-                .isEqualTo(cw.contracts.Role.TOP);
+                .isEqualTo(Role.TOP);
         assertThat(revision()).isEqualTo(before + 3);
     }
 }

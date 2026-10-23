@@ -2,24 +2,29 @@ package cw.domain;
 
 import static org.assertj.core.api.Assertions.*;
 
-import java.util.*;
+import cw.contracts.EvaluationContracts.EvaluationInput;
+import cw.contracts.EvaluationContracts.MemberStats;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class MemberAggregatorTest {
     @Test
     void threeGameThreshold() {
-        var a = ScoringServiceTest.input(List.of(ScoringServiceTest.game("1", false)));
-        var stats = new MemberAggregator().aggregate(a, new ScoringService().scoreMatches(a));
-        var winner =
+        EvaluationInput a = ScoringServiceTest.input(List.of(ScoringServiceTest.game("1", false)));
+        List<MemberStats> stats =
+                new MemberAggregator().aggregate(a, new ScoringService().scoreMatches(a));
+        MemberStats winner =
                 stats.stream().filter(s -> s.memberId().equals("m0")).findFirst().orElseThrow();
         assertThat(winner.adjustedScore()).isCloseTo(50.4166666666667, within(1e-10));
         assertThat(winner.status()).isEqualTo("provisional");
         assertThat(winner.rank()).isNull();
-        var empty =
+
+        MemberStats empty =
                 stats.stream().filter(s -> s.memberId().equals("m10")).findFirst().orElseThrow();
         assertThat(empty.games()).isZero();
         assertThat(empty.adjustedScore()).isNull();
         assertThat(empty.rank()).isNull();
+
         a =
                 ScoringServiceTest.input(
                         List.of(
@@ -28,6 +33,7 @@ class MemberAggregatorTest {
                                 ScoringServiceTest.game("3", false)));
         stats = new MemberAggregator().aggregate(a, new ScoringService().scoreMatches(a));
         winner = stats.stream().filter(s -> s.memberId().equals("m0")).findFirst().orElseThrow();
+
         assertThat(winner.status()).isEqualTo("ranked");
         assertThat(winner.adjustedScore()).isEqualTo(50.9375);
         assertThat(winner.rank()).isEqualTo(1);
@@ -41,7 +47,7 @@ class MemberAggregatorTest {
 
     @Test
     void cancelReturnsToProvisional() {
-        var a =
+        EvaluationInput a =
                 ScoringServiceTest.input(
                         List.of(
                                 ScoringServiceTest.game("1", false),
@@ -57,7 +63,7 @@ class MemberAggregatorTest {
 
     @Test
     void zeroDeathsArePerfectNotInfinity() {
-        var a = ScoringServiceTest.input(List.of(ScoringServiceTest.game("1", true)));
+        EvaluationInput a = ScoringServiceTest.input(List.of(ScoringServiceTest.game("1", true)));
         assertThat(new MemberAggregator().aggregate(a, new ScoringService().scoreMatches(a)))
                 .filteredOn(s -> s.games() > 0)
                 .allSatisfy(

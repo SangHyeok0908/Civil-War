@@ -7,11 +7,14 @@ import cw.support.DatabaseTestSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.MockMvcPrint;
 import org.springframework.context.annotation.Import;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-@AutoConfigureMockMvc(print = org.springframework.boot.webmvc.test.autoconfigure.MockMvcPrint.NONE)
+@AutoConfigureMockMvc(print = MockMvcPrint.NONE)
 @Import(ErrorHandlingIntegrationTest.FaultEndpoint.class)
 class ErrorHandlingIntegrationTest extends DatabaseTestSupport {
     @Autowired MockMvc mvc;
@@ -26,7 +29,8 @@ class ErrorHandlingIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void unexpectedFailuresHavePrivateRetryableEnvelope() throws Exception {
-        var response = mvc.perform(get("/api/test-only-failure")).andReturn().getResponse();
+        MockHttpServletResponse response =
+                mvc.perform(get("/api/test-only-failure")).andReturn().getResponse();
         assertThat(response.getStatus()).isEqualTo(500);
         assertThat(json.readTree(response.getContentAsString()).get("retryable").asBoolean())
                 .isTrue();
@@ -37,10 +41,12 @@ class ErrorHandlingIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void frameworkErrorsHaveStructuredClientEnvelope() throws Exception {
-        var missing = mvc.perform(get("/api/missing-route")).andReturn().getResponse();
+        MockHttpServletResponse missing =
+                mvc.perform(get("/api/missing-route")).andReturn().getResponse();
         assertThat(missing.getStatus()).isEqualTo(404);
         assertThat(missing.getContentAsString()).contains("NOT_FOUND", "retryable");
-        var type =
+
+        MockHttpServletResponse type =
                 mvc.perform(
                                 post("/api/collector/enroll")
                                         .contentType("text/plain")

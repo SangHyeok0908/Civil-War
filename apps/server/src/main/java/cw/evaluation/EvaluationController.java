@@ -1,7 +1,12 @@
 package cw.evaluation;
 
 import cw.contracts.EvaluationContracts.ScoringRuleSet;
-import org.springframework.web.bind.annotation.*;
+import java.util.Map;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class EvaluationController {
@@ -44,6 +49,6 @@ public class EvaluationController {
     @PostMapping("/api/admin/recalculation/retry")
     public Object retry() {
         evaluations.retry();
-        return java.util.Map.of("status", "pending");
+        return Map.of("status", "pending");
     }
 }

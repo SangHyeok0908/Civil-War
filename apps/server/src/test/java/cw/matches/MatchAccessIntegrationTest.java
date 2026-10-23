@@ -4,16 +4,24 @@ import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 
 import cw.auth.AuthService;
-import cw.contracts.MatchContracts.*;
+import cw.auth.AuthService.CodeReply;
+import cw.contracts.MatchContracts.ConfirmationInput;
+import cw.contracts.MatchContracts.IngestMatchInput;
 import cw.support.DatabaseTestSupport;
 import jakarta.servlet.http.Cookie;
-import java.util.*;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.test.web.servlet.*;
+import org.springframework.boot.webmvc.test.autoconfigure.MockMvcPrint;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
 
-@AutoConfigureMockMvc(print = org.springframework.boot.webmvc.test.autoconfigure.MockMvcPrint.NONE)
+@AutoConfigureMockMvc(print = MockMvcPrint.NONE)
 class MatchAccessIntegrationTest extends DatabaseTestSupport {
     @Autowired MockMvc mvc;
     @Autowired AuthService auth;
@@ -21,8 +29,8 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
     record Login(Cookie cookie, String csrf) {}
 
     Login login() throws Exception {
-        var code = auth.issueCode("admin", null, "test");
-        var response =
+        CodeReply code = auth.issueCode("admin", null, "test");
+        MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/admin/session")
                                         .header("Origin", "http://localhost:8080")
@@ -32,20 +40,23 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
                                                         Map.of("code", code.code()))))
                         .andReturn()
                         .getResponse();
+
         return new Login(
                 response.getCookie("cw-admin-dev"),
                 json.readTree(response.getContentAsString()).get("csrfToken").asString());
     }
 
     String body(String path) throws Exception {
-        var response = mvc.perform(get(path)).andReturn().getResponse();
+        MockHttpServletResponse response = mvc.perform(get(path)).andReturn().getResponse();
         assertThat(response.getStatus()).isEqualTo(200);
+
         return response.getContentAsString();
     }
 
     @Test
     void publicSafeDto() throws Exception {
         registered();
+
         String result = body("/api/matches/" + KEY);
         assertThat(result)
                 .doesNotContain(
@@ -77,8 +88,9 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
     @Test
     void onlyOwnerEdits() throws Exception {
         registered();
-        var code = auth.issueCode("collector", "member-1", "test");
-        var token = auth.enroll(code.code(), actor(1).puuid()).token();
+
+        CodeReply code = auth.issueCode("collector", "member-1", "test");
+        String token = auth.enroll(code.code(), actor(1).puuid()).token();
         assertThat(
                         mvc.perform(
                                         patch("/api/admin/matches/" + KEY + "/roles")
@@ -94,7 +106,8 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
                                 .getResponse()
                                 .getStatus())
                 .isEqualTo(403);
-        var login = login();
+
+        Login login = login();
         assertThat(
                         mvc.perform(
                                         patch("/api/admin/matches/" + KEY + "/roles")
@@ -120,7 +133,9 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
     @Test
     void cancelHidesImmediately() throws Exception {
         registered();
-        var login = login();
+
+        Login login = login();
+
         for (int i = 0; i < 2; i++) {
             assertThat(
                             mvc.perform(
@@ -133,6 +148,7 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
                                     .getStatus())
                     .isEqualTo(200);
         }
+
         assertThat(mvc.perform(get("/api/matches/" + KEY)).andReturn().getResponse().getStatus())
                 .isEqualTo(404);
         assertThat(json.readTree(body("/api/matches")).get("items")).isEmpty();
@@ -145,7 +161,8 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
     @Test
     void profileRoleDoesNotRewriteHistory() throws Exception {
         registered();
-        var login = login();
+
+        Login login = login();
         assertThat(
                         mvc.perform(
                                         patch("/api/admin/members/member-1")
@@ -184,25 +201,30 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
     @Test
     void filteredMatchesAppearOnce() throws Exception {
         for (int i = 0; i < 4; i++) {
-            var a = raw();
+            ObjectNode a = raw();
             String id = "90000000000000000000" + (i + 1);
             a.put("gameId", id);
             ingest.ingestMatch(new IngestMatchInput(a, "s" + i, 1), actor(1));
             registration.registerMatch(
                     new ConfirmationInput("KR:" + id, roles(false), "c" + i), actor(1));
         }
+
         Set<String> keys = new HashSet<>();
         String cursor = null;
+
         for (int page = 0; page < 2; page++) {
             String url =
                     "/api/matches?win=false&limit=2" + (cursor == null ? "" : "&cursor=" + cursor);
-            var result = json.readTree(body(url));
+            JsonNode result = json.readTree(body(url));
             assertThat(result.get("items")).hasSize(2);
-            for (var match : result.get("items")) {
+
+            for (JsonNode match : result.get("items")) {
                 assertThat(keys.add(match.get("matchKey").asString())).isTrue();
             }
+
             cursor = result.get("nextCursor").isNull() ? null : result.get("nextCursor").asString();
         }
+
         assertThat(keys).hasSize(4);
         assertThat(cursor).isNull();
     }
@@ -210,7 +232,8 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
     @Test
     void noOpRoleCorrectionDoesNotCreateWork() throws Exception {
         registered();
-        var login = login();
+
+        Login login = login();
         assertThat(
                         mvc.perform(
                                         patch("/api/admin/matches/" + KEY + "/roles")
@@ -234,10 +257,12 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
     @Test
     void correctionAuditFailureRollsBackRolesRevisionAndJob() throws Exception {
         registered();
-        var login = login();
+
+        Login login = login();
         long audits = jdbc.queryForObject("select count(*) from audit_log", Long.class);
         jdbc.execute(
                 "alter table audit_log add constraint injected_correction_failure check(action <> 'roles_corrected')");
+
         try {
             assertThat(
                             mvc.perform(
@@ -258,6 +283,7 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
         } finally {
             jdbc.execute("alter table audit_log drop constraint injected_correction_failure");
         }
+
         assertThat(collector.getCollectorMatch(KEY, actor(1)).state()).isEqualTo("registered");
         assertThat(collector.getCollectorMatch(KEY, actor(1)).confirmedRoles())
                 .isEqualTo(roles(false));
@@ -270,10 +296,12 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
     @Test
     void cancellationJobFailureRollsBackStateRevisionAndAudit() throws Exception {
         registered();
-        var login = login();
+
+        Login login = login();
         long audits = jdbc.queryForObject("select count(*) from audit_log", Long.class);
         jdbc.execute(
                 "alter table recalculation_jobs add constraint injected_cancel_failure check(source_revision <> 2)");
+
         try {
             assertThat(
                             mvc.perform(
@@ -288,6 +316,7 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
         } finally {
             jdbc.execute("alter table recalculation_jobs drop constraint injected_cancel_failure");
         }
+
         assertThat(collector.getCollectorMatch(KEY, actor(1)).state()).isEqualTo("registered");
         assertThat(collector.getCollectorMatch(KEY, actor(1)).confirmedRoles())
                 .isEqualTo(roles(false));

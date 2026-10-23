@@ -1,6 +1,8 @@
 package cw.db;
 
-import org.springframework.context.annotation.*;
+import java.time.Clock;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import tools.jackson.core.StreamReadFeature;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.MapperFeature;
@@ -26,7 +28,7 @@ public class DatabaseConfiguration {
     }
 
     @Bean
-    public java.time.Clock clock() {
-        return java.time.Clock.systemUTC();
+    public Clock clock() {
+        return Clock.systemUTC();
     }
 }

@@ -2,11 +2,15 @@ package cw.contracts;
 
 import static org.assertj.core.api.Assertions.*;
 
-import cw.evaluation.*;
+import cw.evaluation.EvaluationRepository;
+import cw.evaluation.RecalculationWorker;
 import cw.matches.PublicMatchQuery;
 import cw.support.DatabaseTestSupport;
-import java.nio.file.*;
-import java.util.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import tools.jackson.databind.JsonNode;
@@ -20,30 +24,37 @@ class Stage3ContractIntegrationTest extends DatabaseTestSupport {
     void publicDtoSchemaAndPrivateDataBoundary() throws Exception {
         registered();
         worker.runOnce();
-        var schema =
+
+        JsonNode schema =
                 json.readTree(
                                 Files.readString(
                                         Path.of(
                                                 System.getProperty("cw.contractRoot"),
                                                 "stage3.schema.json")))
                         .get("$defs");
-        var match = json.valueToTree(publicMatches.get(KEY));
+        JsonNode match = json.valueToTree(publicMatches.get(KEY));
         assertFields(match, schema.get("PublicMatch"));
-        for (var p : match.get("participants")) {
+
+        for (JsonNode p : match.get("participants")) {
             assertFields(p, schema.get("PublicParticipant"));
         }
-        for (var score : match.get("scores")) {
+
+        for (JsonNode score : match.get("scores")) {
             assertFields(score, schema.get("GameScore"));
         }
-        var ranks = json.valueToTree(evaluations.rankings());
+
+        JsonNode ranks = json.valueToTree(evaluations.rankings());
         assertFields(ranks, schema.get("Rankings"));
-        for (var row : ranks.get("members")) {
+
+        for (JsonNode row : ranks.get("members")) {
             assertFields(row, schema.get("RankingRow"));
             assertFields(row.get("stats"), schema.get("MemberStats"));
         }
-        var profile = json.valueToTree(evaluations.stats("member-1"));
+
+        JsonNode profile = json.valueToTree(evaluations.stats("member-1"));
         assertFields(profile, schema.get("Profile"));
-        for (var value : List.of(match, ranks, profile)) {
+
+        for (JsonNode value : List.of(match, ranks, profile)) {
             assertThat(value.toString())
                     .doesNotContain(
                             "puuid",

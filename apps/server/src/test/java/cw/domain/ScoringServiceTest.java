@@ -2,17 +2,25 @@ package cw.domain;
 
 import static org.assertj.core.api.Assertions.*;
 
-import cw.contracts.*;
-import cw.contracts.EvaluationContracts.*;
-import cw.contracts.MatchContracts.*;
+import cw.contracts.EvaluationContracts.EvaluableMatch;
+import cw.contracts.EvaluationContracts.EvaluableParticipant;
+import cw.contracts.EvaluationContracts.EvaluationInput;
+import cw.contracts.EvaluationContracts.GameScore;
+import cw.contracts.EvaluationContracts.ScoringRuleSet;
+import cw.contracts.MatchContracts.NormalizedMatch;
+import cw.contracts.MatchContracts.ParticipantRecord;
 import cw.contracts.MemberContracts.Member;
+import cw.contracts.Role;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
 class ScoringServiceTest {
     static List<Member> members() {
-        return java.util.stream.IntStream.range(0, 11)
+        return IntStream.range(0, 11)
                 .mapToObj(
                         i ->
                                 new Member(
@@ -31,8 +39,9 @@ class ScoringServiceTest {
 
     static EvaluableMatch game(String id, boolean zero) {
         List<EvaluableParticipant> ps = new ArrayList<>();
+
         for (int i = 0; i < 10; i++) {
-            var p =
+            ParticipantRecord p =
                     new ParticipantRecord(
                             "p" + i,
                             i < 5 ? 100 : 200,
@@ -52,6 +61,7 @@ class ScoringServiceTest {
                             List.of(0L, 0L, 0L, 0L, 0L, 0L, 0L));
             ps.add(new EvaluableParticipant("m" + i, Role.values()[i % 5], p));
         }
+
         return new EvaluableMatch(
                 new NormalizedMatch(
                         1,
@@ -67,14 +77,14 @@ class ScoringServiceTest {
     }
 
     static EvaluationInput input(List<EvaluableMatch> games) {
-        var rules = ScoringRulesV1.defaults();
+        ScoringRuleSet rules = ScoringRulesV1.defaults();
         return new EvaluationInput(1, rules.id(), rules, games, members());
     }
 
     @Test
     void manualCalculationGolden() {
-        var input = input(List.of(game("1", false)));
-        var scores = new ScoringService().scoreMatches(input);
+        EvaluationInput input = input(List.of(game("1", false)));
+        List<GameScore> scores = new ScoringService().scoreMatches(input);
         assertThat(scores).hasSize(10);
         assertThat(
                         scores.stream()
@@ -96,7 +106,7 @@ class ScoringServiceTest {
 
     @Test
     void zeroDenominatorsFinite() {
-        for (var s :
+        for (GameScore s :
                 new ScoringService()
                         .scoreMatches(input(List.of(game("1", true), game("2", true))))) {
             assertThat(s.score()).isFinite().isBetween(0., 100.);
@@ -110,18 +120,21 @@ class ScoringServiceTest {
         // P=62.5, H=100*(2+0+5)/12=58.3333, a=2/22; both current players excluded.
         assertThat(ScoringService.normalize(3, 1, List.of(0., 2.), ScoringRulesV1.defaults()))
                 .isCloseTo(62.121212121212125, within(1e-10));
-        var input = input(List.of(game("1", false), game("2", false), game("3", false)));
+
+        EvaluationInput input =
+                input(List.of(game("1", false), game("2", false), game("3", false)));
         assertThat(new ScoringService().scoreMatches(input))
                 .allSatisfy(s -> assertThat(s.score()).isIn(52.5, 47.5));
     }
 
     @Test
     void sameRoleOnly() {
-        var base = game("1", false);
-        var history = game("2", false);
-        var changed = new ArrayList<>(history.participants());
-        var p = changed.get(1);
-        var r = p.record();
+        EvaluableMatch base = game("1", false);
+        EvaluableMatch history = game("2", false);
+
+        ArrayList<EvaluableParticipant> changed = new ArrayList<>(history.participants());
+        EvaluableParticipant p = changed.get(1);
+        ParticipantRecord r = p.record();
         changed.set(
                 1,
                 new EvaluableParticipant(
@@ -144,12 +157,13 @@ class ScoringServiceTest {
                                 999999,
                                 999999,
                                 r.items())));
-        var service = new ScoringService();
-        var a =
+
+        ScoringService service = new ScoringService();
+        List<GameScore> a =
                 service.scoreMatches(input(List.of(base, history))).stream()
                         .filter(s -> s.matchKey().equals("KR:1") && s.role() == Role.TOP)
                         .toList();
-        var b =
+        List<GameScore> b =
                 service
                         .scoreMatches(
                                 input(List.of(base, new EvaluableMatch(history.match(), changed))))
@@ -161,8 +175,8 @@ class ScoringServiceTest {
 
     @Test
     void seedAndSoloCannotAffectRank() {
-        var a = input(List.of(game("1", false)));
-        var changed =
+        EvaluationInput a = input(List.of(game("1", false)));
+        List<Member> changed =
                 a.members().stream()
                         .map(
                                 m ->
@@ -192,10 +206,11 @@ class ScoringServiceTest {
 
     @Test
     void loserCanRankFirst() {
-        var g = game("1", false);
-        var ps = new ArrayList<>(g.participants());
-        var p = ps.get(5);
-        var r = p.record();
+        EvaluableMatch g = game("1", false);
+
+        ArrayList<EvaluableParticipant> ps = new ArrayList<>(g.participants());
+        EvaluableParticipant p = ps.get(5);
+        ParticipantRecord r = p.record();
         ps.set(
                 5,
                 new EvaluableParticipant(
@@ -204,7 +219,8 @@ class ScoringServiceTest {
                         new ParticipantRecord(
                                 r.puuid(), 200, false, 1, 100, 0, 100, 100000, 0, 1000, 1000,
                                 100000, 10000, 100000, 100000, r.items())));
-        var scores =
+
+        List<GameScore> scores =
                 new ScoringService()
                         .scoreMatches(input(List.of(new EvaluableMatch(g.match(), ps))));
         assertThat(
@@ -218,10 +234,11 @@ class ScoringServiceTest {
 
     @Test
     void objectiveOverlapPolicyAndUnconfirmedRejected() {
-        var g = game("1", false);
-        var ps = new ArrayList<>(g.participants());
-        var p = ps.get(2);
-        var r = p.record();
+        EvaluableMatch g = game("1", false);
+
+        ArrayList<EvaluableParticipant> ps = new ArrayList<>(g.participants());
+        EvaluableParticipant p = ps.get(2);
+        ParticipantRecord r = p.record();
         ps.set(
                 2,
                 new EvaluableParticipant(

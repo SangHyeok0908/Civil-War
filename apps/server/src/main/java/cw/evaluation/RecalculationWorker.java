@@ -1,7 +1,17 @@
 package cw.evaluation;
 
-import cw.contracts.EvaluationContracts.*;
-import cw.domain.*;
+import cw.contracts.EvaluationContracts.EvaluationGeneration;
+import cw.contracts.EvaluationContracts.EvaluationInput;
+import cw.contracts.EvaluationContracts.GameScore;
+import cw.domain.MemberAggregator;
+import cw.domain.RoleSkillCalculator;
+import cw.domain.ScoringService;
+import cw.evaluation.EvaluationRepository.Claim;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.List;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.springframework.stereotype.Service;
@@ -29,7 +39,7 @@ public class RecalculationWorker {
     }
 
     public EvaluationGeneration calculate(EvaluationInput input) {
-        var scores = new ScoringService().scoreMatches(input);
+        List<GameScore> scores = new ScoringService().scoreMatches(input);
         return new EvaluationGeneration(
                 UUID.randomUUID().toString(),
                 input.sourceRevision(),
@@ -40,12 +50,14 @@ public class RecalculationWorker {
     }
 
     void calculateClaimed(EvaluationRepository.Claim claim) {
-        var input = snapshot.capture();
+        EvaluationInput input = snapshot.capture();
+
         if (input.sourceRevision() != claim.sourceRevision()
                 || !input.scoringVersion().equals(claim.scoringVersion())) {
             evaluations.stale(claim);
             return;
         }
+
         publisher.publish(input, calculate(input), claim.attempts());
     }
 
@@ -54,29 +66,35 @@ public class RecalculationWorker {
     }
 
     public boolean runOnce(boolean recoverFailed) {
-        try (var connection = dataSource.getConnection();
-                var statement = connection.createStatement()) {
-            try (var result = statement.executeQuery("select pg_try_advisory_lock(731954801)")) {
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement()) {
+            try (ResultSet result =
+                    statement.executeQuery("select pg_try_advisory_lock(731954801)")) {
                 result.next();
+
                 if (!result.getBoolean(1)) {
                     return false;
                 }
             }
+
             try {
-                var revision = evaluations.claim(recoverFailed);
+                Claim revision = evaluations.claim(recoverFailed);
+
                 if (revision == null) {
                     return false;
                 }
+
                 try {
                     calculateClaimed(revision);
                 } catch (Exception failure) {
                     evaluations.failed(revision);
                 }
+
                 return true;
             } finally {
                 statement.execute("select pg_advisory_unlock(731954801)");
             }
-        } catch (java.sql.SQLException e) {
+        } catch (SQLException e) {
             throw new IllegalStateException("Evaluation database unavailable", e);
         }
     }

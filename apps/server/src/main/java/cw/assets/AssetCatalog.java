@@ -1,6 +1,9 @@
 package cw.assets;
 
-import org.springframework.web.bind.annotation.*;
+import java.io.IOException;
+import java.io.InputStream;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -8,8 +11,8 @@ import tools.jackson.databind.json.JsonMapper;
 public class AssetCatalog {
     private final JsonNode catalog;
 
-    public AssetCatalog(JsonMapper json) throws java.io.IOException {
-        try (var input = getClass().getResourceAsStream("/assets/catalog.json")) {
+    public AssetCatalog(JsonMapper json) throws IOException {
+        try (InputStream input = getClass().getResourceAsStream("/assets/catalog.json")) {
             catalog = json.readTree(input);
         }
     }
