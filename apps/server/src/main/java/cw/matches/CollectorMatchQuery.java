@@ -24,8 +24,9 @@ public class CollectorMatchQuery {
     }
 
     public List<CollectorMatch> list(String state, CollectorPrincipal actor) {
-        if (!List.of("pending", "registered", "canceled").contains(state))
+        if (!List.of("pending", "registered", "canceled").contains(state)) {
             throw new ApiException(400, "INVALID_FILTER");
+        }
         return matches
                 .findAll(
                         (root, query, cb) -> {

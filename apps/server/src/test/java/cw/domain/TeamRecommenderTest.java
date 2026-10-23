@@ -40,7 +40,7 @@ class TeamRecommenderTest {
             assertThat(c.teamA()).hasSize(5);
             assertThat(c.teamB()).hasSize(5);
             rosters.add(c.teamA().stream().map(TeamSeat::memberId).sorted().toList().toString());
-            for (var s : c.teamA())
+            for (var s : c.teamA()) {
                 assertThat(
                                 ps.stream()
                                         .filter(p -> p.id().equals(s.memberId()))
@@ -48,6 +48,7 @@ class TeamRecommenderTest {
                                         .orElseThrow()
                                         .allowedRoles())
                         .contains(s.role());
+            }
         }
         assertThat(rosters).hasSize(3);
     }

@@ -29,8 +29,12 @@ class Stage3ContractIntegrationTest extends DatabaseTestSupport {
                         .get("$defs");
         var match = json.valueToTree(publicMatches.get(KEY));
         assertFields(match, schema.get("PublicMatch"));
-        for (var p : match.get("participants")) assertFields(p, schema.get("PublicParticipant"));
-        for (var score : match.get("scores")) assertFields(score, schema.get("GameScore"));
+        for (var p : match.get("participants")) {
+            assertFields(p, schema.get("PublicParticipant"));
+        }
+        for (var score : match.get("scores")) {
+            assertFields(score, schema.get("GameScore"));
+        }
         var ranks = json.valueToTree(evaluations.rankings());
         assertFields(ranks, schema.get("Rankings"));
         for (var row : ranks.get("members")) {

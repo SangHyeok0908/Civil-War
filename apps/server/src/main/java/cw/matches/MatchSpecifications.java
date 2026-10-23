@@ -17,13 +17,14 @@ public final class MatchSpecifications {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("state"), "registered"));
-            if (cursor != null)
+            if (cursor != null) {
                 predicates.add(
                         cb.or(
                                 cb.lessThan(root.get("startedAt"), cursor.startedAt()),
                                 cb.and(
                                         cb.equal(root.get("startedAt"), cursor.startedAt()),
                                         cb.lessThan(root.get("id"), cursor.key()))));
+            }
             if (filters.memberId() != null
                     || filters.championId() != null
                     || filters.role() != null
@@ -34,12 +35,18 @@ public final class MatchSpecifications {
                 var p = sub.from(MatchParticipantEntity.class);
                 List<Predicate> where = new ArrayList<>();
                 where.add(cb.equal(p.get("match").get("id"), root.get("id")));
-                if (filters.memberId() != null)
+                if (filters.memberId() != null) {
                     where.add(cb.equal(p.get("memberId"), filters.memberId()));
-                if (filters.championId() != null)
+                }
+                if (filters.championId() != null) {
                     where.add(cb.equal(p.get("championId"), filters.championId()));
-                if (filters.role() != null) where.add(cb.equal(p.get("role"), filters.role()));
-                if (filters.win() != null) where.add(cb.equal(p.get("win"), filters.win()));
+                }
+                if (filters.role() != null) {
+                    where.add(cb.equal(p.get("role"), filters.role()));
+                }
+                if (filters.win() != null) {
+                    where.add(cb.equal(p.get("win"), filters.win()));
+                }
                 sub.select(cb.literal(1)).where(where.toArray(Predicate[]::new));
                 predicates.add(cb.exists(sub));
             }

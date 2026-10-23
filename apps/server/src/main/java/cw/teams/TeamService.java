@@ -33,13 +33,17 @@ public class TeamService {
         if (ids == null
                 || ids.size() != 10
                 || ids.stream().anyMatch(Objects::isNull)
-                || new HashSet<>(ids).size() != 10)
+                || new HashSet<>(ids).size() != 10) {
             throw new ApiException(422, "INVALID_TEAM_MEMBERS");
+        }
         var selected = members.list().stream().filter(m -> ids.contains(m.id())).toList();
-        if (selected.size() != 10 || selected.stream().anyMatch(m -> !m.active()))
+        if (selected.size() != 10 || selected.stream().anyMatch(m -> !m.active())) {
             throw new ApiException(422, "INVALID_TEAM_MEMBERS");
+        }
         var g = evaluations.current();
-        if (g == null) throw new ApiException(202, "RECALCULATING");
+        if (g == null) {
+            throw new ApiException(202, "RECALCULATING");
+        }
         String key =
                 g.sourceRevision()
                         + ":"

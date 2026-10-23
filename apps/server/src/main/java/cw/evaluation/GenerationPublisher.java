@@ -34,7 +34,9 @@ public class GenerationPublisher {
                         .setParameter("attempts", expectedAttempt)
                         .setParameter("version", input.scoringVersion())
                         .getSingleResult();
-        if (owned != 1) return false;
+        if (owned != 1) {
+            return false;
+        }
         if (state.sourceRevision != input.sourceRevision()
                 || !input.scoringVersion().equals(state.desiredScoringVersion)) {
             em.createQuery(
@@ -45,8 +47,9 @@ public class GenerationPublisher {
             return false;
         }
         if (generation.sourceRevision() != input.sourceRevision()
-                || !generation.scoringVersion().equals(input.scoringVersion()))
+                || !generation.scoringVersion().equals(input.scoringVersion())) {
             throw new IllegalArgumentException("Generation mismatch");
+        }
         var g = new GenerationEntity();
         g.id = generation.id();
         g.sourceRevision = input.sourceRevision();

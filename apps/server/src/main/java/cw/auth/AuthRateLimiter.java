@@ -21,12 +21,15 @@ public class AuthRateLimiter {
         attempts.entrySet()
                 .removeIf(e -> !e.getValue().start().plusSeconds(600).isAfter(clock.instant()));
         var a = attempts.get(ip);
-        if (a != null && a.count() >= 5) throw new ApiException(429, "RATE_LIMITED");
+        if (a != null && a.count() >= 5) {
+            throw new ApiException(429, "RATE_LIMITED");
+        }
     }
 
     public synchronized void failed(String ip) {
-        if (attempts.size() >= 10000 && !attempts.containsKey(ip))
+        if (attempts.size() >= 10000 && !attempts.containsKey(ip)) {
             throw new ApiException(429, "RATE_LIMITED");
+        }
         var old = attempts.get(ip);
         attempts.put(
                 ip,

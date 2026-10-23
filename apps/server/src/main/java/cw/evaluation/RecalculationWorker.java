@@ -58,11 +58,15 @@ public class RecalculationWorker {
                 var statement = connection.createStatement()) {
             try (var result = statement.executeQuery("select pg_try_advisory_lock(731954801)")) {
                 result.next();
-                if (!result.getBoolean(1)) return false;
+                if (!result.getBoolean(1)) {
+                    return false;
+                }
             }
             try {
                 var revision = evaluations.claim(recoverFailed);
-                if (revision == null) return false;
+                if (revision == null) {
+                    return false;
+                }
                 try {
                     calculateClaimed(revision);
                 } catch (Exception failure) {

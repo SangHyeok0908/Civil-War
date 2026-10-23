@@ -26,7 +26,7 @@ class SnapshotIsolationIntegrationTest extends DatabaseTestSupport {
         var fired = new java.util.concurrent.atomic.AtomicBoolean();
         doAnswer(
                         invocation -> {
-                            if (fired.compareAndSet(false, true))
+                            if (fired.compareAndSet(false, true)) {
                                 try (var executor = Executors.newSingleThreadExecutor()) {
                                     executor.submit(
                                                     () -> {
@@ -39,6 +39,7 @@ class SnapshotIsolationIntegrationTest extends DatabaseTestSupport {
                                                     })
                                             .get(10, TimeUnit.SECONDS);
                                 }
+                            }
                             return invocation.callRealMethod();
                         })
                 .when(views)

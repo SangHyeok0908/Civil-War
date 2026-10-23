@@ -11,13 +11,14 @@ class RoleSuggesterTest {
     @Test
     void recentTwentyKnownRolesAndTieByRecencyThenFixedOrder() {
         List<RoleSuggester.Sample> samples = new ArrayList<>();
-        for (int i = 0; i < 21; i++)
+        for (int i = 0; i < 21; i++) {
             samples.add(
                     new RoleSuggester.Sample(
                             "solo420",
                             "s" + i,
                             Instant.ofEpochSecond(i),
                             i < 11 ? Role.TOP : Role.JUNGLE));
+        }
         samples.add(
                 new RoleSuggester.Sample("inhouse", "unknown", Instant.ofEpochSecond(100), null));
         var result = new RoleSuggester().suggest(samples);

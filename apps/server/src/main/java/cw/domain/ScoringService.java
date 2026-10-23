@@ -7,8 +7,9 @@ import java.util.*;
 public class ScoringService {
     public List<GameScore> scoreMatches(EvaluationInput input) {
         ScoringRulesV1.validate(input.rules());
-        if (!input.rules().id().equals(input.scoringVersion()))
+        if (!input.rules().id().equals(input.scoringVersion())) {
             throw new IllegalArgumentException("Mismatched rule version");
+        }
         var rows = MatchFeatures.extract(input.matches(), input.rules());
         var rules = input.rules();
         List<GameScore> result = new ArrayList<>();
@@ -84,9 +85,11 @@ public class ScoringService {
         Map<String, Map<String, Integer>> ranks = new HashMap<>();
         for (var game : input.matches()) {
             Map<String, Double> values = new HashMap<>();
-            for (var s : result)
-                if (s.matchKey().equals(game.match().matchKey()))
+            for (var s : result) {
+                if (s.matchKey().equals(game.match().matchKey())) {
                     values.put(s.memberId(), s.score());
+                }
+            }
             ranks.put(game.match().matchKey(), competitionRanks(values));
         }
         return result.stream()
@@ -150,7 +153,9 @@ public class ScoringService {
         for (int i = 0; i < sorted.size(); i++) {
             String id = sorted.get(i);
             long value = rounded(values.get(id));
-            if (value != previous) rank = i + 1;
+            if (value != previous) {
+                rank = i + 1;
+            }
             result.put(id, rank);
             previous = value;
         }

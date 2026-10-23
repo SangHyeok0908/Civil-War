@@ -24,15 +24,18 @@ public class MatchViews {
                         .noneMatch(
                                 p ->
                                         p.memberId.equals(actor.memberId())
-                                                && p.puuid.equals(actor.puuid())))
+                                                && p.puuid.equals(actor.puuid()))) {
             throw new ApiException(403, "FORBIDDEN");
+        }
     }
 
     public CollectorMatch collector(MatchEntity entity) {
         Map<String, Role> roles = null;
         if (!entity.state.equals("pending")) {
             roles = new TreeMap<>();
-            for (var p : entity.participants) roles.put(p.puuid, p.role);
+            for (var p : entity.participants) {
+                roles.put(p.puuid, p.role);
+            }
         }
         return new CollectorMatch(entity.id, entity.state, normalized(entity), roles);
     }

@@ -16,8 +16,9 @@ public class MemberAggregator {
                                         + input.rules().cumulativePrior() * groupMean)
                                 / (ms.size() + input.rules().cumulativePrior());
                 adjusted.put(m.id(), value);
-                if (ms.size() >= ScoringRulesV1.parameter(input.rules(), "rankedGames"))
+                if (ms.size() >= ScoringRulesV1.parameter(input.rules(), "rankedGames")) {
                     ranked.put(m.id(), value);
+                }
             }
         }
         var ranks = ScoringService.competitionRanks(ranked);
@@ -33,15 +34,18 @@ public class MemberAggregator {
             Map<Integer, RecordStats> byChampion = new TreeMap<>();
             for (var role : Role.values()) {
                 var selected = ps.stream().filter(p -> p.role() == role).toList();
-                if (!selected.isEmpty()) byRole.put(role, stats(selected));
+                if (!selected.isEmpty()) {
+                    byRole.put(role, stats(selected));
+                }
             }
-            for (int champion : ps.stream().map(p -> p.record().championId()).distinct().toList())
+            for (int champion : ps.stream().map(p -> p.record().championId()).distinct().toList()) {
                 byChampion.put(
                         champion,
                         stats(
                                 ps.stream()
                                         .filter(p -> p.record().championId() == champion)
                                         .toList()));
+            }
             result.add(
                     new MemberStats(
                             m.id(),
@@ -78,7 +82,9 @@ public class MemberAggregator {
             k = Math.addExact(k, p.record().kills());
             d = Math.addExact(d, p.record().deaths());
             a = Math.addExact(a, p.record().assists());
-            if (p.record().win()) wins++;
+            if (p.record().win()) {
+                wins++;
+            }
         }
         return new RecordStats(
                 ps.size(),

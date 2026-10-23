@@ -43,7 +43,9 @@ class LocalRecoveryIntegrationTest extends DatabaseTestSupport {
             command.environment().remove("SPRING_PROFILES_ACTIVE");
             var process = command.redirectErrorStream(true).redirectOutput(output.toFile()).start();
             boolean exited = process.waitFor(40, TimeUnit.SECONDS);
-            if (!exited) process.destroyForcibly();
+            if (!exited) {
+                process.destroyForcibly();
+            }
             assertThat(exited).as("CLI must exit without starting a web listener").isTrue();
             assertThat(process.exitValue()).isZero();
             String captured = Files.readString(output);

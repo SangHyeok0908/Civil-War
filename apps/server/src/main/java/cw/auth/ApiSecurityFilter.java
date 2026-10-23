@@ -31,8 +31,9 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
         this.json = json;
         this.origin = origin;
         this.devHttp = devHttp && (env.matchesProfiles("dev") || env.matchesProfiles("test"));
-        if (devHttp && !this.devHttp)
+        if (devHttp && !this.devHttp) {
             throw new IllegalStateException("HTTP cookie exception requires dev or test profile");
+        }
     }
 
     public String cookieName() {
@@ -40,9 +41,13 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
     }
 
     public String cookieToken(HttpServletRequest req) {
-        if (req.getCookies() != null)
-            for (var cookie : req.getCookies())
-                if (cookie.getName().equals(cookieName())) return cookie.getValue();
+        if (req.getCookies() != null) {
+            for (var cookie : req.getCookies()) {
+                if (cookie.getName().equals(cookieName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
         return null;
     }
 
@@ -60,35 +65,44 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
             // removal.
             // Raw getRequestURI() prefixes permit alternate spellings to bypass this boundary.
             String path = canonicalPath(request);
-            if (path.startsWith("/api/")) response.setHeader("Cache-Control", "no-store");
+            if (path.startsWith("/api/")) {
+                response.setHeader("Cache-Control", "no-store");
+            }
             HttpServletRequest req = request;
             if (!Set.of("GET", "HEAD", "OPTIONS").contains(req.getMethod())) {
-                if (req.getContentLengthLong() > MAX_BODY_BYTES)
+                if (req.getContentLengthLong() > MAX_BODY_BYTES) {
                     throw new ApiException(413, "BODY_TOO_LARGE");
+                }
                 byte[] body = req.getInputStream().readNBytes(MAX_BODY_BYTES + 1);
-                if (body.length > MAX_BODY_BYTES) throw new ApiException(413, "BODY_TOO_LARGE");
+                if (body.length > MAX_BODY_BYTES) {
+                    throw new ApiException(413, "BODY_TOO_LARGE");
+                }
                 req = new BufferedRequest(req, body);
             }
             if (path.startsWith("/api/admin/")) {
                 boolean login = path.equals("/api/admin/session") && req.getMethod().equals("POST");
                 boolean write = !Set.of("GET", "HEAD", "OPTIONS").contains(req.getMethod());
-                if (write && !origin.equals(req.getHeader("Origin")))
+                if (write && !origin.equals(req.getHeader("Origin"))) {
                     throw new ApiException(403, "ORIGIN_REJECTED");
+                }
                 if (!login) {
-                    if (req.getHeader("Authorization") != null)
+                    if (req.getHeader("Authorization") != null) {
                         throw new ApiException(403, "FORBIDDEN");
+                    }
                     var principal = auth.requireAdmin(cookieToken(req));
                     req.setAttribute("admin", principal);
                     if (write
                             && !AuthService.matchesHash(
-                                    req.getHeader("X-CSRF-Token"), principal.csrfHash()))
+                                    req.getHeader("X-CSRF-Token"), principal.csrfHash())) {
                         throw new ApiException(403, "CSRF_REJECTED");
+                    }
                 }
             } else if (path.startsWith("/api/collector/")
                     && !path.equals("/api/collector/enroll")) {
                 String header = req.getHeader("Authorization");
-                if (header == null || !header.startsWith("Bearer "))
+                if (header == null || !header.startsWith("Bearer ")) {
                     throw new ApiException(401, "AUTH_REVOKED");
+                }
                 req.setAttribute("collector", auth.requireCollector(header.substring(7)));
             }
             chain.doFilter(req, response);
@@ -96,7 +110,9 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
             writeError(response, e);
         } catch (RuntimeException | ServletException failure) {
             // Authentication failures can happen before MVC's exception advice is entered.
-            if (response.isCommitted()) throw failure;
+            if (response.isCommitted()) {
+                throw failure;
+            }
             writeError(response, new ApiException(500, "INTERNAL_ERROR"));
         }
     }
@@ -110,9 +126,11 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
             for (var element : path.elements()) {
                 if (element
                         instanceof
-                        org.springframework.http.server.PathContainer.PathSegment segment)
+                        org.springframework.http.server.PathContainer.PathSegment segment) {
                     canonical.append(segment.valueToMatch());
-                else canonical.append(element.value());
+                } else {
+                    canonical.append(element.value());
+                }
             }
             return canonical.toString();
         } catch (IllegalArgumentException e) {
@@ -123,7 +141,9 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
     private void writeError(HttpServletResponse response, ApiException e) throws IOException {
         response.setStatus(e.status);
         response.setContentType("application/json");
-        if (e.status == 429) response.setHeader("Retry-After", "600");
+        if (e.status == 429) {
+            response.setHeader("Retry-After", "600");
+        }
         response.getWriter()
                 .write(
                         json.writeValueAsString(

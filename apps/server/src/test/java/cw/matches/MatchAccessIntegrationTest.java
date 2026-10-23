@@ -121,7 +121,7 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
     void cancelHidesImmediately() throws Exception {
         registered();
         var login = login();
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 2; i++) {
             assertThat(
                             mvc.perform(
                                             post("/api/admin/matches/" + KEY + "/cancel")
@@ -132,6 +132,7 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
                                     .getResponse()
                                     .getStatus())
                     .isEqualTo(200);
+        }
         assertThat(mvc.perform(get("/api/matches/" + KEY)).andReturn().getResponse().getStatus())
                 .isEqualTo(404);
         assertThat(json.readTree(body("/api/matches")).get("items")).isEmpty();
@@ -197,8 +198,9 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
                     "/api/matches?win=false&limit=2" + (cursor == null ? "" : "&cursor=" + cursor);
             var result = json.readTree(body(url));
             assertThat(result.get("items")).hasSize(2);
-            for (var match : result.get("items"))
+            for (var match : result.get("items")) {
                 assertThat(keys.add(match.get("matchKey").asString())).isTrue();
+            }
             cursor = result.get("nextCursor").isNull() ? null : result.get("nextCursor").asString();
         }
         assertThat(keys).hasSize(4);

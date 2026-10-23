@@ -30,8 +30,9 @@ public abstract class DatabaseTestSupport {
     @BeforeEach
     void resetDatabase() {
         // Test profile has a dedicated DB. Fail loudly if pointed at anything else.
-        if (!jdbc.queryForObject("select current_database()", String.class).equals("cw_test"))
+        if (!jdbc.queryForObject("select current_database()", String.class).equals("cw_test")) {
             throw new IllegalStateException("Integration tests require cw_test database");
+        }
         jdbc.execute(
                 "TRUNCATE evaluation_generations, scoring_versions, audit_log, recalculation_jobs, match_participants, matches, collector_credentials, admin_sessions, enrollment_codes, members CASCADE");
         jdbc.update(
@@ -71,10 +72,11 @@ public abstract class DatabaseTestSupport {
 
     protected Map<String, Role> roles(boolean reverse) {
         Map<String, Role> result = new LinkedHashMap<>();
-        for (int i = 1; i <= 10; i++)
+        for (int i = 1; i <= 10; i++) {
             result.put(
                     String.format("fixture-player-%02d", i),
                     Role.values()[reverse ? 4 - (i - 1) % 5 : (i - 1) % 5]);
+        }
         return result;
     }
 

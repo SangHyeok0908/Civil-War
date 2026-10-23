@@ -12,6 +12,8 @@ public class CivilWarApplication {
             try (var context = app.run(args)) {
                 /* command runner performs local recovery */
             }
-        } else SpringApplication.run(CivilWarApplication.class, args);
+        } else {
+            SpringApplication.run(CivilWarApplication.class, args);
+        }
     }
 }

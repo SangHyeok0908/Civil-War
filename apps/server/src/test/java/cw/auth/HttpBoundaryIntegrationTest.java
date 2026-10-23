@@ -152,7 +152,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
     void codeAttemptsLimitedAndSuccessfulLoginResets() throws Exception {
         limiter.succeeded("127.0.0.1");
         try {
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < 5; i++) {
                 assertThat(
                                 mvc.perform(
                                                 post("/api/collector/enroll")
@@ -163,6 +163,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
                                         .getResponse()
                                         .getStatus())
                         .isEqualTo(401);
+            }
             var blocked =
                     mvc.perform(
                                     post("/api/collector/enroll")
@@ -225,7 +226,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
     @Test
     void seedMutationOnlyCreatesWorkOnceAndIdentityCannotChange() throws Exception {
         var login = login();
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 2; i++) {
             assertThat(
                             mvc.perform(
                                             patch("/api/admin/members/member-1")
@@ -238,6 +239,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
                                     .getResponse()
                                     .getStatus())
                     .isEqualTo(200);
+        }
         assertThat(revision()).isEqualTo(1);
         assertThat(jobs()).isEqualTo(1);
         assertThat(

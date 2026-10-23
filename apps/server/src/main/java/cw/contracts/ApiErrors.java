@@ -11,7 +11,9 @@ public class ApiErrors {
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<?> api(ApiException e) {
         var response = ResponseEntity.status(e.status);
-        if (e.status == 429) response.header("Retry-After", "600");
+        if (e.status == 429) {
+            response.header("Retry-After", "600");
+        }
         return response.body(
                 Map.of(
                         "code",

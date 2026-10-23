@@ -44,13 +44,17 @@ public class MemberReferenceImporter {
                 || input.officialPuuid().length() > 255
                 || !input.confirmedMapping()
                 || input.samples() == null
-                || input.samples().size() > 200)
+                || input.samples().size() > 200) {
             throw new ApiException(422, "INVALID_REFERENCE_MAPPING");
+        }
         var member = members.get(input.memberId());
         var link = em.find(ReferenceLinkEntity.class, member.id());
-        if (link != null && !link.officialPuuid.equals(input.officialPuuid()))
+        if (link != null && !link.officialPuuid.equals(input.officialPuuid())) {
             throw new ApiException(409, "REFERENCE_MAPPING_CONFLICT");
-        for (var sample : input.samples()) validate(sample, member.puuid(), input.officialPuuid());
+        }
+        for (var sample : input.samples()) {
+            validate(sample, member.puuid(), input.officialPuuid());
+        }
         if (link == null) {
             link = new ReferenceLinkEntity();
             link.memberId = member.id();
@@ -60,7 +64,9 @@ public class MemberReferenceImporter {
         }
         int imported = 0;
         for (var sample : input.samples()) {
-            if (sample.role() == null) continue;
+            if (sample.role() == null) {
+                continue;
+            }
             long existing =
                     em.createQuery(
                                     "select count(s) from ReferenceSampleEntity s where s.memberId=:m and"
@@ -69,7 +75,9 @@ public class MemberReferenceImporter {
                             .setParameter("m", member.id())
                             .setParameter("g", sample.gameId())
                             .getSingleResult();
-            if (existing > 0) continue;
+            if (existing > 0) {
+                continue;
+            }
             var row = new ReferenceSampleEntity();
             row.id = UUID.randomUUID().toString();
             row.memberId = member.id();
@@ -95,7 +103,9 @@ public class MemberReferenceImporter {
                 || sample.gameId().length() > 100
                 || sample.playedAt() == null
                 || sample.playedAt().isAfter(clock.instant())
-                || sample.playedAt().isBefore(Instant.EPOCH)) invalid();
+                || sample.playedAt().isBefore(Instant.EPOCH)) {
+            invalid();
+        }
         var e = sample.evidence();
         if (e == null
                 || !e.isObject()
@@ -108,9 +118,13 @@ public class MemberReferenceImporter {
                 || !e.path("durationSeconds").canConvertToLong()
                 || e.path("durationSeconds").asLong() < 300
                 || !e.path("earlyEnded").isBoolean()
-                || e.path("earlyEnded").asBoolean()) invalid();
+                || e.path("earlyEnded").asBoolean()) {
+            invalid();
+        }
         if (sample.role() != null
-                && !sample.role().name().equals(e.path("teamPosition").asString())) invalid();
+                && !sample.role().name().equals(e.path("teamPosition").asString())) {
+            invalid();
+        }
     }
 
     private void invalid() {
@@ -126,8 +140,9 @@ public class MemberReferenceImporter {
                                 ReferenceSampleEntity.class)
                         .setParameter("m", id)
                         .setMaxResults(20)
-                        .getResultList())
+                        .getResultList()) {
             samples.add(new RoleSuggester.Sample(s.source, s.gameId, s.playedAt, s.role));
+        }
         var inhouse =
                 em.createQuery(
                                 "select m.id,m.startedAt,p.role from MatchEntity m join m.participants p where"
@@ -136,10 +151,11 @@ public class MemberReferenceImporter {
                         .setParameter("m", id)
                         .setMaxResults(20)
                         .getResultList();
-        for (var row : inhouse)
+        for (var row : inhouse) {
             samples.add(
                     new RoleSuggester.Sample(
                             "inhouse", (String) row[0], (Instant) row[1], (Role) row[2]));
+        }
         return new RoleSuggester().suggest(samples);
     }
 }

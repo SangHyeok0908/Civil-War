@@ -31,11 +31,15 @@ public class EvaluationRepository {
 
     public EvaluationGeneration current() {
         var s = em.find(ServiceState.class, 1);
-        if (s.activeGenerationId == null) return null;
+        if (s.activeGenerationId == null) {
+            return null;
+        }
         var g = em.find(GenerationEntity.class, s.activeGenerationId);
         if (g == null
                 || g.sourceRevision != s.sourceRevision
-                || !g.scoringVersion.equals(s.desiredScoringVersion)) return null;
+                || !g.scoringVersion.equals(s.desiredScoringVersion)) {
+            return null;
+        }
         return json.readValue(g.resultJson, EvaluationGeneration.class);
     }
 
@@ -43,7 +47,9 @@ public class EvaluationRepository {
 
     public Object rankings() {
         var g = current();
-        if (g == null) throw new ApiException(202, "RECALCULATING");
+        if (g == null) {
+            throw new ApiException(202, "RECALCULATING");
+        }
         var names = new HashMap<String, String>();
         members.publicList().forEach(m -> names.put(m.id(), m.displayName()));
         return Map.of(
@@ -68,7 +74,9 @@ public class EvaluationRepository {
                         .findFirst()
                         .orElseThrow(() -> new ApiException(404, "NOT_FOUND"));
         var g = current();
-        if (g == null) throw new ApiException(202, "RECALCULATING");
+        if (g == null) {
+            throw new ApiException(202, "RECALCULATING");
+        }
         return Map.of(
                 "member",
                 member,
@@ -87,7 +95,9 @@ public class EvaluationRepository {
 
     public ScoringRuleSet rule(String id) {
         var entity = em.find(ScoringVersionEntity.class, id);
-        if (entity == null) throw new ApiException(404, "NOT_FOUND");
+        if (entity == null) {
+            throw new ApiException(404, "NOT_FOUND");
+        }
         return json.readValue(entity.rulesJson, ScoringRuleSet.class);
     }
 
@@ -106,8 +116,9 @@ public class EvaluationRepository {
     public ScoringRuleSet createRules(ScoringRuleSet rules) {
         ScoringRulesV1.validate(rules);
         var state = mutations.lock();
-        if (em.find(ScoringVersionEntity.class, rules.id()) != null)
+        if (em.find(ScoringVersionEntity.class, rules.id()) != null) {
             throw new ApiException(409, "CONFLICT");
+        }
         saveRule(rules);
         state.desiredScoringVersion = rules.id();
         mutations.changed(state);
@@ -130,7 +141,9 @@ public class EvaluationRepository {
         var state = mutations.lock();
         if (state.desiredScoringVersion == null) {
             var d = ScoringRulesV1.defaults();
-            if (em.find(ScoringVersionEntity.class, d.id()) == null) saveRule(d);
+            if (em.find(ScoringVersionEntity.class, d.id()) == null) {
+                saveRule(d);
+            }
             state.desiredScoringVersion = d.id();
         }
         // Caller holds a PostgreSQL session advisory lock. No other live worker can own these jobs.
@@ -149,16 +162,24 @@ public class EvaluationRepository {
                         .getResultList();
         RecalculationJob job;
         if (rows.isEmpty()) {
-            if (state.activeGenerationId != null) return null;
+            if (state.activeGenerationId != null) {
+                return null;
+            }
             job = new RecalculationJob();
             job.id = UUID.randomUUID().toString();
             job.sourceRevision = state.sourceRevision;
             job.status = "pending";
             job.createdAt = clock.instant();
             em.persist(job);
-        } else job = rows.getFirst();
-        if (recoverFailed && job.status.equals("failed")) job.status = "pending";
-        if (!job.status.equals("pending")) return null;
+        } else {
+            job = rows.getFirst();
+        }
+        if (recoverFailed && job.status.equals("failed")) {
+            job.status = "pending";
+        }
+        if (!job.status.equals("pending")) {
+            return null;
+        }
         job.status = "running";
         job.scoringVersion = state.desiredScoringVersion;
         job.attempts++;

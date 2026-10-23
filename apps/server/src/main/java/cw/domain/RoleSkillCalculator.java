@@ -8,7 +8,7 @@ import java.util.*;
 public class RoleSkillCalculator {
     public List<RoleSkill> calculate(List<Member> members, List<GameScore> scores) {
         List<RoleSkill> result = new ArrayList<>();
-        for (var m : members)
+        for (var m : members) {
             for (var role : Role.values()) {
                 var selected =
                         scores.stream()
@@ -25,6 +25,7 @@ public class RoleSkillCalculator {
                                         / (5 + selected.size()),
                                 selected.size()));
             }
+        }
         return List.copyOf(result);
     }
 }

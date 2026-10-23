@@ -38,11 +38,15 @@ public class AuthService {
 
     public CodeReply issueCode(String scope, String memberId, String actor) {
         mutations.lock();
-        if (scope == null || !Set.of("admin", "collector").contains(scope))
+        if (scope == null || !Set.of("admin", "collector").contains(scope)) {
             throw new ApiException(422, "INVALID_SCOPE");
-        if (scope.equals("collector") && (memberId == null || !members.existsById(memberId)))
+        }
+        if (scope.equals("collector") && (memberId == null || !members.existsById(memberId))) {
             throw new ApiException(422, "UNREGISTERED_PARTICIPANT");
-        if (scope.equals("admin") && memberId != null) throw new ApiException(422, "INVALID_SCOPE");
+        }
+        if (scope.equals("admin") && memberId != null) {
+            throw new ApiException(422, "INVALID_SCOPE");
+        }
         String code = secret();
         var entity = new EnrollmentCode();
         entity.id = UUID.randomUUID().toString();
@@ -77,7 +81,9 @@ public class AuthService {
         var member =
                 members.findById(entity.memberId)
                         .orElseThrow(() -> new ApiException(401, "AUTH_REVOKED"));
-        if (!member.puuid.equals(currentPuuid)) throw new ApiException(403, "ACCOUNT_MISMATCH");
+        if (!member.puuid.equals(currentPuuid)) {
+            throw new ApiException(403, "ACCOUNT_MISMATCH");
+        }
         String token = secret();
         var credential = new CollectorCredential();
         credential.id = UUID.randomUUID().toString();
@@ -114,13 +120,16 @@ public class AuthService {
                                 EnrollmentCode.class)
                         .setParameter("hash", hash(value))
                         .getResultList();
-        if (list.isEmpty()) throw new ApiException(401, "AUTH_REVOKED");
+        if (list.isEmpty()) {
+            throw new ApiException(401, "AUTH_REVOKED");
+        }
         var code = list.getFirst();
         if (!code.scope.equals(scope)
                 || code.consumed
                 || code.revoked
-                || !code.expiresAt.isAfter(clock.instant()))
+                || !code.expiresAt.isAfter(clock.instant())) {
             throw new ApiException(401, "AUTH_REVOKED");
+        }
         return code;
     }
 
@@ -132,13 +141,16 @@ public class AuthService {
                                 AdminSession.class)
                         .setParameter("hash", hash(token))
                         .getResultList();
-        if (found.isEmpty()) throw new ApiException(401, "AUTH_REVOKED");
+        if (found.isEmpty()) {
+            throw new ApiException(401, "AUTH_REVOKED");
+        }
         var s = found.getFirst();
         Instant now = clock.instant();
         if (s.revoked
                 || !s.lastSeenAt.plus(Duration.ofDays(7)).isAfter(now)
-                || !s.createdAt.plus(Duration.ofDays(30)).isAfter(now))
+                || !s.createdAt.plus(Duration.ofDays(30)).isAfter(now)) {
             throw new ApiException(401, "AUTH_REVOKED");
+        }
         s.lastSeenAt = now;
         return new AdminPrincipal(s.id, s.csrfHash);
     }
@@ -151,8 +163,9 @@ public class AuthService {
                                 CollectorCredential.class)
                         .setParameter("hash", hash(token))
                         .getResultList();
-        if (found.isEmpty() || found.getFirst().revoked)
+        if (found.isEmpty() || found.getFirst().revoked) {
             throw new ApiException(401, "AUTH_REVOKED");
+        }
         var c = found.getFirst();
         var member =
                 members.findById(c.memberId)
@@ -165,17 +178,23 @@ public class AuthService {
         switch (kind) {
             case "sessions" -> {
                 var s = em.find(AdminSession.class, id);
-                if (s == null) throw new ApiException(404, "NOT_FOUND");
+                if (s == null) {
+                    throw new ApiException(404, "NOT_FOUND");
+                }
                 s.revoked = true;
             }
             case "collector-credentials" -> {
                 var c = em.find(CollectorCredential.class, id);
-                if (c == null) throw new ApiException(404, "NOT_FOUND");
+                if (c == null) {
+                    throw new ApiException(404, "NOT_FOUND");
+                }
                 c.revoked = true;
             }
             case "codes" -> {
                 var c = em.find(EnrollmentCode.class, id);
-                if (c == null) throw new ApiException(404, "NOT_FOUND");
+                if (c == null) {
+                    throw new ApiException(404, "NOT_FOUND");
+                }
                 c.revoked = true;
             }
             default -> throw new ApiException(404, "NOT_FOUND");
@@ -231,7 +250,9 @@ public class AuthService {
     }
 
     public static String hash(String value) {
-        if (value == null || value.length() > 512) throw new ApiException(401, "AUTH_REVOKED");
+        if (value == null || value.length() > 512) {
+            throw new ApiException(401, "AUTH_REVOKED");
+        }
         try {
             return HexFormat.of()
                     .formatHex(

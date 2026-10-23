@@ -29,10 +29,13 @@ public class TeamController {
         long cutoff = clock.millis() - 600_000;
         requests.values().forEach(v -> v.removeIf(t -> t <= cutoff));
         requests.entrySet().removeIf(e -> e.getValue().isEmpty());
-        if (!requests.containsKey(ip) && requests.size() >= 10000)
+        if (!requests.containsKey(ip) && requests.size() >= 10000) {
             throw new ApiException(429, "RATE_LIMITED");
+        }
         var times = requests.computeIfAbsent(ip, k -> new ArrayList<>());
-        if (times.size() >= 60) throw new ApiException(429, "RATE_LIMITED");
+        if (times.size() >= 60) {
+            throw new ApiException(429, "RATE_LIMITED");
+        }
         times.add(clock.millis());
     }
 }

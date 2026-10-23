@@ -75,7 +75,9 @@ public class MemberService {
         m.allowedRoles = "";
         m.seedSkill = seed(input.get("seedSkill"));
         apply(m, input, true);
-        if (members.findByPuuid(m.puuid).isPresent()) throw new ApiException(409, "CONFLICT");
+        if (members.findByPuuid(m.puuid).isPresent()) {
+            throw new ApiException(409, "CONFLICT");
+        }
         m.profileRevision = 1;
         members.save(m);
         mutations.changed(state);
@@ -99,7 +101,9 @@ public class MemberService {
                             || before.secondaryRole() != after.secondaryRole()
                             || !before.allowedRoles().equals(after.allowedRoles());
             m.profileRevision++;
-            if (teamChanged) mutations.changed(state);
+            if (teamChanged) {
+                mutations.changed(state);
+            }
             mutations.audit(
                     "member_updated",
                     "owner",
@@ -110,38 +114,64 @@ public class MemberService {
     }
 
     private void apply(MemberEntity m, JsonNode input, boolean create) {
-        if (input.has("riotId")) m.riotId = text(input, "riotId", 255);
-        if (input.has("displayName")) m.displayName = text(input, "displayName", 100);
+        if (input.has("riotId")) {
+            m.riotId = text(input, "riotId", 255);
+        }
+        if (input.has("displayName")) {
+            m.displayName = text(input, "displayName", 100);
+        }
         if (input.has("active")) {
-            if (!input.get("active").isBoolean()) invalid();
+            if (!input.get("active").isBoolean()) {
+                invalid();
+            }
             m.active = input.get("active").asBoolean();
         }
-        if (input.has("seedSkill")) m.seedSkill = seed(input.get("seedSkill"));
-        if (input.has("primaryRole")) m.primaryRole = role(input.get("primaryRole"));
-        if (input.has("secondaryRole")) m.secondaryRole = role(input.get("secondaryRole"));
-        if (m.primaryRole != null && m.primaryRole == m.secondaryRole) invalid();
+        if (input.has("seedSkill")) {
+            m.seedSkill = seed(input.get("seedSkill"));
+        }
+        if (input.has("primaryRole")) {
+            m.primaryRole = role(input.get("primaryRole"));
+        }
+        if (input.has("secondaryRole")) {
+            m.secondaryRole = role(input.get("secondaryRole"));
+        }
+        if (m.primaryRole != null && m.primaryRole == m.secondaryRole) {
+            invalid();
+        }
         if (input.has("allowedRoles")) {
             var a = input.get("allowedRoles");
-            if (!a.isArray() || a.size() > 5) invalid();
+            if (!a.isArray() || a.size() > 5) {
+                invalid();
+            }
             Set<Role> values = new LinkedHashSet<>();
             for (var node : a) {
                 var r = role(node);
-                if (r == null || !values.add(r)) invalid();
+                if (r == null || !values.add(r)) {
+                    invalid();
+                }
             }
             m.allowedRoles = String.join(",", values.stream().sorted().map(Enum::name).toList());
         } else if (create) {
             Set<Role> values = new TreeSet<>();
-            if (m.primaryRole != null) values.add(m.primaryRole);
-            if (m.secondaryRole != null) values.add(m.secondaryRole);
+            if (m.primaryRole != null) {
+                values.add(m.primaryRole);
+            }
+            if (m.secondaryRole != null) {
+                values.add(m.secondaryRole);
+            }
             m.allowedRoles = String.join(",", values.stream().map(Enum::name).toList());
         }
         var allowed = roles(m.allowedRoles);
         if ((m.primaryRole != null && !allowed.contains(m.primaryRole))
-                || (m.secondaryRole != null && !allowed.contains(m.secondaryRole))) invalid();
+                || (m.secondaryRole != null && !allowed.contains(m.secondaryRole))) {
+            invalid();
+        }
     }
 
     private void validateFields(JsonNode input, boolean create) {
-        if (input == null || !input.isObject()) invalid();
+        if (input == null || !input.isObject()) {
+            invalid();
+        }
         Set<String> allowed =
                 new HashSet<>(
                         Set.of(
@@ -152,8 +182,14 @@ public class MemberService {
                                 "secondaryRole",
                                 "allowedRoles",
                                 "seedSkill"));
-        if (create) allowed.add("puuid");
-        for (String name : input.propertyNames()) if (!allowed.contains(name)) invalid();
+        if (create) {
+            allowed.add("puuid");
+        }
+        for (String name : input.propertyNames()) {
+            if (!allowed.contains(name)) {
+                invalid();
+            }
+        }
     }
 
     private static List<Role> roles(String encoded) {
@@ -163,8 +199,12 @@ public class MemberService {
     }
 
     private static Role role(JsonNode value) {
-        if (value.isNull()) return null;
-        if (!value.isString()) invalid();
+        if (value.isNull()) {
+            return null;
+        }
+        if (!value.isString()) {
+            invalid();
+        }
         try {
             return Role.valueOf(value.asString());
         } catch (IllegalArgumentException e) {
@@ -178,14 +218,17 @@ public class MemberService {
                 || !value.isIntegralNumber()
                 || !value.canConvertToInt()
                 || value.asInt() < 0
-                || value.asInt() > 100) invalid();
+                || value.asInt() > 100) {
+            invalid();
+        }
         return value.asInt();
     }
 
     private static String text(JsonNode input, String name, int max) {
         var n = input.get(name);
-        if (n == null || !n.isString() || n.asString().isBlank() || n.asString().length() > max)
+        if (n == null || !n.isString() || n.asString().isBlank() || n.asString().length() > max) {
             invalid();
+        }
         return n.asString();
     }
 

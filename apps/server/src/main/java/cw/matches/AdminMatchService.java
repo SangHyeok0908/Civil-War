@@ -36,14 +36,17 @@ public class AdminMatchService {
     public Map<String, Object> roles(String key, Map<String, Role> roles) {
         var state = mutations.lock();
         var match = find(key);
-        if (!match.state.equals("registered"))
+        if (!match.state.equals("registered")) {
             throw new ApiException(
                     409, match.state.equals("canceled") ? "MATCH_CANCELED" : "INVALID_STATE");
+        }
         validator.requireRoles(
                 new ConfirmationInput(key, roles, "admin-correction"), views.normalized(match));
         if (match.participants.stream().anyMatch(p -> p.role != roles.get(p.puuid))) {
             var before = roleAudit(match);
-            for (var p : match.participants) p.role = roles.get(p.puuid);
+            for (var p : match.participants) {
+                p.role = roles.get(p.puuid);
+            }
             mutations.changed(state);
             mutations.audit(
                     "roles_corrected",
@@ -59,7 +62,9 @@ public class AdminMatchService {
     public Map<String, Object> cancel(String key) {
         var state = mutations.lock();
         var match = find(key);
-        if (match.state.equals("pending")) throw new ApiException(409, "INVALID_STATE");
+        if (match.state.equals("pending")) {
+            throw new ApiException(409, "INVALID_STATE");
+        }
         if (!match.state.equals("canceled")) {
             match.state = "canceled";
             mutations.changed(state);
@@ -105,8 +110,9 @@ public class AdminMatchService {
     }
 
     public Object list(String state) {
-        if (!Set.of("pending", "registered", "canceled").contains(state))
+        if (!Set.of("pending", "registered", "canceled").contains(state)) {
             throw new ApiException(400, "INVALID_FILTER");
+        }
         return matches.findByStateOrderByStartedAtDescIdDesc(state).stream()
                 .map(views::collector)
                 .toList();
@@ -118,7 +124,9 @@ public class AdminMatchService {
 
     private Map<String, Role> roleAudit(MatchEntity match) {
         Map<String, Role> result = new TreeMap<>();
-        for (var p : match.participants) result.put(p.memberId, p.role);
+        for (var p : match.participants) {
+            result.put(p.memberId, p.role);
+        }
         return result;
     }
 }

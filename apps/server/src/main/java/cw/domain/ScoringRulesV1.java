@@ -23,7 +23,9 @@ public final class ScoringRulesV1 {
         Map<Role, Map<String, Double>> byRole = new EnumMap<>(Role.class);
         for (var r : Role.values()) {
             Map<String, Double> w = new LinkedHashMap<>();
-            for (int i = 0; i < 7; i++) w.put(CATEGORIES.get(i), (double) weights[r.ordinal()][i]);
+            for (int i = 0; i < 7; i++) {
+                w.put(CATEGORIES.get(i), (double) weights[r.ordinal()][i]);
+            }
             byRole.put(r, Map.copyOf(w));
         }
         var json = JsonMapper.builder().build();
@@ -53,7 +55,9 @@ public final class ScoringRulesV1 {
                 || !"objective-provisional-v1".equals(r.algorithmVersion())
                 || r.cumulativePrior() != 5
                 || r.weightsByRole() == null
-                || r.weightsByRole().size() != 5) invalid();
+                || r.weightsByRole().size() != 5) {
+            invalid();
+        }
         for (var role : Role.values()) {
             var w = r.weightsByRole().get(role);
             if (w == null
@@ -61,7 +65,9 @@ public final class ScoringRulesV1 {
                     || w.values().stream().anyMatch(v -> v == null || !Double.isFinite(v) || v < 0)
                     || Math.abs(w.values().stream().mapToDouble(Double::doubleValue).sum() - 100)
                             > 1e-8
-                    || w.get("win") > 5) invalid();
+                    || w.get("win") > 5) {
+                invalid();
+            }
         }
         // Algorithm constants are versioned and persisted in full. Changing the algorithm requires
         // a
@@ -71,30 +77,43 @@ public final class ScoringRulesV1 {
         if (normalization == null
                 || !normalization.isObject()
                 || !new HashSet<>(normalization.propertyNames())
-                        .equals(new HashSet<>(d.normalization().propertyNames()))) invalid();
-        for (var key : d.normalization().propertyNames())
+                        .equals(new HashSet<>(d.normalization().propertyNames()))) {
+            invalid();
+        }
+        for (var key : d.normalization().propertyNames()) {
             if (!normalization.get(key).isNumber()
                     || Double.compare(
                                     normalization.get(key).asDouble(),
                                     d.normalization().get(key).asDouble())
-                            != 0) invalid();
+                            != 0) {
+                invalid();
+            }
+        }
         var mix = r.metricMix();
         if (mix == null
                 || !mix.isObject()
                 || !new HashSet<>(mix.propertyNames())
-                        .equals(new HashSet<>(d.metricMix().propertyNames()))) invalid();
-        for (var k : mix.propertyNames())
+                        .equals(new HashSet<>(d.metricMix().propertyNames()))) {
+            invalid();
+        }
+        for (var k : mix.propertyNames()) {
             if (!mix.get(k).isNumber()
                     || !Double.isFinite(mix.get(k).asDouble())
                     || mix.get(k).asDouble() < 0
-                    || mix.get(k).asDouble() > 1) invalid();
+                    || mix.get(k).asDouble() > 1) {
+                invalid();
+            }
+        }
         for (var pair :
                 List.of(
                         List.of("damagePerMinute", "damageShare"),
                         List.of("csPerMinute", "goldPerMinute"),
-                        List.of("supportParticipation", "supportAssists")))
+                        List.of("supportParticipation", "supportAssists"))) {
             if (Math.abs(mix.get(pair.get(0)).asDouble() + mix.get(pair.get(1)).asDouble() - 1)
-                    > 1e-8) invalid();
+                    > 1e-8) {
+                invalid();
+            }
+        }
     }
 
     private static void invalid() {

@@ -32,11 +32,16 @@ public class RegistrationService {
                 matches.findById(input.matchKey())
                         .orElseThrow(() -> new ApiException(404, "NOT_FOUND"));
         views.requireParticipant(entity, actor);
-        if (entity.state.equals("canceled")) throw new ApiException(409, "MATCH_CANCELED");
-        if (entity.state.equals("registered"))
+        if (entity.state.equals("canceled")) {
+            throw new ApiException(409, "MATCH_CANCELED");
+        }
+        if (entity.state.equals("registered")) {
             return new RegistrationAck(entity.id, "already_registered", entity.registeredRevision);
+        }
         validator.requireRoles(input, views.normalized(entity));
-        for (var p : entity.participants) p.role = input.rolesByPuuid().get(p.puuid);
+        for (var p : entity.participants) {
+            p.role = input.rolesByPuuid().get(p.puuid);
+        }
         entity.state = "registered";
         entity.registeredRevision = mutations.changed(state);
         mutations.audit("match_registered", actor.memberId(), entity.id, "{}");

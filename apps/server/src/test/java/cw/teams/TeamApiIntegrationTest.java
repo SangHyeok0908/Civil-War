@@ -37,7 +37,7 @@ class TeamApiIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void publicRateLimiting() throws Exception {
-        for (int i = 0; i < 60; i++)
+        for (int i = 0; i < 60; i++) {
             mvc.perform(
                             post("/api/teams/recommend")
                                     .with(
@@ -48,6 +48,7 @@ class TeamApiIntegrationTest extends DatabaseTestSupport {
                                     .contentType("application/json")
                                     .content(body()))
                     .andExpect(status().isAccepted());
+        }
         mvc.perform(
                         post("/api/teams/recommend")
                                 .with(

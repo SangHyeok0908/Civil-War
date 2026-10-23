@@ -49,10 +49,11 @@ class StrictJsonIntegrationTest extends DatabaseTestSupport {
 
     private Map<String, Integer> numericRoles(boolean reverse) {
         Map<String, Integer> result = new LinkedHashMap<>();
-        for (int i = 1; i <= 10; i++)
+        for (int i = 1; i <= 10; i++) {
             result.put(
                     String.format("fixture-player-%02d", i),
                     reverse ? 4 - (i - 1) % 5 : (i - 1) % 5);
+        }
         return result;
     }
 
