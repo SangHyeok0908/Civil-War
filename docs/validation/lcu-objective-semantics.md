@@ -1,33 +1,89 @@
-# C07 오브젝트·포탑 의미 감사 — 2026-10-22
+# C07 오브젝트·포탑 피해 포함 관계 확인
 
-**C07 HOLD.** 필드 존재·0 보존·G1 화면의 수치 일치는 확인됐다. 포함 관계와 차감값의 의미는 확정하지 못했다. 이번 작업은 기존 표본 재검사와 공식 명세 확인이며 새 Windows 경기 측정이 아니다.
+**2026-10-24: 공식 통계 정의상 포탑 피해는 오브젝트(목표물) 피해의 포함 대상이다.** Riot의 과거 공식 설명, 설치된 클라이언트의 화면·필드 연결, 기존 G1 화면 대조를 연결한 판정이다. C07의 지표 의미 확인은 PASS로 기록하며, 전체 단계 0 판정은 **확정 지표의 새 계산 버전 반영·재계산·검증 전까지 HOLD**로 유지한다. 새 Windows 경기나 피해 대상을 나눈 통제 실험을 수행한 결과는 아니다.
 
-## 1차 출처 확인
+## 확인한 의미와 계산상의 제한
 
-2026-10-22 KST에 [Riot Match-v5 공식 명세](https://developer.riotgames.com/apis#match-v5/GET_getMatch)의 페이지가 사용하는 [공식 상세 응답](https://developer.riotgames.com/api-details/match-v5)을 인증 없이 다시 읽었다. `damageDealtToObjectives`, `damageDealtToTurrets`, `damageDealtToBuildings`는 `int`로 나열되지만 설명 칸에서 피해 대상·포탑 포함 여부·합산식을 정의하지 않는다. `damageDealtToEpicMonsters`의 설명도 확보하지 못했다. 필드 이름과 타입은 의미의 충분한 계약이 아니다.
+| 지표 | 확인한 해석 | 서비스에서의 처리 |
+| --- | --- | --- |
+| `damageDealtToObjectives` → `objectiveDamage` | 에픽 몬스터와 구조물에 가한 피해를 집계하는 결과 통계. 포탑 피해를 포함하며, 억제기 피해를 포함하도록 수정된 공식 이력도 있음 | 몬스터 전용 피해로 설명하지 않는다. 원본 정수 누적 피해량을 보존한다 |
+| `damageDealtToTurrets` → `turretDamage` | 포탑에 가한 피해를 별도로 보여 주는 결과 통계 | 목표물 피해와 더해 총 피해로 사용하지 않는다 |
+| `objectiveDamage - turretDamage` | 포탑을 제외한 잔여값 | 다른 구조물의 가능성과 집계 오차가 있어 에픽/중립 몬스터 피해로 이름 붙이거나 점수에 사용하지 않는다 |
 
-공식 상세 응답 SHA-256: `fb40838f6160a3ede81ce59b844e295328fda4c7ecb5f0d18f4f2f6869f2d64d`. 공개 문서 응답의 해시이며 사용자 경기나 계정의 해시가 아니다. 재현 명령은 다음과 같다. 명세가 바뀌면 해시도 달라질 수 있다.
+포탑이 목표물 피해의 포함 대상이라는 의미와 정수 필드 사이에 항상 정확한 합산식이 성립한다는 주장은 구분한다. `objectives = turrets + epicMonsters`를 데이터 계약으로 만들지 않으며, 모든 패치·모드의 피해 집계나 소환물 피해 귀속까지 이번 조사로 확정하지 않는다.
+
+## 1차 출처와 기존 LCU 자료를 연결한 근거
+
+### Riot의 공식 통계 설명
+
+[7.9 공식 패치 노트의 2017-05-04 보관본](https://web.archive.org/web/20170504081043/http://na.leagueoflegends.com/en/news/game-updates/patch/patch-79-notes)의 `Contribution Clarity` → `End of Game Stats`는 새 통계를 다음과 같이 설명한다.
+
+> Damage Dealt to Objectives (damage dealt to Epic Monsters and Structures)
+
+같은 절에서 포탑 피해 통계도 별도로 소개한다. Riot의 [현재 게임 안내](https://www.leagueoflegends.com/en-us/how-to-play/)도 `CLEAR THE PATH`에서 포탑과 억제기를 방어 구조물로 설명한다. 따라서 위 통계 정의에서 포탑은 목표물에 포함되는 구조물로 해석한다.
+
+[7.24 공식 패치 노트의 2017-12-06 보관본](https://web.archive.org/web/20171206053701/https://na.leagueoflegends.com/en/news/game-updates/patch/patch-724-notes)은 버그 수정 목록에 다음을 기록한다.
+
+> Damage to objectives now counts inhibitor damage in the end-of-game stats
+
+이는 목표물 피해를 포탑과 에픽 몬스터만의 정확한 합으로 정의하면 안 되는 추가 근거다. 넥서스를 포함한 모든 구조물의 현행 세부 집계 규칙은 확보하지 못했다.
+
+2026-10-24에 원래 공식 URL은 최신 업데이트 목록으로 이동했다. 위 근거는 Internet Archive가 보존한 **Riot 원문**을 직접 내려받아 확인했다. 원문 HTML 전체는 비공개 조사 폴더에 보존하고, 보관 시각·출처 URL·응답 해시는 [공개 증거 요약](lcu-objective-evidence-20261024.json)에 남긴다.
+
+### 설치된 Riot 클라이언트의 필드 연결
+
+macOS에 설치된 공식 배포물의 `Plugins/rcp-fe-lol-match-history/assets.wad`를 읽었다. `Game.ok`의 설치 게임 버전은 `16.20.8297896`이다. Windows에서 수집한 경기의 `gameVersion=16.20.824.8524`와 같은 16.20 계열이지만 빌드와 운영체제는 다르다.
+
+경기 기록 화면의 코드와 한국어 문자열에서 다음 연결을 확인했다.
+
+| 화면 문자열 키의 끝부분 | 한국어 표시 | 원본 필드 | 표시 형식 |
+| --- | --- | --- | --- |
+| `DMG_DEALT_TOTAL_OBJECTIVES` | 목표물에게 가한 피해량 | `damageDealtToObjectives` | `number` |
+| `DMG_DEALT_TOTAL_TURRETS` | 포탑에게 가한 피해량 | `damageDealtToTurrets` | `number` |
+
+키의 공통 접두사는 `MATCH_HISTORY_STATS_ATTR_`다. 코드에서 두 원본 필드를 직접 선택하며 이 매핑에는 합산·차감·분당 변환이 없다. 기존 Windows G1 결과 화면에서 각 필드가 10명 모두 원본과 일치한 증거도 유지한다. 따라서 공식 문서의 결과 화면 통계와 이 서비스가 읽는 필드를 연결할 근거가 있다.
+
+이 연결과 기존 수치를 종합하여 **관찰한 소환사의 협곡 경기의 지표 해석은 ‘포탑을 포함하는 목표물 피해’로 채택**한다. 현행 필드의 모든 피해 이벤트를 재현한 증명이나 Riot의 LCU 지원 보장이라는 뜻은 아니다. 압축 해제된 코드 전체는 공개하지 않고 WAD 및 선택한 항목의 해시·항목 번호·필드 연결만 증거 요약에 보존한다.
+
+### 공식 API 명세가 설명하지 않는 범위
+
+2026-10-24에 [Match-v5 공식 상세 응답](https://developer.riotgames.com/api-details/match-v5)을 다시 읽었다. `damageDealtToObjectives`, `damageDealtToTurrets`, `damageDealtToBuildings`는 여전히 `int`로만 나열되고 피해 대상이나 합산식은 설명하지 않는다. 이번 응답 해시는 `e98cf514af947a324e6735cf6bc90cdc73e7cb652b43001319e76578f1475e0f`다. 2026-10-22 응답의 해시 `fb40838f6160a3ede81ce59b844e295328fda4c7ecb5f0d18f4f2f6869f2d64d`와 구분한다.
+
+[Riot의 League Client API 안내](https://developer.riotgames.com/docs/lol#league-client-api)에 따르면 LCU는 제3자용으로 공식 지원되지 않고 완전한 문서나 변경 공지를 보장하지 않는다. 이번 의미 판정은 결과 통계의 공식 설명과 클라이언트 화면 연결에 근거한다.
+
+## 기존 표본의 재계산 — 2026-10-24
+
+| 표본 | 재계산 결과 | 결론의 한계 |
+| --- | --- | --- |
+| H2 LCU G1–G3, 참가자 30행 | objectives ≥ turrets 30/30; 같음 3/30; objectives=0 1행, turrets=0 4행 | 공식 정의와 모순되지 않음. 부등식 자체는 포함 관계의 증명이 아님 |
+| 기존 G1 결과 화면 | 두 필드 각각 10/10 일치, 전부 양수 | 기존 화면 검증을 이어받음. 이번 새 측정 아님 |
+| 공식 포털 솔로랭크 6경기, 참가자 60행 | objectives−turrets−epicMonsters = 0이 46행, 1이 14행; buildings=turrets 60/60 | 1 차이의 원인은 미확인. LCU와 다른 표본·경로 |
+
+조기 종료 2경기의 20행을 제외하면 정확한 합산 일치는 26/40행이다. 네 피해 필드가 모두 0인 행은 전체 60행 중 21행으로, 조기 종료 경기 외에도 1행이 있다. 네 필드가 전부 0인 행을 모두 제외하면 25/39행이 정확히 일치한다. 두 제외 기준을 혼동하지 않는다. 기존 예시인 11,616−4,931=6,685와 epicMonsters 6,684의 차이도 유지한다.
+
+공개 후보 감사기를 기존 비공개 원본과 함께 재실행해 통계 660개 보존과 식별자 잔존 없음도 확인했다. 원본 경기·계정·화면은 공개하지 않으며 `fixtures/lcu/candidates/`를 검증 완료 자료로 바꾸지 않는다. 감사기의 `gate:HOLD` 출력은 유지한다.
+
+## 사용자 확정 지표와 남은 제품 반영
+
+현재 구현의 `objective-provisional-v1`은 TOP에는 분당 포탑 피해, JUNGLE/MIDDLE/BOTTOM/UTILITY에는 분당 목표물 피해 **한 지표만** 사용한다. 원본 두 값은 별도로 보존하고 역할별 바깥 가중치는 유지한다. [D04](../superpowers/decisions/2026-10-22-overnight-decisions.md#d04--c07-hold와-중복-가중을-피하는-잠정-정책)의 중복 반영 방지 취지와 이번 포함 관계 확인은 일치한다.
+
+**2026-10-24 사용자 확정:** 조사 당시 권고한 단일 지표 구성을 사용자가 [D24](../superpowers/decisions/2026-10-22-overnight-decisions.md#d24--2026-10-24-목표물-공격-평가-기준-사용자-확정)에서 최종 채택했다. 탑은 분당 포탑 피해, 나머지 네 포지션은 분당 목표물 피해를 쓰고 기존 전체 가중치를 유지한다. 포탑을 포함하는 목표물 피해에 포탑 지표를 다시 섞는 이전 MIDDLE/BOTTOM 50:50 안은 적용하지 않는다. 목표물 항목은 구조물 공격도 포함한 개인 피해 기여로 설명한다.
+
+남은 작업은 새 계산 버전 확정·반영, 계약·화면 설명 갱신, 모든 유효 경기의 재계산·검증이다. 현재 코드·저장된 규칙·화면의 잠정 표시는 이 후속 작업을 마치기 전까지 유지한다. 지표 선택의 사용자 확정은 제품 반영이나 검증 완료를 뜻하지 않는다. [D23](../superpowers/decisions/2026-10-22-overnight-decisions.md#d23--2026-10-24-c07-포함-관계-조사-결과)은 조사 당시의 권고와 한계를 보존하고, 이후 지표 선택은 D24를 따른다.
+
+## 증거 재확인
+
+[공개 증거 요약](lcu-objective-evidence-20261024.json)은 공식 원문 URL·해시, 설치 클라이언트의 WAD/선택 항목 해시, 필드 연결, 표본별 집계만 포함한다. 원문과 압축 해제 자료는 `.private/lcu/c07-20261024/`, 기존 공식 API 수치는 `.private/riot/portal-solo-20261022/`에 보존한다. 클라이언트가 업데이트되면 로컬 해시는 달라질 수 있다.
+
+기존 비공개 원본을 보유한 환경의 재현 명령:
 
 ```sh
-curl --fail --silent --show-error --max-time 30 https://developer.riotgames.com/api-details/match-v5 -o /tmp/cw-match-v5-reference.json
+node tools/lcu-probe/audit-candidates.mjs --source-dir .private/lcu/source-h2-20261021/2026-10-21T13-07-18-049Z-0IDsnC
+curl --fail --silent --show-error --max-time 30 'https://web.archive.org/web/20170504081043id_/http://na.leagueoflegends.com/en/news/game-updates/patch/patch-79-notes' -o /tmp/cw-c07-patch-7.9.html
+curl --fail --silent --show-error --max-time 30 'https://web.archive.org/web/20171206053701id_/https://na.leagueoflegends.com/en/news/game-updates/patch/patch-724-notes' -o /tmp/cw-c07-patch-7.24.html
+shasum -a 256 /tmp/cw-c07-patch-7.9.html /tmp/cw-c07-patch-7.24.html
 ```
 
-[Riot의 League Client API 안내](https://developer.riotgames.com/docs/lol#league-client-api)는 LCU가 제3자용 공식 지원 인터페이스가 아니며 문서 완전성·변경 공지를 보장하지 않는다고 설명한다. 따라서 공식 Match-v5의 필드와 비슷하다는 이유로 LCU 의미를 전용하지 않는다. 커뮤니티 Swagger는 경로·타입 탐색에만 활용하며 의미 확정의 1차 출처로 삼지 않았다.
+## 이전 판정 이력
 
-## 제공 표본 재검사
-
-| 표본 | 이번에 재계산한 결과 | 결론의 한계 |
-| --- | --- | --- |
-| H2 LCU G1–G3, 30행 | objectives ≥ turrets 30/30; 같음 3/30; objectives=0 1행, turrets=0 4행 | 포함 관계와 원인까지 증명하지 않음 |
-| 기존 G1 결과 화면 | 두 필드 각각 10/10 일치, 전부 양수 | 기존 화면 검증을 유지; 이번 새 측정 아님 |
-| 공식 포털 솔로랭크 6경기, 60행 | objectives−turrets−epicMonsters = 0이 46행, 1이 14행; buildings=turrets 60/60 | 정수화/집계 시점 등 1 차이의 원인은 미확인; LCU와 다른 표본·경로 |
-
-조기 종료 20행의 피해가 모두 0이므로 이를 제외한 공식 API 행에서 정확한 합산 일치는 26/40이다. ‘대체로 같음’을 정확한 등식으로 만들지 않는다. 원본에서 확인한 11,616−4,931=6,685와 epicMonsters 6,684의 차이도 유지한다. 원본 수치는 `.private/riot/portal-solo-20261022/damage-projection.json`과 H2에 보존하고 식별값을 공개하지 않는다.
-
-이번 확인에서 두 필드가 독립적이라는 근거를 얻지 못했다. **중복 가능성이 높다는 추론**과 포함 관계가 입증됐다는 주장을 구분한다. `objectives + turrets`를 총 피해로 표시하지 않고 `objectives - turrets`를 중립/에픽 몬스터 피해로 이름 붙이지 않는다. buildings와 turrets의 표본상 같음도 모든 구조물의 의미가 같다는 계약이 아니다.
-
-## 잠정 결정과 닫기 위한 증거
-
-원본 두 필드를 각각 보존한다. 단계 1–3 draft는 [후보 계약](lcu-candidate-contract.md)의 `objective-provisional-v1`을 사용한다. TOP은 포탑, 다른 포지션은 오브젝트 단일 지표를 선택하며 바깥 가중치는 유지한다. 기존 MIDDLE/BOTTOM 혼합 정책의 변경과 되돌리기 비용은 [D04](../superpowers/decisions/2026-10-22-overnight-decisions.md)에 명시했다. 이는 미확정 의미를 검증 완료로 바꾸지 않는다.
-
-C07을 닫으려면 현재 LCU 필드의 포함 대상과 단위를 설명하는 신뢰 가능한 정의, 또는 피해 대상을 구분할 수 있고 결과 화면·필드와 연결된 적절한 관찰이 필요하다. 이미 생략하기로 한 G2/G3 추가 화면이나 고의 비정상 내전은 요구하지 않는다. 얻지 못하면 HOLD와 잠정 평가 표시를 유지하며 운영 준비 완료를 선언하지 않는다.
+2026-10-22에는 공식 API 명세와 기존 표본만 검토하여 포함 관계를 확정하지 못했고 C07을 보류했다. 이번에는 공식 패치 노트 원문과 설치 클라이언트의 화면 매핑을 추가해 그 판단을 갱신했다. 이전 Windows 관측과 사용자 결정으로 제외한 검증의 상태는 유지한다.

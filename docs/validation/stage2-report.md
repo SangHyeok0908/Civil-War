@@ -1,5 +1,7 @@
 # Stage 2 — T05–T07 provisional collector verification
 
+**2026-10-24 update:** The C07 inclusion review is complete: the official result-stat definition includes turret damage in objective damage, supported by the installed client display mapping and existing G1 comparison. The user confirmed TOP=turret damage per minute and the other four roles=objective damage per minute, retaining the existing overall weights ([D24](../superpowers/decisions/2026-10-22-overnight-decisions.md#d24--2026-10-24-목표물-공격-평가-기준-사용자-확정)). Stage 0 remains HOLD pending selection and implementation of a new algorithm version, contract/UI updates, and recalculation and validation of all eligible matches. The current `objective-provisional-v1` implementation is retained until that follow-up is completed. See [C07 evidence](lcu-objective-semantics.md) and [D23](../superpowers/decisions/2026-10-22-overnight-decisions.md#d23--2026-10-24-c07-포함-관계-조사-결과). Earlier dated status notes are historical.
+
 **Scope update, 2026-10-23:** C01/C02 lookup-timing comparisons, C10 delay/history-range measurements, and T15 pilot games are excluded by user decision. They are not pending Windows acceptance tasks. C07 damage semantics/scoring and T13–T14 installation, credential preservation, deployment, and restore remain. See [D22](../superpowers/decisions/2026-10-22-overnight-decisions.md#d22--2026-10-23-사용자-요청에-따른-검증-작업-제외).
 
 - Date: 2026-10-22 KST.

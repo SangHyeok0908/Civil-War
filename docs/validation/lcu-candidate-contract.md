@@ -1,5 +1,7 @@
 # 단계 0 후보 계약 — 2026-10-22
 
+**2026-10-24 C07·지표 갱신:** [포함 관계 조사](lcu-objective-semantics.md)에서 목표물 피해에 포탑 피해가 포함됨을 확인했다. 사용자는 [D24](../superpowers/decisions/2026-10-22-overnight-decisions.md#d24--2026-10-24-목표물-공격-평가-기준-사용자-확정)에서 아래 단일 지표 구성을 최종 채택했다. 새 계산 버전 확정·반영과 전 경기 재계산·검증은 남아 있어 현재 임시 구현과 원본·후보 자료의 상태를 유지한다.
+
 **상태: provisional / 전체 gate HOLD / 운영 계약 미확정.** [야간 결정 D01–D04](../superpowers/decisions/2026-10-22-overnight-decisions.md)에 따라 단계 1–3 draft 구현에서만 사용한다. Windows 실측 성공 범위를 확대하거나 단계 0 완료를 뜻하지 않는다.
 
 ## 후보 자료
@@ -42,11 +44,11 @@ CS는 laneCs+neutralCs만 더한다. 아군/적 정글 하위값을 다시 합�
 
 누락은 `{path,code:'REQUIRED'}`, null/타입 오류는 `INVALID_TYPE`, 음수·범위 오류는 `OUT_OF_RANGE`, 참가자·팀 모순은 `INVALID_MATCH`에 상세 issues를 연결하는 방식을 권고한다. 예: 시야 점수 삭제 시 `participants.0.visionScore / REQUIRED`. 서버 응답과 로그에 거절한 원본 값·PUUID를 그대로 넣지 않는다. LCU PUUID와 공식 API PUUID는 별도 네임스페이스다.
 
-## C07의 잠정 계산 정책
+## 확정한 지표와 현재 잠정 계산 버전
 
 `objectiveDamage`와 `turretDamage`는 각각 원본 그대로 저장하고 화면에서도 별개 지표로 표시한다. 합계·차감으로 새로운 피해 필드를 만들지 않는다. 아직 증명하지 못한 `objectiveDamage >= turretDamage`를 제품 입력 불변식으로 강제하지도 않는다.
 
-draft 평가 `objective-provisional-v1`에서는 TOP의 오브젝트 항목에 분당 turretDamage, JUNGLE/MIDDLE/BOTTOM/UTILITY에는 분당 objectiveDamage **한 지표만** 사용한다. 정해진 바깥 가중치와 역할별 표준화는 유지한다. 기존 계획의 MIDDLE/BOTTOM 50:50 혼합을 잠정 보류한 명시적 결정이며, 두 지표의 중복 범위를 모르는 상태에서 포탑을 추가로 가중하지 않기 위한 정책이다. 이는 Riot의 지표 정의나 C07 PASS 주장이 아니다. 운영 전 의미 확인과 평가 규칙 승인 후 별도 버전으로 전 경기 재계산한다.
+draft 평가 `objective-provisional-v1`에서는 TOP의 오브젝트 항목에 분당 turretDamage, JUNGLE/MIDDLE/BOTTOM/UTILITY에는 분당 objectiveDamage **한 지표만** 사용한다. 정해진 바깥 가중치와 역할별 표준화는 유지한다. D04에서는 기존 계획의 MIDDLE/BOTTOM 50:50 혼합을 잠정 보류했고, D24에서 사용자가 현재 단일 지표를 최종 채택해 혼합안은 적용하지 않는다. 포탑을 포함하는 목표물 피해에 포탑을 추가로 가중하지 않기 위한 기준이다. 지표 선택의 확정과 제품 반영 완료는 구분한다. 새 계산 버전 확정·반영, 계약·화면 설명 갱신, 모든 유효 경기의 재계산·검증은 남아 있다.
 
 ## 재현 감사
 
