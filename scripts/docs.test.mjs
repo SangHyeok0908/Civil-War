@@ -737,3 +737,75 @@ test("historical current metadata must point to a canonical document", async (t)
   });
   assert.equal(faults(f.check(), "historical-current").length, 1);
 });
+
+test("inline code may explain preservation markers without declaring a region", async (t) => {
+  const f = await fixture(t, {
+    contents: {
+      "docs/spec.md":
+        "# 기획\n\n## 현재 범위\n\n보존하려면 `<!-- ssot:preserve record-id -->`와 ``<!-- /ssot:preserve record-id -->``를 쓴다.\n",
+    },
+  });
+  assert.deepEqual(f.check().errors, []);
+});
+test("inline preservation examples remain in duplicate comparisons", async (t) => {
+  const example = `표식 예시 \`<!-- ssot:preserve example -->\` ${longText}`;
+  const f = await historicalFixture(t, example);
+  put(f.root, "docs/spec.md", `# 기획\n\n## 현재 범위\n\n${example}\n`);
+  const result = f.check();
+  assert.equal(faults(result, "duplicate-block").length, 1);
+  assert.equal(result.errors.length, 1);
+});
+for (const indent of ["    ", "\t"]) {
+  test(`indented code with ${JSON.stringify(indent)} does not declare links or preservation regions`, async (t) => {
+    const f = await fixture(t, {
+      contents: {
+        "docs/spec.md": `# 기획\n\n## 현재 범위\n\n예시 문법:\n\n${indent}[예시](missing.md)\n${indent}<!-- ssot:preserve example -->\n\n[정상](#현재-범위)\n`,
+      },
+    });
+    assert.deepEqual(f.check().errors, []);
+  });
+}
+test("indented paragraph and list continuations keep their real links", async (t) => {
+  const f = await fixture(t, {
+    contents: {
+      "docs/spec.md":
+        "# 기획\n\n## 현재 범위\n\n문단의 계속\n    [문단 링크](missing-paragraph.md)\n\n- 목록\n\n    [목록 링크](missing-list.md)\n",
+    },
+  });
+  assert.deepEqual(
+    faults(f.check(), "link-missing").map((error) => error.line),
+    [6, 10],
+  );
+});
+test("multiline links validate targets and anchors at their opening line", async (t) => {
+  const f = await fixture(t, {
+    contents: {
+      "docs/spec.md":
+        '# 기획\n\n## 현재 범위\n\n[없는 파일](\n  missing.md\n)\n[없는 절](\n  #없는-절\n)\n[정상](\n  #현재-범위\n  "설명"\n)\n',
+    },
+  });
+  const result = f.check();
+  assert.deepEqual(
+    result.errors.map((error) => [error.code, error.line]),
+    [
+      ["link-missing", 5],
+      ["anchor-missing", 8],
+    ],
+  );
+});
+test("multiline inline code keeps example links out of link validation", async (t) => {
+  const f = await fixture(t, {
+    contents: {
+      "docs/spec.md": "# 기획\n\n## 현재 범위\n\n`[예시](\n missing.md\n)`\n",
+    },
+  });
+  assert.deepEqual(f.check().errors, []);
+});
+test("a blank line cannot join separate blocks into an inline link", async (t) => {
+  const f = await fixture(t, {
+    contents: {
+      "docs/spec.md": "# 기획\n\n## 현재 범위\n\n[본문](\n\nmissing.md\n)\n",
+    },
+  });
+  assert.deepEqual(f.check().errors, []);
+});

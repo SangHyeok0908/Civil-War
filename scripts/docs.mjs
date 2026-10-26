@@ -241,11 +241,32 @@ export function writeIndex({ root = process.cwd() } = {}) {
 
 function visibleLines(text) {
   let fence = null;
+  let paragraph = false;
+  const listIndents = [];
   return text
     .replace(/\r\n?/gu, "\n")
     .split("\n")
     .map((line) => {
-      const marker = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/u);
+      const expanded = line.replace(/^[\t ]*/u, (prefix) => {
+        let width = 0;
+        for (const char of prefix) width += char === "\t" ? 4 - (width % 4) : 1;
+        return " ".repeat(width);
+      });
+      const indent = expanded.match(/^ */u)[0].length;
+      while (
+        expanded.trim() &&
+        listIndents.length &&
+        indent < listIndents.at(-1)
+      )
+        listIndents.pop();
+      let content = expanded.slice(listIndents.at(-1) ?? 0);
+      const item = !fence && content.match(/^ {0,3}(?:[-+*]|\d+[.)]) +/u);
+      if (item) {
+        listIndents.push((listIndents.at(-1) ?? 0) + item[0].length);
+        content = content.slice(item[0].length);
+        paragraph = false;
+      }
+      const marker = content.match(/^ {0,3}(`{3,}|~{3,})(.*)$/u);
       if (fence) {
         if (
           marker &&
@@ -254,17 +275,32 @@ function visibleLines(text) {
           marker[2].trim() === ""
         )
           fence = null;
+        paragraph = false;
         return "";
       }
+      if (!content.trim()) {
+        paragraph = false;
+        return line;
+      }
+      if (!paragraph && /^ {4}/u.test(content)) return "";
       if (marker) {
         fence = { char: marker[1][0], length: marker[1].length };
+        paragraph = false;
         return "";
       }
+      paragraph = !/^ {0,3}(?:#{1,6}\s|(?:[-*_]\s*){3,}$)/u.test(content);
       return line;
     });
 }
-function withoutCode(line) {
-  return line.replace(/(`+)(.*?)\1/gu, (span) => " ".repeat(span.length));
+function withoutCode(text) {
+  return text
+    .split(/(\n[\t ]*\n)/u)
+    .map((block) =>
+      block.replace(/(`+)([\s\S]*?)\1/gu, (span) =>
+        span.replace(/[^\n]/gu, " "),
+      ),
+    )
+    .join("");
 }
 function unescapeMarkdown(text) {
   return text.replace(/\\([\\`*_{}[\]()#+.!<> -])/gu, "$1");
@@ -364,36 +400,36 @@ function linksFor(lines) {
     if (!match[2]) definitionLines.add(i + 1);
   }
   const links = [];
-  for (let i = 0; i < lines.length; i++) {
-    if (definitionLines.has(i)) continue;
-    const line = withoutCode(lines[i]);
-    const brackets = /!?\[((?:[^\]\\]|\\.|\[[^\]]*\])*)\]/gu;
-    let match;
-    while ((match = brackets.exec(line))) {
-      if (match.index > 0 && line[match.index - 1] === "\\") continue;
-      let next = brackets.lastIndex;
-      if (line[next] === "(") {
-        const parsed = linkDestination(line, next + 1, true);
-        if (parsed) {
-          links.push({
-            target: parsed.target,
-            line: i + 1,
-            image: match[0].startsWith("!"),
-          });
-          brackets.lastIndex = parsed.end;
-        }
-      } else {
-        const explicit = line.slice(next).match(/^\[([^\]]*)\]/u);
-        const label = referenceId(explicit?.[1] || match[1]);
-        if (definitions.has(label))
-          links.push({
-            target: definitions.get(label),
-            line: i + 1,
-            image: match[0].startsWith("!"),
-          });
-        else if (explicit) links.push({ reference: label, line: i + 1 });
-        if (explicit) brackets.lastIndex = next + explicit[0].length;
+  const text = withoutCode(
+    lines.map((line, i) => (definitionLines.has(i) ? "" : line)).join("\n"),
+  );
+  const brackets = /!?\[((?:[^\]\\]|\\.|\[[^\]]*\])*)\]/gu;
+  let match;
+  while ((match = brackets.exec(text))) {
+    if (match.index > 0 && text[match.index - 1] === "\\") continue;
+    const line = text.slice(0, match.index).split("\n").length;
+    const next = brackets.lastIndex;
+    if (text[next] === "(") {
+      const parsed = linkDestination(text, next + 1, true);
+      if (parsed && !/\n[\t ]*\n/u.test(text.slice(match.index, parsed.end))) {
+        links.push({
+          target: parsed.target,
+          line,
+          image: match[0].startsWith("!"),
+        });
+        brackets.lastIndex = parsed.end;
       }
+    } else {
+      const explicit = text.slice(next).match(/^\[([^\]]*)\]/u);
+      const label = referenceId(explicit?.[1] || match[1]);
+      if (definitions.has(label))
+        links.push({
+          target: definitions.get(label),
+          line,
+          image: match[0].startsWith("!"),
+        });
+      else if (explicit) links.push({ reference: label, line });
+      if (explicit) brackets.lastIndex = next + explicit[0].length;
     }
   }
   return links;
@@ -571,6 +607,7 @@ function blocksFor(text, boundaries = new Set()) {
 function duplicateText(text, entry, errors) {
   const lines = text.replace(/\r\n?/gu, "\n").split("\n");
   const visible = visibleLines(text);
+  const directives = withoutCode(visible.join("\n")).split("\n");
   const result = [...lines];
   const boundaries = new Set();
   const registered = new Map(
@@ -582,9 +619,10 @@ function duplicateText(text, entry, errors) {
   const report = (line, code, message) =>
     issue(errors, entry.path, line + 1, code, message);
   for (let i = 0; i < visible.length; i++) {
-    if (!/ssot:preserve/iu.test(visible[i])) continue;
+    const directive = directives[i];
+    if (!/ssot:preserve/iu.test(directive)) continue;
     boundaries.add(i);
-    const marker = visible[i].match(
+    const marker = directive.match(
       /^\s*<!-- (\/?)ssot:preserve ([a-z][a-z0-9-]{0,63}) -->\s*$/u,
     );
     // 지시문 자체는 비교에서 빼되 같은 줄에 붙은 실제 본문은 남긴다.
