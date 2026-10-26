@@ -286,3 +286,32 @@ it("decryption failure remains visible even if League is stopped", async () => {
   const s = await x.service.initializeLocal();
   expect(s.account.code).toBe("REENROLL_REQUIRED");
 });
+
+it("late pending list cannot undo a background registration", async () => {
+  const x = setup();
+  await x.service.initialize();
+  await x.service.queryPastMatches();
+  x.box.enqueueConfirmation(
+    key,
+    { rolesByPuuid: roles, clientSubmissionId: "offline-confirm" },
+    actor,
+  );
+  let release: (records: any[]) => void = () => {};
+  const delayed = new Promise<any[]>((resolve) => {
+    release = resolve;
+  });
+  x.api.pending.mockReturnValueOnce(delayed);
+  const refresh = x.service.loadPendingMatches();
+  await x.service.tick();
+  expect((await x.service.snapshot()).matches[0].status).toBe("등록 완료");
+  release([{ matchKey: key, state: "pending", match, confirmedRoles: null }]);
+  const refreshed = await refresh;
+  expect(refreshed.matches[0]).toMatchObject({
+    state: "registered",
+    status: "등록 완료",
+    roles,
+  });
+  expect(x.box.listOutbox().every((item) => item.state === "succeeded")).toBe(
+    true,
+  );
+});
