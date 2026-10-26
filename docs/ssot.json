@@ -190,6 +190,16 @@
       "role": "historical",
       "date": "2026-10-25",
       "current": "AGENTS.md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-26-confirmed-objective.md",
+      "role": "reference"
+    },
+    {
+      "path": "docs/validation/2026-10-26-confirmed-objective-report.md",
+      "role": "historical",
+      "date": "2026-10-26",
+      "current": "docs/status.md"
     }
   ],
   "topics": [

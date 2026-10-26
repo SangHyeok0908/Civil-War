@@ -1,5 +1,42 @@
 import { expect, test } from "@playwright/test";
 import { state } from "./helpers";
+test("confirmedObjectiveRulesDescribePerMinuteMetrics", async ({
+  page,
+  request,
+}) => {
+  await expect
+    .poll(async () => (await request.get("/api/rankings")).status())
+    .toBe(200);
+  const ranking = await (await request.get("/api/rankings")).json();
+  const rules = await (
+    await request.get("/api/scoring-versions/" + ranking.scoringVersion)
+  ).json();
+  expect(rules.algorithmVersion).toBe("objective-position-v1");
+  for (const path of [
+    "/rankings",
+    "/matches/" + state().keys[0],
+    "/members/" + state().members[0].id,
+  ]) {
+    await page.goto(path);
+    await page.locator(".rule-note summary").click();
+    await expect(page.locator(".rule-note")).toContainText(
+      "탑은 분당 포탑 피해",
+    );
+    await expect(page.locator(".rule-note")).toContainText(
+      "정글·미드·원딜·서포터는 분당 목표물 피해",
+    );
+    await expect(page.locator(".rule-note")).toContainText(
+      "두 피해량을 더하거나 섞지 않습니다",
+    );
+    await expect(page.locator(".rule-note")).not.toContainText("잠정 기준");
+  }
+  await page.goto("/rankings");
+  await page.locator(".rule-note summary").click();
+  await expect(page.locator(".rule-note caption")).toBeVisible();
+  await page.locator(".rule-note").screenshot({
+    path: "docs/validation/assets/confirmed-objective-rules.png",
+  });
+});
 test("tenPlayerComparison and missingAssetFallback", async ({ page }) => {
   await page.route("https://ddragon.leagueoflegends.com/**", (r) =>
     r.fulfill({ status: 404, body: "" }),

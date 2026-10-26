@@ -8,6 +8,7 @@ import {
   Loading,
   ErrorBox,
   Empty,
+  ObjectiveRuleNote,
 } from "../../components/Common";
 export function Scoring() {
   const r = useRemote<Rules[]>("/api/admin/scoring-versions");
@@ -25,6 +26,7 @@ export function Scoring() {
         역할별 합계는 100, 승패 가중치는 최대 5입니다. 저장하면 과거 유효 경기
         전체를 같은 기준으로 재계산합니다.
       </p>
+      <ObjectiveRuleNote />
       {r.loading ? (
         <Loading />
       ) : r.error ? (

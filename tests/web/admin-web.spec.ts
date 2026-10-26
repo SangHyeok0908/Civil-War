@@ -186,6 +186,7 @@ test("weightsCreateNewVersion immutableFullRules and jobs", async ({
     await admin(request, "/scoring-versions", undefined, "GET")
   ).json();
   expect(after[0]).toEqual(before[0]);
+  expect(after.at(-1).algorithmVersion).toBe("objective-position-v1");
   expect(after.at(-1).normalization).toEqual(before[0].normalization);
   await expect
     .poll(async () => {
@@ -193,6 +194,16 @@ test("weightsCreateNewVersion immutableFullRules and jobs", async ({
       return r.status() === 200 ? (await r.json()).scoringVersion : "waiting";
     })
     .toBe("browser-v2");
+  const rejected = await request.post("/api/admin/scoring-versions", {
+    headers: headers(),
+    data: {
+      ...after.at(-1),
+      id: "legacy-rejected",
+      algorithmVersion: "objective-provisional-v1",
+    },
+  });
+  expect(rejected.status()).toBe(422);
+  expect((await rejected.json()).code).toBe("INVALID_SCORING_RULES");
   await page.getByRole("link", { name: "재계산 작업", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "재계산 작업", exact: true }),

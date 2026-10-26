@@ -1396,7 +1396,10 @@
           "pattern": "^[A-Za-z0-9_-]{1,100}$"
         },
         "algorithmVersion": {
-          "const": "objective-provisional-v1"
+          "enum": [
+            "objective-position-v1",
+            "objective-provisional-v1"
+          ]
         },
         "weightsByRole": {
           "type": "object",
@@ -1873,6 +1876,22 @@
         "samples"
       ],
       "additionalProperties": false
+    },
+    "NewScoringRuleSet": {
+      "description": "새 규칙 생성은 확정 알고리즘만 허용한다. 과거 규칙 조회는 ScoringRuleSet을 따른다.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/ScoringRuleSet"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithmVersion": {
+              "const": "objective-position-v1"
+            }
+          }
+        }
+      ]
     }
   }
 }

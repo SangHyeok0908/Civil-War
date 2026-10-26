@@ -47,6 +47,28 @@ class RecalculationIntegrationTest extends DatabaseTestSupport {
     }
 
     @Test
+    void cannotSelectNewProvisionalRules() {
+        registered();
+        worker.runOnce();
+        EvaluationGeneration before = evaluations.current();
+        long revision = revision();
+        ScoringRuleSet d = ScoringRulesV1.defaults();
+        assertThatThrownBy(
+                        () ->
+                                evaluations.createRules(
+                                        new ScoringRuleSet(
+                                                "legacy-new",
+                                                "objective-provisional-v1",
+                                                d.weightsByRole(),
+                                                d.metricMix(),
+                                                d.normalization(),
+                                                d.cumulativePrior())))
+                .isInstanceOf(cw.contracts.ApiException.class);
+        assertThat(revision()).isEqualTo(revision);
+        assertThat(evaluations.current()).isEqualTo(before);
+    }
+
+    @Test
     void staleGenerationNeverPublishes() {
         registered();
         evaluations.claim(false);

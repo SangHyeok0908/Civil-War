@@ -50,6 +50,7 @@
 
 - [README.md](../README.md)
 - [docs/README.md](README.md)
+- [docs/superpowers/plans/2026-10-26-confirmed-objective.md](superpowers/plans/2026-10-26-confirmed-objective.md)
 
 ## 이력 문서
 
@@ -74,6 +75,7 @@
 - [docs/validation/stage3-report.md](validation/stage3-report.md) — 2026-10-22, 현재: [docs/status.md](status.md)
 - [docs/validation/2026-10-24-ssot-report.md](validation/2026-10-24-ssot-report.md) — 2026-10-24, 현재: [docs/development/setup.md](development/setup.md)
 - [docs/validation/2026-10-25-historical-ssot-report.md](validation/2026-10-25-historical-ssot-report.md) — 2026-10-25, 현재: [AGENTS.md](../AGENTS.md)
+- [docs/validation/2026-10-26-confirmed-objective-report.md](validation/2026-10-26-confirmed-objective-report.md) — 2026-10-26, 현재: [docs/status.md](status.md)
 
 ## 보존한 과거 기록 구간
 

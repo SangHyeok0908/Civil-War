@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 class ScoringServiceTest {
     static List<Member> members() {
@@ -79,6 +81,64 @@ class ScoringServiceTest {
     static EvaluationInput input(List<EvaluableMatch> games) {
         ScoringRuleSet rules = ScoringRulesV1.defaults();
         return new EvaluationInput(1, rules.id(), rules, games, members());
+    }
+
+    @Test
+    void newEvaluationsUseConfirmedVersion() {
+        List<GameScore> scores =
+                new ScoringService().scoreMatches(input(List.of(game("1", false))));
+        assertThat(scores)
+                .allSatisfy(s -> assertThat(s.scoringVersion()).isEqualTo("objective-position-v1"));
+    }
+
+    @ParameterizedTest
+    @EnumSource(Role.class)
+    void confirmedObjectiveUsesOnlySelectedPerMinuteMetric(Role role) {
+        EvaluableMatch g = game("1", false);
+        ArrayList<EvaluableParticipant> ps = new ArrayList<>(g.participants());
+        int index = role.ordinal();
+        EvaluableParticipant p = ps.get(index);
+        ParticipantRecord r = p.record();
+        ps.set(
+                index,
+                new EvaluableParticipant(
+                        p.memberId(),
+                        role,
+                        new ParticipantRecord(
+                                r.puuid(),
+                                r.teamId(),
+                                r.win(),
+                                r.championId(),
+                                r.kills(),
+                                r.deaths(),
+                                r.assists(),
+                                r.championDamage(),
+                                r.damageTaken(),
+                                r.laneCs(),
+                                r.neutralCs(),
+                                r.goldEarned(),
+                                r.visionScore(),
+                                180,
+                                30,
+                                r.items())));
+        GameScore s =
+                new ScoringService()
+                        .scoreMatches(input(List.of(new EvaluableMatch(g.match(), ps)))).stream()
+                                .filter(v -> v.memberId().equals(p.memberId()))
+                                .findFirst()
+                                .orElseThrow();
+        assertThat(s.breakdown().get("objective"))
+                .isCloseTo(role == Role.TOP ? 41.66666666666667 : 62.5, within(1e-10));
+        MatchFeatures.Row row =
+                MatchFeatures.extract(
+                                List.of(new EvaluableMatch(g.match(), ps)),
+                                ScoringRulesV1.defaults())
+                        .stream()
+                        .filter(v -> v.participant().memberId().equals(p.memberId()))
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(row.metrics()[7]).isEqualTo(18);
+        assertThat(row.metrics()[8]).isEqualTo(3);
     }
 
     @Test
