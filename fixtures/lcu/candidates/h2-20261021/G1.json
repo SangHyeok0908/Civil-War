@@ -1,0 +1,386 @@
+{
+  "platformId": "KR",
+  "gameDuration": 1942,
+  "gameMode": "CLASSIC",
+  "gameType": "CUSTOM_GAME",
+  "mapId": 11,
+  "queueId": 3130,
+  "gameVersion": "16.20.824.8524",
+  "endOfGameResult": "GameComplete",
+  "gameId": "9000000000000000000001",
+  "gameCreation": 946684800000,
+  "participantIdentities": [
+    {
+      "participantId": 1,
+      "player": {
+        "puuid": "fixture-player-01"
+      }
+    },
+    {
+      "participantId": 2,
+      "player": {
+        "puuid": "fixture-player-02"
+      }
+    },
+    {
+      "participantId": 3,
+      "player": {
+        "puuid": "fixture-player-03"
+      }
+    },
+    {
+      "participantId": 4,
+      "player": {
+        "puuid": "fixture-player-04"
+      }
+    },
+    {
+      "participantId": 5,
+      "player": {
+        "puuid": "fixture-player-05"
+      }
+    },
+    {
+      "participantId": 6,
+      "player": {
+        "puuid": "fixture-player-06"
+      }
+    },
+    {
+      "participantId": 7,
+      "player": {
+        "puuid": "fixture-player-07"
+      }
+    },
+    {
+      "participantId": 8,
+      "player": {
+        "puuid": "fixture-player-08"
+      }
+    },
+    {
+      "participantId": 9,
+      "player": {
+        "puuid": "fixture-player-09"
+      }
+    },
+    {
+      "participantId": 10,
+      "player": {
+        "puuid": "fixture-player-10"
+      }
+    }
+  ],
+  "participants": [
+    {
+      "participantId": 1,
+      "teamId": 100,
+      "championId": 14,
+      "stats": {
+        "kills": 4,
+        "deaths": 4,
+        "assists": 12,
+        "totalDamageDealtToChampions": 26173,
+        "totalDamageTaken": 44760,
+        "damageDealtToObjectives": 8263,
+        "damageDealtToTurrets": 8258,
+        "totalMinionsKilled": 248,
+        "neutralMinionsKilled": 0,
+        "neutralMinionsKilledTeamJungle": 0,
+        "neutralMinionsKilledEnemyJungle": 0,
+        "goldEarned": 12676,
+        "visionScore": 20,
+        "wardsKilled": 2,
+        "wardsPlaced": 8,
+        "item0": 6665,
+        "item1": 2055,
+        "item2": 6664,
+        "item3": 3111,
+        "item4": 2502,
+        "item5": 3076,
+        "item6": 3364,
+        "win": false
+      }
+    },
+    {
+      "participantId": 2,
+      "teamId": 100,
+      "championId": 126,
+      "stats": {
+        "kills": 8,
+        "deaths": 12,
+        "assists": 9,
+        "totalDamageDealtToChampions": 39327,
+        "totalDamageTaken": 28989,
+        "damageDealtToObjectives": 29002,
+        "damageDealtToTurrets": 6423,
+        "totalMinionsKilled": 42,
+        "neutralMinionsKilled": 133,
+        "neutralMinionsKilledTeamJungle": 0,
+        "neutralMinionsKilledEnemyJungle": 0,
+        "goldEarned": 15735,
+        "visionScore": 34,
+        "wardsKilled": 5,
+        "wardsPlaced": 5,
+        "item0": 3814,
+        "item1": 2520,
+        "item2": 6694,
+        "item3": 3158,
+        "item4": 3155,
+        "item5": 6699,
+        "item6": 3364,
+        "win": false
+      }
+    },
+    {
+      "participantId": 3,
+      "teamId": 100,
+      "championId": 3,
+      "stats": {
+        "kills": 4,
+        "deaths": 6,
+        "assists": 7,
+        "totalDamageDealtToChampions": 17034,
+        "totalDamageTaken": 23409,
+        "damageDealtToObjectives": 3453,
+        "damageDealtToTurrets": 3046,
+        "totalMinionsKilled": 158,
+        "neutralMinionsKilled": 0,
+        "neutralMinionsKilledTeamJungle": 0,
+        "neutralMinionsKilledEnemyJungle": 0,
+        "goldEarned": 10685,
+        "visionScore": 21,
+        "wardsKilled": 1,
+        "wardsPlaced": 10,
+        "item0": 3157,
+        "item1": 0,
+        "item2": 3173,
+        "item3": 4005,
+        "item4": 6664,
+        "item5": 0,
+        "item6": 3364,
+        "win": false
+      }
+    },
+    {
+      "participantId": 4,
+      "teamId": 100,
+      "championId": 145,
+      "stats": {
+        "kills": 9,
+        "deaths": 11,
+        "assists": 4,
+        "totalDamageDealtToChampions": 25560,
+        "totalDamageTaken": 24720,
+        "damageDealtToObjectives": 5863,
+        "damageDealtToTurrets": 104,
+        "totalMinionsKilled": 196,
+        "neutralMinionsKilled": 14,
+        "neutralMinionsKilledTeamJungle": 0,
+        "neutralMinionsKilledEnemyJungle": 0,
+        "goldEarned": 13248,
+        "visionScore": 30,
+        "wardsKilled": 7,
+        "wardsPlaced": 12,
+        "item0": 0,
+        "item1": 3302,
+        "item2": 2421,
+        "item3": 1086,
+        "item4": 3124,
+        "item5": 6672,
+        "item6": 3363,
+        "win": false
+      }
+    },
+    {
+      "participantId": 5,
+      "teamId": 100,
+      "championId": 518,
+      "stats": {
+        "kills": 0,
+        "deaths": 8,
+        "assists": 9,
+        "totalDamageDealtToChampions": 16242,
+        "totalDamageTaken": 25503,
+        "damageDealtToObjectives": 2543,
+        "damageDealtToTurrets": 406,
+        "totalMinionsKilled": 34,
+        "neutralMinionsKilled": 0,
+        "neutralMinionsKilledTeamJungle": 0,
+        "neutralMinionsKilledEnemyJungle": 0,
+        "goldEarned": 7826,
+        "visionScore": 68,
+        "wardsKilled": 1,
+        "wardsPlaced": 33,
+        "item0": 3871,
+        "item1": 3157,
+        "item2": 3152,
+        "item3": 3158,
+        "item4": 0,
+        "item5": 0,
+        "item6": 3364,
+        "win": false
+      }
+    },
+    {
+      "participantId": 6,
+      "teamId": 200,
+      "championId": 75,
+      "stats": {
+        "kills": 8,
+        "deaths": 7,
+        "assists": 12,
+        "totalDamageDealtToChampions": 36437,
+        "totalDamageTaken": 53836,
+        "damageDealtToObjectives": 10154,
+        "damageDealtToTurrets": 6206,
+        "totalMinionsKilled": 235,
+        "neutralMinionsKilled": 8,
+        "neutralMinionsKilledTeamJungle": 0,
+        "neutralMinionsKilledEnemyJungle": 0,
+        "goldEarned": 14384,
+        "visionScore": 30,
+        "wardsKilled": 5,
+        "wardsPlaced": 6,
+        "item0": 1054,
+        "item1": 6662,
+        "item2": 3065,
+        "item3": 3110,
+        "item4": 3111,
+        "item5": 3066,
+        "item6": 3364,
+        "win": true
+      }
+    },
+    {
+      "participantId": 7,
+      "teamId": 200,
+      "championId": 60,
+      "stats": {
+        "kills": 19,
+        "deaths": 3,
+        "assists": 10,
+        "totalDamageDealtToChampions": 33723,
+        "totalDamageTaken": 28416,
+        "damageDealtToObjectives": 35394,
+        "damageDealtToTurrets": 4557,
+        "totalMinionsKilled": 38,
+        "neutralMinionsKilled": 170,
+        "neutralMinionsKilledTeamJungle": 0,
+        "neutralMinionsKilledEnemyJungle": 0,
+        "goldEarned": 17579,
+        "visionScore": 40,
+        "wardsKilled": 11,
+        "wardsPlaced": 5,
+        "item0": 3157,
+        "item1": 4645,
+        "item2": 3100,
+        "item3": 3041,
+        "item4": 3102,
+        "item5": 3020,
+        "item6": 3364,
+        "win": true
+      }
+    },
+    {
+      "participantId": 8,
+      "teamId": 200,
+      "championId": 4,
+      "stats": {
+        "kills": 6,
+        "deaths": 7,
+        "assists": 12,
+        "totalDamageDealtToChampions": 23202,
+        "totalDamageTaken": 32293,
+        "damageDealtToObjectives": 12052,
+        "damageDealtToTurrets": 9633,
+        "totalMinionsKilled": 218,
+        "neutralMinionsKilled": 0,
+        "neutralMinionsKilledTeamJungle": 0,
+        "neutralMinionsKilledEnemyJungle": 0,
+        "goldEarned": 13191,
+        "visionScore": 19,
+        "wardsKilled": 3,
+        "wardsPlaced": 7,
+        "item0": 3094,
+        "item1": 6657,
+        "item2": 3100,
+        "item3": 3170,
+        "item4": 3145,
+        "item5": 3067,
+        "item6": 3363,
+        "win": true
+      }
+    },
+    {
+      "participantId": 9,
+      "teamId": 200,
+      "championId": 804,
+      "stats": {
+        "kills": 8,
+        "deaths": 5,
+        "assists": 11,
+        "totalDamageDealtToChampions": 27608,
+        "totalDamageTaken": 19291,
+        "damageDealtToObjectives": 20505,
+        "damageDealtToTurrets": 9897,
+        "totalMinionsKilled": 232,
+        "neutralMinionsKilled": 20,
+        "neutralMinionsKilledTeamJungle": 0,
+        "neutralMinionsKilledEnemyJungle": 0,
+        "goldEarned": 14968,
+        "visionScore": 13,
+        "wardsKilled": 2,
+        "wardsPlaced": 5,
+        "item0": 3031,
+        "item1": 3035,
+        "item2": 6672,
+        "item3": 2512,
+        "item4": 1055,
+        "item5": 6670,
+        "item6": 3363,
+        "win": true
+      }
+    },
+    {
+      "participantId": 10,
+      "teamId": 200,
+      "championId": 117,
+      "stats": {
+        "kills": 0,
+        "deaths": 3,
+        "assists": 22,
+        "totalDamageDealtToChampions": 6055,
+        "totalDamageTaken": 18000,
+        "damageDealtToObjectives": 2370,
+        "damageDealtToTurrets": 477,
+        "totalMinionsKilled": 13,
+        "neutralMinionsKilled": 0,
+        "neutralMinionsKilledTeamJungle": 0,
+        "neutralMinionsKilledEnemyJungle": 0,
+        "goldEarned": 8567,
+        "visionScore": 106,
+        "wardsKilled": 6,
+        "wardsPlaced": 50,
+        "item0": 2065,
+        "item1": 2031,
+        "item2": 3871,
+        "item3": 3504,
+        "item4": 3158,
+        "item5": 3067,
+        "item6": 3364,
+        "win": true
+      }
+    }
+  ],
+  "teams": [
+    {
+      "teamId": 100,
+      "win": "Fail"
+    },
+    {
+      "teamId": 200,
+      "win": "Win"
+    }
+  ]
+}
