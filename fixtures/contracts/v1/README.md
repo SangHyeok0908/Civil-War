@@ -1,3 +1,5 @@
-# Provisional v1 contract expectations
+# 정규화 계약 기대값
 
-G1–G3 are independently mapped from `../../lcu/candidates/h2-20261021/`, using the documented raw-path field map. IDs/PUUIDs/timestamps remain synthetic or pseudonymous. These are contract expectations, **not verified fixtures or public demo seeds**; stage 0 remains HOLD. Java compares its normalized JSON to all three files. Stage 2 should consume the same inputs and expectations without recomputing expected values through its own normalizer.
+G1–G3는 [LCU 후보 입력](../../lcu/candidates/h2-20261021/)에서 독립적으로 매핑한 기대값이다. 현재 매핑은 [수집 계약](../../../docs/contracts/api.md), 당시 준비 근거는 [후보 계약 기록](../../../docs/validation/lcu-candidate-contract.md)을 따른다.
+
+ID·PUUID·시각은 합성 또는 가명이다. 검증 완료 자료나 공개 서비스의 시범 선수·경기가 아니며 운영 초기 자료로 넣지 않는다. 서버와 수집기는 같은 입력·기대값으로 비교하고 자신의 정규화 함수로 기대값을 다시 만들지 않는다. 현재 판정은 [진행 상태](../../../docs/status.md)를 따른다.

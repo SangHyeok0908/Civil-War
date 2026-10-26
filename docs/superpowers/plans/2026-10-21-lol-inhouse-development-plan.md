@@ -1,39 +1,24 @@
 # LoL 내전 기록 서비스 Implementation Plan
 
-**2026-10-24 갱신:** C07의 포함 관계 조사는 완료했다. 공식 통계 정의와 클라이언트 화면 연결에 따라 목표물 피해는 포탑 피해를 포함한다. 목표물 공격 지표는 사용자가 [D24](../decisions/2026-10-22-overnight-decisions.md#d24--2026-10-24-목표물-공격-평가-기준-사용자-확정)에서 탑=분당 포탑 피해, 나머지 네 포지션=분당 목표물 피해로 확정했고 기존 전체 가중치를 유지한다. 새 계산 버전 확정·반영, 계약·화면 설명 갱신, 모든 유효 경기의 재계산·검증이 남아 있어 단계 0은 보류한다. 조사 근거는 [D23](../decisions/2026-10-22-overnight-decisions.md#d23--2026-10-24-c07-포함-관계-조사-결과)을 따른다. 아래 날짜가 붙은 이전 상태는 당시 기록이다.
+> 기록일 2026-10-21. 현재: [제품 명세](../../spec.md).
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> 2026-10-25: 반복 설명을 정본 링크로 정리했다. 날짜별 사실·근거는 보존하며, 현재 링크의 값은 당시와 다를 수 있다.
 
-**Goal:** 등록된 친구들의 내전을 Windows에서 수집하여 공개 웹사이트에서 전적·활약 랭킹·팀 추천을 제공하고 집 서버에서 운영한다.
+**작성 목적 (2026-10-21):** 승인 기획을 작업 T01–T15와 검사 이름에 연결한 당시 계획이다. 본문의 체크박스는 당시 수행 기록이며 현재 출시·실환경 검증을 보장하지 않는다. 현재 제품 기준은 [명세](../../spec.md), 완료 범위와 남은 순서는 [진행 상태](../../status.md)에 있다.
 
-**Architecture:** Windows 수집기는 ‘과거 경기 조회’ 버튼으로 LCU 기록을 가져와 서버에 임시 저장하고, 수집자가 확인한 경기만 별도 등록 확정한다. 서버가 인증·중복 방지·등록 상태·통계·평가의 기준이 된다. 웹과 API는 같은 출처로 제공하며 PostgreSQL에 원본·확인된 포지션·평가 버전을 보관한다. 첫 단계인 실제 LCU 검증을 통과한 뒤 데이터 계약과 제품 구현을 시작한다.
+| 기록일·분류 | 결정 주체·상태 | 당시 계획에 미친 영향 |
+| --- | --- | --- |
+| 2026-10-21 사용자 확정 | 사용자 · 서버 Java 25/Spring Boot 4.1.x, PostgreSQL, JPA/Specification, Gradle Groovy DSL과 후속 Node.js 24 | 기존 TypeScript 서버/Fastify/pg 제안을 교체. Gradle은 기존 사용 경험을 반영 |
+| 2026-10-21 미확정 제안 | 작성자 · React/Vite, Electron/SQLite, pnpm/Vitest/Playwright 및 세부 도구 | 아래 후보 경로·명령은 승인된 기술 제품이 아니었음 |
+| 2026-10-22 실행 승인 | 사용자 · D01–D04에 따른 단계 1–3 임시 개발 | 단계 0 PASS와 운영 준비 완료는 승인하지 않음 |
+| 2026-10-23 범위 변경 | 사용자 · D22 | C01/C02/C10과 T15를 작업·완료 조건에서 제외 |
+| 2026-10-24 조사·선택 | 조사 담당자의 C07 완료, 사용자의 D24 확정 | 새 계산 버전 반영·전 경기 재계산·검증은 당시 미완료 |
 
-**Tech Stack:** 사용자 확정 — 서버 Java 25 + Spring Boot 4.1.x의 최신 정식 패치 버전, 서버 DB PostgreSQL, DB 접근 Spring Data JPA + Specification, 서버 빌드 Gradle + Groovy DSL(`build.gradle`). 기존 운영 합의 — Docker, Cloudflare Tunnel. LCU 검증 도구는 후속 대화에서 Node.js 24로 확정했다. 웹·수집기와 세부 개발 도구는 아래 결정 상태에 따라 별도 논의한다.
-
-**결정 상태 (2026-10-21):** 서버 Java 25 + Spring Boot 4.1.x의 최신 정식 패치 버전, DB PostgreSQL, DB 접근 방식 Spring Data JPA + Specification, 서버 빌드 Gradle + Groovy DSL(`build.gradle`)을 사용자와 확정했다. Gradle은 사용자의 기존 사용 경험을 반영한 선택이다. 이 문서는 기술 스택 논의 중인 개발 계획이며, 남은 기술 선택과 실행 명령을 확정하기 전에는 최종 실행 계획으로 취급하지 않는다. 기존 TypeScript 서버·Fastify·pg 제안은 위 Java 서버 구성으로 교체한다.
-
-**Spec:** [확정 기획서](../specs/2026-10-21-lol-inhouse-design.md). 첫 단계는 [LCU 실기 검증 계획](2026-10-21-lcu-validation-plan.md)이다. 이 문서는 개발 계획이며 제품 코드나 실기 검증 결과가 아니다.
-
-**기술 선택 기록:** 대안별 장단점과 선택 근거는 [기술 스택 선택 근거](../decisions/2026-10-21-tech-stack-decisions.md)에 정리한다.
-
-**당시 진행 조건 (2026-10-23):** [야간 결정 D01–D04·D22](../decisions/2026-10-22-overnight-decisions.md)에 따라 단계 1–3의 임시 구현을 허용한다. 경기 종료 후 첫 조회(C01), 도구를 미리 실행한 경우와의 비교(C02), 반영 시간·과거 조회 범위 측정(C10), 실제 3–5경기 시범 운영(T15)은 사용자 결정으로 작업·완료 조건에서 제외했다. 당시 단계 0의 남은 보류 사유는 피해량 의미 확인(C07)이었다. 당시 작업 순서는 피해량 의미와 점수 기준 확정 → Windows 설치·업데이트(T13) → 서버 외부 접속과 백업·복원(T14)이었으며, 이후 C07 조사·지표 확정과 남은 작업은 문서 첫머리의 2026-10-24 갱신을 따른다. 범위 제외를 실측 성공이나 운영 준비 완료로 취급하지 않는다.
+최초 승인 범위는 [기획서](../specs/2026-10-21-lol-inhouse-design.md), 기술 대안·미확정 제안은 [기술 결정 기록](../decisions/2026-10-21-tech-stack-decisions.md), 순차 변경은 [야간 결정 기록](../decisions/2026-10-22-overnight-decisions.md)에서 확인한다. 첫 실기 단계는 [LCU 계획](2026-10-21-lcu-validation-plan.md)이었다.
 
 ## Global Constraints
 
-- 개발 환경은 macOS, 수집 프로그램은 Windows만 지원하며 실제 Windows PC에서 검증한다.
-- 약 30명의 등록된 친구 중 10명이 참가하는 소환사의 협곡 5대5 내전만 대상으로 한다. 게스트·복수 계정·시즌은 없다.
-- 한 참가자의 수집으로 등록한다. 수집기 실행 시점은 경기 전후와 무관하며, ‘과거 경기 조회’ 버튼을 눌렀을 때 새 기록 조회를 시작한다.
-- 조회한 적격 경기는 즉시 서버 임시 저장을 요청하고, 신규 자료는 확인 대기로 보관한다. 동일 경기 자료 재전송은 기존 상태만 응답하고 덮어쓰기·집계·재계산을 하지 않는다.
-- 명시적으로 등록한 내전만 집계한다. 참가자별 실제 포지션은 팀당 탑·정글·미드·원딜·서포터 한 명씩 확인한다.
-- 공개 조회와 팀 추천은 로그인 없이 제공한다. 온라인 공개 동의 절차는 만들지 않는다.
-- 수집자는 최초 개인별 코드로 등록한 기기 인증을 사용한다. LCU 계정 자동 인식 자체를 서버의 로그인 증명으로 취급하지 않는다.
-- 등록 후 포지션 수정·등록 취소는 운영자만 가능하다. 원본 경기 수치 수동 편집·취소 복원 UI는 만들지 않는다.
-- 전송 대기와 등록 대기는 재시작 후에도 유지하고 연결 복구 또는 다음 실행 시 재시도한다. 서버 임시 저장은 공개·집계하지 않고 명시적 등록 확정 성공 후에만 반영한다.
-- 경기별 활약은 확정한 포지션별 가중치를 사용한다. 누적 랭킹은 3경기부터, 그전은 ‘평가 중’, 평균 보정은 k=5다.
-- 솔로랭크는 초기 포지션 참고 자료로만, 운영자 초기 실력은 팀 편성에만 사용한다.
-- 평가 기준 변경 시 과거 유효 경기·누적 랭킹을 동일 기준으로 재계산한다. 취소 경기는 모든 집계와 실력 보정에서 제외한다.
-- 팀 추천은 가능한 포지션을 지키고 실력 균형을 우선하며 서로 다른 선수 구성 최대 3개를 제공한다.
-- 운영자 한 명의 코드 인증, 집 Windows의 Docker와 Cloudflare Tunnel, PC 밖 백업·복원을 포함한다.
+당시 작업은 승인된 제품 범위를 바꾸지 않는 조건으로 나눴다. 공통 제품 설명을 다시 복사하지 않으며 [현재 제품 명세](../../spec.md), 권한·오류·데이터 형식은 [현재 API 계약](../../contracts/api.md)을 사용한다. 사용자 제외 조건은 [진행 상태의 범위 제외](../../status.md#범위-제외와-미확인-사실)에서 확인한다.
 
 ## Review Focus
 
@@ -47,43 +32,17 @@
 
 ## 1. 단계와 진행 조건
 
-| 단계 | 작업 | 종료 기준 |
-| --- | --- | --- |
-| 0. LCU 자료·피해량 의미 확인 | 별도 계획 V1–V2 | 기존 Windows 경기 G1–G3의 구조·G1 화면 대조 결과를 유지하고 피해량 의미(C07)와 점수 기준을 확정. C01/C02/C10, G2·G3 추가 화면·재시작 후 같은 경기 재조회·다른 PC 경기 키 대조는 사용자 결정으로 제외 |
-| 1. 기록의 기준 마련 | T01–T04 | 계약·DB·권한·등록·조회·운영자 수정이 통합 테스트로 검증됨 |
-| 2. Windows 수집 흐름 | T05–T07 | 조회 버튼 → 서버 임시 저장 → 내전·포지션 확인 → 등록 확정 및 오프라인 순차 재시도 작동 |
-| 3. 평가·추천·웹 완성 | T08–T12 | 전 경기 재계산, 3경기 랭킹, 팀 추천, 공개/관리 화면 작동 |
-| 4. 설치·배포 | T13–T14 | Windows 설치/업데이트, 외부 HTTPS, 서버 재부팅, 외부 백업 복원 확인 |
+단계 0(V1–V2 실측) → 단계 1(T01–T04 기록) → 단계 2(T05–T07 수집 흐름) → 단계 3(T08–T12 평가·웹) → 단계 4(T13–T14 설치·운영)로 나눴다.
 
-기존에는 단계 0 PASS 전 서비스 스캐폴딩·프레임워크 설치·DB 구현을 금지했다. 사용자 승인/D01로 단계 1–3 provisional draft 개발만 예외 허용한다. D22에 따라 새 내전 일정이나 정해진 경기 수는 후속 진행 조건이 아니다. 제품의 조회 버튼·명시적 등록·저장 및 재시도 동작은 유지한다.
+초기에는 0단계 PASS 이전 스캐폴딩·프레임워크·DB 구현을 막았으나, 2026-10-22 사용자와 [D01](../decisions/2026-10-22-overnight-decisions.md#d01--hold-중-단계-13의-조건부-draft-개발)로 1–3단계 임시 개발만 허용했다. 2026-10-23 [D22](../decisions/2026-10-22-overnight-decisions.md#d22--2026-10-23-사용자-요청에-따른-검증-작업-제외) 이후 새 내전 일정과 T15 경기 수는 진행 조건이 아니다. 각 단계의 실제 증거·남은 조건은 [진행 상태](../../status.md#단계별-확인-범위)에 있다.
 
 ## 2. 기술 결정과 파일 책임
 
-| 영역 | 결정 상태 |
-| --- | --- |
-| 서버 프레임워크·언어 | **사용자 확정: Java 25 + Spring Boot 4.1.x의 최신 정식 패치 버전** |
-| 서버 DB | **사용자 확정: PostgreSQL** |
-| DB 접근·동적 조회 | **사용자 확정: Spring Data JPA + Specification** |
-| 서버 빌드 | **사용자 확정: Gradle + Groovy DSL(`build.gradle`)** |
-| 운영 환경 | 기존 합의: 집 Windows의 Docker, Cloudflare Tunnel |
-| JDK 배포판·PostgreSQL·Gradle 세부 버전 | 별도 논의; Gradle은 Java 25 실행을 지원하는 9.1.0 이상의 9.x 범위에서 선택. 이전 PostgreSQL 17 제안을 확정으로 간주하지 않음 |
-| 서버 마이그레이션·테스트 도구 | 별도 논의; 이번 빌드 도구 결정에 포함하지 않음 |
-| 웹 | 기존 제안: React/Vite + TypeScript; 사용자와 별도 결정 |
-| Windows 수집기·로컬 저장 | 기존 제안: Electron/TypeScript + SQLite/better-sqlite3; 사용자와 별도 결정 |
-| 클라이언트 프로젝트 관리·테스트 | 기존 제안: pnpm workspace, Vitest/Playwright; 사용자와 별도 결정 |
-| LCU 검증 도구 | **사용자 확정: Node.js 24**. JavaScript ESM·내장 HTTPS/파일 API·node:test로 구현. Windows 실측은 추후 진행 |
+2026-10-21 확정 기술과 당시 미정 제안은 첫 표 및 [기술 결정 기록](../decisions/2026-10-21-tech-stack-decisions.md)으로 구분한다. Java 계산을 TypeScript에서 직접 공유한다는 이전 전제는 제거했고 언어 중립 JSON과 fixture를 연결점으로 삼았다. PostgreSQL 전용 Native SQL, 단일 서버 컨테이너·DB 작업자는 당시 보완 제안이었다.
 
-Java 주 버전은 25, Spring Boot 계열은 4.1.x로 확정했다. T01의 서버 프로젝트 생성 시 공식 릴리스를 확인하여 당시 최신 정식 4.1.x 패치의 정확한 버전을 `build.gradle`에 고정한다. `4.1.+` 같은 동적 버전, Milestone·RC·SNAPSHOT은 사용하지 않는다. JDK 배포판과 사용할 Java 25 업데이트 버전도 빌드·배포 환경에 기록한다. Gradle Java toolchain은 25로 맞추고 서버 실행 환경도 Java 25를 사용한다. 이후 패치 갱신은 버전 변경과 검증을 통해 적용하며, Spring Boot 4.2 이상으로 계열을 바꾸는 선택은 별도 논의한다.
+Java 25에서 Gradle 9.1.0 이상의 9.x, 정확한 Spring Boot 4.1.x 정식 패치를 T01에서 고정하는 계획이었다. 이후 선택·실제 고정값은 [개발 안내의 원본 설정 링크](../../development/setup.md#서버-빌드와-테스트)를 따른다. 동적/시험판 버전으로 대체하거나 이 기록을 최신 패치 주장으로 쓰지 않는다.
 
-서버의 입력 검증·정규화·평가·누적 통계·팀 추천은 Java에서 수행한다. 웹·수집기와는 HTTP/JSON 계약 및 검증된 fixture로 연결하며, 서버와 클라이언트가 TypeScript 소스나 평가 함수를 직접 공유한다는 전제는 제거한다. API 계약 표현·클라이언트 타입 생성 방식은 별도 결정한다. 클라이언트의 사전 검사와 별개로 서버가 입력을 최종 검증한다.
-
-일반적인 저장·변경과 조회는 Spring Data JPA를 사용하고, 선수·챔피언·포지션·승패처럼 선택적으로 조합하는 조회 조건은 Specification으로 구성한다. 형태가 고정된 조회는 쿼리 메서드나 JPQL을 사용한다. PostgreSQL 전용 처리를 위한 제한적 Native SQL은 필요 시 검토할 보완 제안이며, 이번 사용자 결정은 JPA + Specification이다. 평가·팀 추천 계산은 Java 도메인 로직에 둔다.
-
-웹·수집기 작업에 남아 있는 TypeScript, React, Electron 경로와 명령은 기존 후보를 유지했을 때의 초안이다. 해당 선택이 확정된 뒤 경로·의존성·실행 명령을 확정한다. Electron/네이티브 SQLite 후보를 채택하면 Windows 설치 파일과 네이티브 모듈을 실제 Windows에서 빌드·시험한다. 첫 배포 대상 아키텍처는 V2에서 확인한 PC에 맞춘다.
-
-서버 한 컨테이너가 API와 빌드된 웹을 제공하고, 별도 Redis·메시지 브로커 없이 PostgreSQL 작업 테이블과 서버 내부 작업자로 재계산하는 구성은 기존 설계 제안으로 유지한다. PostgreSQL은 이름 있는 볼륨을 사용한다. 세부 버전을 결정한 뒤 Gradle Wrapper 버전, Java 의존성과 컨테이너 이미지를 재현 가능하게 고정하며, 클라이언트 의존성도 선택한 도구에 맞춰 고정한다.
-
-아래 Java 경로·클래스 이름은 책임을 구분하기 위한 계획 작성자의 제안이며, 사용자 확정 기술 선택과 구분한다. `apps/server/`를 독립 Gradle 프로젝트로 두고 `build.gradle`, `settings.gradle`과 Gradle Wrapper를 관리한다. `apps/server/src/main/java/cw/`를 서버 소스, `apps/server/src/test/java/cw/`를 서버 테스트 루트로 제안한다. 서버 검증 명령은 아래 Gradle Wrapper 기준을 사용하고, 테스트 프레임워크와 의존성은 별도 결정한다.
+아래 파일명과 책임은 작성자의 구조 제안이며 사용자 기술 확정과 구분한다. Electron/SQLite 후보를 채택하면 실제 Windows 네이티브 모듈 빌드·시험이 필요하고 첫 아키텍처는 V2 PC에 맞추기로 했다.
 
 | 경로 | 책임 |
 | --- | --- |
@@ -107,66 +66,21 @@ Java 주 버전은 25, Spring Boot 계열은 4.1.x로 확정했다. T01의 서�
 
 ## 3. 공통 계약
 
-T01에서 아래 언어 중립 데이터 계약을 Java 모델과 입력 검증으로 구현한다. 웹·수집기 모델과는 동일한 JSON 필드·오류·fixture를 기준으로 일치시킨다. ID는 서버 Java와 API 모두 문자열로 보존하며 시간은 UTC ISO 8601로 교환하고 웹에서 한국 시간으로 표시한다.
+T01에서 Java 모델을 만들고 웹·수집기는 같은 JSON 필드·오류와 fixture 기대값에 맞추는 계획이었다. 당시 계약 이름은 [1단계 고정 스키마](../../contracts/stage1.schema.json)에, 이후 평가 모델은 [3단계 스키마](../../contracts/stage3.schema.json)에 남아 있다. 현재 필드 표·오류·경로는 [API 계약](../../contracts/api.md)을 따른다.
 
-| 이름 | 필수 계약 |
-| --- | --- |
-| `Role` | `TOP / JUNGLE / MIDDLE / BOTTOM / UTILITY` |
-| `Member` | id, puuid, riotId, displayName, active, primaryRole/secondaryRole(nullable), allowedRoles, seedSkill(0–100), profileRevision |
-| `NormalizedMatch` | schemaVersion, platformId, gameId, startedAtUtc, durationSeconds, mapId, gameType, patch, participants |
-| `ParticipantRecord` | puuid, teamId, win, championId, kills/deaths/assists, championDamage, damageTaken, laneCs/neutralCs, goldEarned, visionScore, objectiveDamage/turretDamage, items |
-| `IngestMatchInput` | rawMatch(검증 전 JSON), clientSubmissionId, schemaVersion. 서버가 재정규화하여 적격 신규 경기를 pending으로 저장; 확정 포지션은 요구하지 않음 |
-| `IngestMatchAck` | matchKey, state(`pending / registered / canceled`), disposition(`created_pending / already_pending / already_registered / already_canceled`) |
-| `ConfirmationInput` | matchKey, rolesByPuuid, clientSubmissionId. 이미 저장된 경기의 내전 여부를 명시적으로 확인하고 실제 포지션을 확정하는 요청 |
-| `CollectorMatch` | matchKey, state, match(NormalizedMatch), confirmedRoles(nullable); 해당 경기 참가자 자격의 수집기와 운영자에게만 제공 |
-| `CollectorPrincipal` | memberId, credentialId, puuid. 서버가 기기 인증에서 도출하고 요청 본문 값을 신뢰하지 않음 |
-| `RegistrationAck` | matchKey, disposition(`created / already_registered`), sourceRevision |
-| `PublicMatch` | 표시용 회원 ID/이름·10명 기록·확인 포지션·평가 상태·기준 버전; PUUID·원본·인증 정보 제외 |
-| `RoleReferenceSample` | puuid, source(`solo420 / inhouse`), gameId, playedAt, role(nullable), evidence; 평가 점수·실력 입력에 사용하지 않음 |
-| `EvaluableMatch` | NormalizedMatch의 참가자마다 memberId와 최종 role을 연결한 경기. 현재 등록 상태가 유효한 경기만 포함 |
-| `ScoringRuleSet` | id, algorithmVersion, weightsByRole, metricMix, normalization, cumulativePrior(초기 5). 항목 내부 비율·표준화 상수까지 버전별로 보관 |
-| `EvaluationInput` | sourceRevision, scoringVersion(규칙 ID), rules(ScoringRuleSet), matches(EvaluableMatch[]), members(Member[]) |
-| `EvaluationGeneration` | id, sourceRevision, scoringVersion, gameScores, memberStats, roleSkills |
-| `TeamRecommendation` | candidates(최대 3개), reason(nullable), sourceRevision; 후보는 두 팀의 memberId/role과 실력 차이를 포함 |
-
-`MatchKey = platformId + ':' + gameId`. gameId는 문자열로 교환하며, TypeScript 클라이언트를 선택하더라도 JavaScript Number로 바꾸지 않는다. `NormalizedMatch`의 원본 JSON 경로와 필수 여부는 V2 필드 맵이 결정한다. 누락은 `null/validation issue`로 남기고 0으로 채우지 않는다. 현재 가중치에 필요한 필드가 확보되지 않으면 평가 기준 변경을 먼저 확인한다.
-
-에러 응답은 `{code, message, retryable, details?}`로 통일한다. 최소 코드는 `INVALID_MATCH`, `UNREGISTERED_PARTICIPANT`, `ACCOUNT_MISMATCH`, `MATCH_CANCELED`, `AUTH_REVOKED`, `UNSUPPORTED_SCHEMA`, `RECALCULATING`이다. 수집기는 HTTP 상태만으로 모든 실패를 재전송하지 않는다.
+초기 계획의 `ConfirmationInput`은 matchKey를 함께 기술했으나 구현 계약은 URL 경로에서 받는다. `RoleReferenceSample`의 inhouse 입력도 외부 가져오기와 DB 내전 표본을 후속 계약에서 분리했다. 계획 초안을 현재 요청 형식으로 복사하지 않는다.
 
 ### 인증 기본값
 
-- 코드: 32바이트 난수의 base64url, 서버에는 해시만 저장, 원자적으로 1회 소비. 운영자 코드는 30분, 수집자 코드는 24시간 유효.
-- 운영자: `__Host-cw-admin` 쿠키, Secure/HttpOnly/SameSite=Strict/Path=/, 비활동 7일·절대 30일 만료. 로그아웃·개별/전체 인증 폐기 지원.
-- 운영자 쓰기 요청: 같은 출처 확인과 CSRF 토큰 검증. 코드 입력 실패는 IP 기준 10분 내 5회 이후 제한하며 정상 인증 후 재설정한다. 신뢰 프록시 범위를 배포에서 고정한다.
-- 수집기: 코드와 교환한 별도 기기 토큰을 Windows 보호 저장소에 보관. 활성 상태에서는 반복 로그인을 요구하지 않으며 운영자가 폐기할 수 있다. 토큰 회전 시 기존 기기 소유자는 바뀌지 않는다.
-- 서버 로컬 관리 명령은 Java 애플리케이션으로 제공한다. `admin:code` 발급 및 `admin:code --revoke-all` 복구 동작을 유지하고, 실제 실행 구문은 T03의 CLI 진입점과 인자 전달 방식을 구체화할 때 기록한다. 새 운영자를 만들지 않고 한 운영자의 브라우저 인증만 추가한다.
-- 운영자가 LCU 계정을 인식했다고 웹 운영자 권한을 주지 않는다. 클라이언트가 전달하는 경기 자료는 친구 모임 수집기를 신뢰하는 모델이며 Riot의 서명된 전적 증명은 아니다.
+기획에서 위임받은 만료·쿠키·코드·시도 제한 수치를 구현 기본값으로 제안했다. 현재 값과 동작은 [인증과 권한](../../contracts/api.md#인증과-권한), 당시 작은 규모의 제한과 이유는 [D10](../decisions/2026-10-22-overnight-decisions.md#d10--인증과-http-기본값의-명시적-운영-한계)을 따른다. 로컬 발급·전체 폐기 명령의 실제 구문은 [최초 관리자와 복구](../../development/setup.md#최초-관리자와-복구)에 있다.
 
 ### 저장과 일관성
 
-`members`, `enrollment_codes`, `admin_sessions`, `collector_credentials`, `matches`, `match_participants`, `role_reference_samples`, `audit_log`, `scoring_versions`, `service_state`, `recalculation_jobs`, `evaluation_generations`와 세대별 점수/통계 테이블을 둔다. 경기 상태는 `pending / registered / canceled`이며 pending의 확정 포지션은 null이다. 경기 원본과 확인된 포지션을 분리한다. `(platform_id, game_id)`는 모든 상태에 걸쳐 DB UNIQUE이며 취소 행도 유지한다.
-
-임시 저장은 원본·정규화 자료·수집자 감사 정보만 기록하고 평가용 `source_revision`을 올리지 않는다. 같은 키의 자료 재전송은 원본·상태·포지션을 변경하지 않고 현재 상태를 응답한다. 실제 포지션과 내전 여부를 명시적으로 확인하는 별도 요청만 pending을 registered로 한 번 전환한다. 참가자 중 인증된 수집자라면 임시 저장한 사람과 달라도 확인할 수 있고, 동시 확정 요청에서는 첫 확정만 적용한다.
-
-등록 확정/운영자 수정/취소/평가 기준/팀 실력 입력 변경은 트랜잭션 안에서 `source_revision`을 올리고 재계산 작업을 기록한다. 중복 자료 전송이나 중복 확정 요청은 revision/job을 추가하지 않는다. 새 세대 완성 전 공개 점수·누적 통계·팀 추천은 ‘계산 중’으로 응답한다. 공개 전적과 모든 집계 입력은 `state=registered`만 선택한다. pending은 해당 경기의 인증된 참가자·운영자만 조회하며, 취소 경기는 즉시 공개에서 제외한다.
+경기 상태와 원본/확정 역할을 분리하고 변경 번호·영속 작업을 함께 저장하는 구조를 제안했다. 현재 트랜잭션 기준은 [변경·재계산·일관성](../../spec.md#변경재계산일관성), API 처리와 작업자 경계는 [재계산 계약](../../contracts/api.md#계산-규칙-검증게시복구)에 둔다. 초기 직렬화·마이그레이션 선택 이유는 [D08](../decisions/2026-10-22-overnight-decisions.md#d08--단계-1의-작은-규모-트랜잭션-직렬화)·[D09](../decisions/2026-10-22-overnight-decisions.md#d09--보존마이그레이션후속-평가-경계)를 참조한다.
 
 ## 4. 작업별 구현 계획
 
-각 작업의 테스트 이름은 Java 서버에서는 테스트 메서드명, TypeScript 후보에서는 테스트 케이스명으로 사용한다. 테스트용 fixture/팩토리는 같은 테스트 디렉터리에 둔다. T01에서 명시한 공통 설정은 이후 작업의 파일 목록에 반복하지 않는다. 각 커밋은 해당 작업 파일만 stage하고 `git diff --cached --check`를 통과시킨다.
-
-Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm을 채택할 경우 `@cw/contracts`, `@cw/lcu`, `@cw/web`, `@cw/collector`를 후보 이름으로 사용한다. 아래 pnpm 명령은 해당 클라이언트 후보에만 적용한다. 현재 문서의 미정 항목은 후속 대화 대상이며 구현자가 기술 제품을 임의로 확정하는 위임이 아니다.
-
-서버 명령은 저장소 루트에서 Gradle Wrapper로 실행한다. 아래는 macOS 기준이며 Windows PowerShell에서는 실행 파일을 `.\apps\server\gradlew.bat`로 바꾸고 같은 인자를 전달한다. T01에서 Wrapper·Java 플러그인·선택한 테스트 프레임워크를 설정한 뒤 사용한다.
-
-| 목적 | 명령 |
-| --- | --- |
-| 서버·테스트 소스 컴파일 | `./apps/server/gradlew -p apps/server classes testClasses` |
-| 특정 테스트 클래스 실행 예시 | `./apps/server/gradlew -p apps/server test --tests 'cw.lcu.MatchNormalizerTest'` |
-| 서버 단위·통합 테스트 전체 | `./apps/server/gradlew -p apps/server test` |
-| 실행 JAR 패키징 | `./apps/server/gradlew -p apps/server bootJar` |
-| 서버 전체 검증·패키징 | `./apps/server/gradlew -p apps/server build` |
-
-각 작업에서 Java 테스트 클래스 실행을 지시하면 `test --tests '패키지를 포함한 클래스명'`을 사용한다. 여러 클래스는 `--tests`를 반복한다. 현재 계획의 단위·통합 테스트는 모두 `src/test/java`에 두고 `test` 작업으로 실행하며, 통합 테스트에는 T02의 전용 PostgreSQL 환경이 필요하다. `bootJar`와 전체 `build`는 Spring Boot 플러그인 설정 및 T03의 애플리케이션 진입점 구현 후 사용한다. 이 명령들은 후속 구현용이며 현재 실행 가능한 서버 프로젝트가 생성된 상태는 아니다.
+테스트 이름·파일 책임·체크박스는 당시 작업 추적 근거로 보존한다. 명령을 다시 실행하려면 [서버 빌드·테스트](../../development/setup.md#서버-빌드와-테스트), [수집기](../../development/setup.md#수집기-개발실행), [웹 통합 검증](../../development/setup.md#웹과-전체-통합-검증)을 사용한다. 아래 후보 명령과 커밋 문구는 당시 계획 문법이며 최신 실행 안내가 아니다.
 
 **단계 1 실행 기록 (2026-10-22):** T01–T04는 provisional 구현 및 실제 PostgreSQL 검증 완료. [63개 서버 테스트·복구 CLI·제한 사항](../../validation/stage1-report.md)을 참조한다. 단계 0 HOLD와 운영 계약 미확정은 유지한다. 클래스/SQL 파일명은 구현 책임에 맞게 분리했으며 migration은 Flyway 표준 `V1__core.sql`이다. 단계 2 이후 체크박스는 변경하지 않았다.
 
@@ -178,7 +92,7 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 - [x] **1. 정규화 테스트를 작성한다.** `completeTenPlayers`, `rejectNineOrDuplicatePlayers`, `missingIsNotZero`, `preserveStringGameId`: 참가자 수 10, 경기 ID 원문 문자열과 동일, 시야 점수 누락 시 `participants.0.visionScore/REQUIRED` 오류를 검증한다. 숫자 범위·팀당 5명·양 팀 승패 일치·양의 경기 시간을 포함한다.
 - [x] **2. Gradle 설정 후 테스트 실패를 확인한다.** `./apps/server/gradlew -p apps/server test --tests 'cw.lcu.MatchNormalizerTest'` → 미구현 정규화로 실패. 테스트 환경 오류를 기능 실패로 간주하지 않는다. 이 단계 이전에 확정된 Java 25·Spring Boot 4.1.x 정책에 따라 정확한 패치 버전을 기록하고, JDK 배포판·Gradle 세부 버전과 JSON 처리·검증·테스트 도구를 확정한다.
-- [x] **3. 필드 맵으로 Java 정규화와 입력 검증을 구현한다.** 사용자 설정/SR 구분값은 V2에서 확인한 값을 사용한다. 아이템 빈 슬롯과 없는 필드를 구별한다. 원본과 UI 수치는 자동 수집값만 사용한다. 이후 어댑터를 변경해도 저장된 과거 원본과 미전송 대기를 읽을 수 있도록 schemaVersion별 디코더를 유지한다. 클라이언트 사전 검사와 서버 최종 검증은 같은 fixture와 기대 결과를 사용한다.
+- [x] **3. 필드 맵으로 Java 정규화와 입력 검증을 구현한다.** 필드 맵에 따라 Java 정규화·입력 검증과 버전별 디코더를 작성한다. 수집기와 서버가 같은 fixture 기대값을 쓰도록 연결한다. 필수 조건은 [원본 정규화](../../contracts/api.md#lcu-원본을-정규화하는-규칙)를 따른다.
 - [x] **4. 서버 컴파일·단위 테스트를 통과한다.** `./apps/server/gradlew -p apps/server classes testClasses`와 위 `MatchNormalizerTest` 실행 → PASS. 실행 JAR 패키징은 T03에서 애플리케이션 진입점을 구현한 뒤 검증한다. 클라이언트 타입 검사·테스트·빌드 명령은 해당 도구를 확정한 뒤 기록한다.
 - [x] **5. 커밋한다.** `feat: define provisional match contracts and normalization`.
 
@@ -190,7 +104,7 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 - [x] **1. 실제 DB 트랜잭션 테스트를 작성한다.** `pendingExcludedUntilConfirmed`, `concurrentDuplicateIngest`, `concurrentConfirmation`, `retryAfterLostReply`, `duplicateDoesNotRecalculate`, `retryCannotChangeRoles`, `canceledCannotReturn`, `allTenMustBeMembers`: 경기 수 1, pending 수신 전후 revision 동일, 중복 확정 후 revision 불변, 최초 확정 포지션 보존, 취소 경기 재수신 후 canceled 유지. 비참가자의 조회·확정 거절과 다른 인증된 참가자의 확정 허용도 검사한다.
 - [x] **2. 실패를 확인한다.** `docker compose -f infra/compose.test.yml up -d --wait`, Java `RegistrationIntegrationTest` 실행 → 등록 함수 미구현으로 실패. 테스트 DB는 운영 DB와 다른 이름·포트·볼륨을 사용한다.
-- [x] **3. JPA 매핑·DB UNIQUE·서비스 트랜잭션으로 두 단계를 구현한다.** 신규 ingest는 원본+정규화 자료+pending 상태+감사 이력을 저장하고, 등록 확정은 역할 검증 후 상태 전환+확정 포지션+감사 이력+revision/job을 함께 기록한다. ingest 충돌 시 상태를 읽어 응답하고 UPDATE하지 않는다. registered의 재확정은 already_registered, canceled의 ingest는 already_canceled, canceled의 확정은 409/MATCH_CANCELED다. 서버는 ingest 원본을 검증하며 확정 요청에서는 저장된 원본을 사용한다.
+- [x] **3. JPA 매핑·DB UNIQUE·서비스 트랜잭션으로 두 단계를 구현한다.** JPA 매핑·DB UNIQUE·트랜잭션으로 ingest와 confirm 서비스를 나눈다. 저장 단위·중복·취소 응답은 [수집·등록 계약](../../contracts/api.md#경기-수집등록과-중복-처리)에 맞춘다.
 - [x] **4. 동시 요청과 롤백을 검증한다.** 동일 명령 → PASS; 중간 저장 오류 시 참가자 일부나 재계산 작업만 남지 않아야 한다.
 - [x] **5. 커밋한다.** `feat: persist idempotent inhouse registrations`.
 
@@ -198,11 +112,11 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 **Files:** Create `apps/server/src/main/java/cw/CivilWarApplication.java`, `apps/server/src/main/java/cw/auth/{EnrollmentCodeService,AdminSessionService,CollectorCredentialService,AuthController}.java`, `apps/server/src/main/java/cw/cli/AdminCodeCommand.java`, `apps/server/src/main/java/cw/members/{MemberRepository,MemberController}.java`; Test `apps/server/src/test/java/cw/auth/AuthMembersIntegrationTest.java`.
 
-**Interfaces:** Consumes T02 DB. Produces `POST /api/admin/session`, `POST /api/collector/enroll`, `POST /api/admin/codes`, `DELETE /api/admin/sessions/:id`, `DELETE /api/admin/collector-credentials/:id`, `GET/POST/PATCH /api/admin/members[/:id]`, `GET /api/collector/members`, `POST /api/collector/matches/ingest`, `GET /api/collector/matches?state=pending`, `GET /api/collector/matches/:key`, `POST /api/collector/matches/:key/confirm`, `POST /api/admin/logout`. 경기 API는 T02를 사용한다. `requireAdmin()`/`requireCollector()`가 검증한 principal을 반환한다. 수집기 enroll은 `{code,currentPuuid}`를 받아 `{token,memberId,credentialId,puuid}`를 반환한다. 수집기 경기 조회는 본인이 참가한 경기로 제한하고, 인증된 회원 명단 조회만 매칭용 PUUID를 제공한다.
+**Interfaces:** T02 저장소 위에 `requireAdmin()`/`requireCollector()`가 검증한 principal을 반환하고 T02 경기 서비스를 API에 연결한다. 당시 enroll·회원·코드·세션 경로의 상세 표는 [인증](../../contracts/api.md#인증과-권한)과 [회원 계약](../../contracts/api.md#회원), 로컬 CLI는 [복구 안내](../../development/setup.md#최초-관리자와-복구)를 따른다.
 
 - [x] **1. 인증·등록 테스트를 작성한다.** `oneUseAtomic`, `codeScopeIsolation`, `expiredAndRevoked`, `csrfAndOrigin`, `localRecovery`, `memberIdentityStable`: 동시 코드 소비 성공 1회, 수집자 자격의 관리자 접근 403, 이름 변경 전후 회원 ID 동일. 비밀값 로그 부재와 seedSkill 범위를 확인한다.
 - [x] **2. 실패를 확인한다.** Java `AuthMembersIntegrationTest` 실행 → 라우트/인증 미구현으로 실패.
-- [x] **3. 인증 기본값과 API를 구현한다.** 가입 시 코드 소유 회원과 현재 LCU PUUID를 대조한다. seedSkill은 운영자가 입력하며 자동 티어 추정은 하지 않는다. 회원 비활성화로 과거 기록을 삭제하지 않는다. rate limit·요청 본문 상한·로그 비밀값 제거를 Spring Boot 서버의 공통 요청 처리 설정에 넣는다. 개발 HTTP 쿠키 예외는 개발 모드에서만 허용한다.
+- [x] **3. 인증 기본값과 API를 구현한다.** 인증·회원 서비스를 만들고 Spring 공통 요청 처리에 입력 상한·시도 제한·로그 정제를 연결한다. 세부 권한과 쿠키는 [인증 계약](../../contracts/api.md#인증과-권한)을 따른다.
 - [x] **4. 복구 CLI까지 검증한다.** 테스트 → PASS; 테스트 DB를 대상으로 Java 관리 명령의 `admin:code --revoke-all` 복구 동작 실행 후 이전 운영자 세션·미소비 운영자 코드는 거절되어야 한다. 새 코드는 명령 실행자의 터미널에 한 번만 표시하고 일반 로그에 저장하지 않는다.
 - [x] **5. 커밋한다.** `feat: add scoped enrollment and owner administration`.
 
@@ -210,11 +124,11 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 **Files:** Create `apps/server/src/main/java/cw/matches/{PublicMatchQuery,MatchSpecifications,AdminMatchService,MatchController}.java`; Test `apps/server/src/test/java/cw/matches/MatchAccessIntegrationTest.java`.
 
-**Interfaces:** Consumes T02 저장/T03 인증. Produces `GET /api/matches`, `GET /api/matches/:key`, `GET /api/members`, `GET /api/members/:id/matches`, `PATCH /api/admin/matches/:key/roles`, `POST /api/admin/matches/:key/cancel`. 목록은 cursor/limit(기본 20, 최대 100), memberId·championId·role·win 필터를 지원한다.
+**Interfaces:** T02 저장/T03 인증을 사용해 공개 조회와 운영자 정정·취소를 연결한다. 당시 동적 조건은 `MatchSpecifications` 책임이었다. 경로·페이지·필터 형식은 [공개 기록과 관리자 정정](../../contracts/api.md#공개-기록과-관리자-정정)에 둔다.
 
 - [x] **1. 권한·공개 범위·동적 조회 테스트를 작성한다.** `publicSafeDto`, `pendingNotPublic`, `onlyOwnerEdits`, `cancelHidesImmediately`, `profileRoleDoesNotRewriteHistory`: 공개 JSON의 PUUID 부재, pending/canceled 공개 조회 404, 수집자의 수정 요청 403 응답을 확인한다. `optionalFiltersCompose`와 `filteredMatchesAppearOnce`는 조건 없음·단일 조건·복합 조건, 같은 참가자에 대한 선수/챔피언/포지션/승패 조건 적용, 참가자 조인 후 경기 중복 및 페이지 누락 방지를 검증한다.
 - [x] **2. 실패를 확인한다.** Java `MatchAccessIntegrationTest` 실행 → 미구현 라우트로 실패.
-- [x] **3. Specification 기반 조회 DTO와 JPA 운영자 변경을 구현한다.** `MatchSpecifications`에서 선택된 필터를 조합한다. 공개 목록의 registered 조건은 모든 필터 조합에 적용하고, 운영자는 확인 대기·취소 자료와 변경 이력도 조회한다. 등록 완료 경기의 포지션 정정은 양 팀 각 역할 1명 검증 후 감사 이력과 revision/job을 함께 기록한다. 수치 수정·취소 복원 엔드포인트는 만들지 않는다.
+- [x] **3. Specification 기반 조회 DTO와 JPA 운영자 변경을 구현한다.** `MatchSpecifications`로 선택된 필터를 조합하고 JPA 변경을 감사·revision/job에 연결한다. 공개 범위와 수정 예외는 [공개 기록 계약](../../contracts/api.md#공개-기록과-관리자-정정)을 따른다.
 - [x] **4. 검증한다.** 테스트 → PASS; 등록 수치·포지션·취소 상태·감사 이력이 트랜잭션 단위로 일치하고 공개에 원본/인증값이 나오지 않아야 한다.
 - [x] **5. 커밋한다.** `feat: expose match records and owner corrections`.
 
@@ -230,7 +144,7 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 - [x] **1. 연결·인증 분리 테스트를 작성한다.** `clientStopped`, `portChanged`, `noTokenInRenderer`, `accountMismatch`, `soloReferenceOnly`, `noHistoryFetchOnLaunch`: `expect(rendererAccount).not.toHaveProperty('token')`, `expect(mismatch.code).toBe('ACCOUNT_MISMATCH')`, `expect(reference.source).toBe('solo420')`, `expect(historyRequestsOnLaunch).toBe(0)`. 토큰 복호화 실패는 재등록 안내이며 평문 저장으로 우회하지 않는다.
 - [x] **2. 실패를 확인한다.** pnpm/Vitest 후보 채택 시 `pnpm exec vitest run apps/collector/src/main/lcu-bridge.test.ts packages/lcu/src/normalize-match.test.ts packages/lcu/src/role-reference.test.ts` → 미구현으로 실패. 클라이언트 정규화는 T01과 동일한 fixture에서 참가자 10명·문자열 경기 ID·0과 누락 구분이 일치하는지 검증한다.
-- [x] **3. main 전용 LCU·인증 저장과 읽기 IPC를 구현한다.** Electron contextIsolation/sandbox를 켜고 nodeIntegration은 끈다. Windows safeStorage로 보호한 토큰만 로컬에 보관한다. 솔로랭크 조회는 V2에서 검증된 범위만 사용하고, 자료가 없으면 이유를 반환한다. 친구 목록 조회는 구현 범위에서 제외하며 참가자 식별에는 경기 상세의 식별 정보를 사용한다. 온라인 서버 없이도 LCU 조회는 가능해야 한다. 앱 실행 시 계정 인식만 수행하고 새로운 경기 기록 조회는 버튼 요청 때만 시작한다.
+- [x] **3. main 전용 LCU·인증 저장과 읽기 IPC를 구현한다.** main 전용 LCU·보호 저장·읽기 IPC를 구현한다. 당시 Electron 격리 선택은 [D15](../decisions/2026-10-22-overnight-decisions.md#d15--인증lcu렌더러-경계)에, 현재 경계는 [기기 인증](../../spec.md#수집자-기기-인증)과 [수집 흐름](../../spec.md#경기-수집확인등록)에 있다.
 - [ ] **4. fixture 테스트와 Windows 연결 확인을 수행한다.** 테스트 → PASS. 실제 Windows에서 클라이언트 꺼짐·로그아웃·재시작을 확인하고 renderer 개발자 도구에 토큰이 노출되지 않는지 점검한다.
 - [x] **5. 커밋한다.** `feat: connect Windows collector to verified LCU data`.
 
@@ -242,7 +156,7 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 - [x] **1. 파일 기반 SQLite 테스트를 작성한다.** `survivesRestart`, `lostIngestAndConfirmAck`, `confirmWaitsForIngest`, `ingestDoesNotAutoConfirm`, `repeatedQueryCoalesces`, `switchedAccountCannotAdopt`, `canceledStopsRetry`, `restartFlushDoesNotFetchLCU`: `expect(reopened.roles).toEqual(confirmedRoles)`, `expect(serverCount).toBe(1)`, `expect(sentKinds).toEqual(['ingest','confirm'])`, `expect(confirmWithoutUserAction).toBe(false)`, `expect(sentWithOtherCredential).toBe(false)`, `expect(canceled.retryScheduled).toBe(false)`. 강제 종료된 sending 작업도 다음 실행에 회복되며, 재전송 때문에 새로운 LCU 경기 조회를 시작하지 않아야 한다.
 - [x] **2. 실패를 확인한다.** `pnpm exec vitest run apps/collector/src/main/outbox.test.ts` → 저장/전송 미구현으로 실패.
-- [x] **3. SQLite 트랜잭션과 단일 전송 작업자를 구현한다.** 조회 버튼으로 가져온 적격 자료는 즉시 durable ingest 작업으로 저장하고 서버 전송을 시도한다. 명시적 내전 등록 클릭만 confirm 작업을 추가한다. 서버 상태 pending 확인 후 confirm을 전송하고, 이미 registered이면 완료로 처리하며 canceled이면 표시 후 전송을 종료한다. 네트워크/5xx는 5초→15초→1분→5분→15분 상한 및 jitter, 429는 Retry-After로 재시도한다. 인증/자료 오류는 확인 필요로 전환한다. 같은 회원의 새 자격으로만 명시적 재개를 허용하며 확보한 자료의 전송은 LCU가 꺼져 있어도 가능하다.
+- [x] **3. SQLite 트랜잭션과 단일 전송 작업자를 구현한다.** SQLite 트랜잭션과 단일 전송 작업자를 구현한다. 선행 ingest 의존성·재시도·재개·보관 규칙은 [오프라인 대기](../../spec.md#오프라인-대기와-재시도)를 적용한다. 초기 선택 이유는 [D16](../decisions/2026-10-22-overnight-decisions.md#d16--로컬-원본소유자순서-보존)에 남긴다.
 - [x] **4. 저장·복구를 검증한다.** 테스트 → PASS. ingest 성공은 UI의 ‘확인 대기’, confirm 성공 또는 서버의 already_registered 응답만 ‘등록 완료’로 표시한다. 이미 canceled라는 응답은 ‘등록 취소’로 표시하며 자동 복원하지 않는다. 등록 완료 건의 큰 원본은 30일 뒤 정리하고 승인 키/상태는 남긴다. 미등록 자료는 자동 삭제하지 않는다. 로컬 디스크 저장 실패 시 ‘전송 대기 저장 실패’를 표시하고 저장 성공으로 안내하지 않는다.
 - [x] **5. 커밋한다.** `feat: persist confirmed matches and retry safely`.
 
@@ -254,23 +168,23 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 - [x] **1. 사용자 흐름 테스트를 작성한다.** `buttonFetchesAndStages`, `noAutoRegistration`, `allRolesConfirmed`, `offlineThenResume`, `queryFailureIsNotPending`, `duplicateShowsExistingState`: `expect(historyRequestsBeforeClick).toBe(0)`, `expect(afterQuery.serverState).toBe('pending')`, `expect(afterQuery.publicMatchCount).toBe(0)`, `expect(afterConfirmAck).toContain('등록 완료')`. 미등록 회원·다른 LCU 계정·클라이언트 종료, 서버에 이미 저장된 pending 재표시와 registered/canceled 안내도 포함한다.
 - [x] **2. 실패를 확인한다.** `pnpm test:e2e -- tests/e2e/collector.spec.ts`. 이번 최초 실행은 Electron binary 미설치/샌드박스 다운로드 오류로 실패했고, 설치 후 UI 실행에서 중복 오류 표시를 검출해 수정했다. 원래 예상한 ‘화면/IPC 미구현’ 메시지를 관측했다고 주장하지 않는다. 자동 테스트는 실제 Electron main/preload와 고정 fixture IPC를 사용하며 실제 LCU 검증과 구분한다.
-- [x] **3. 최초 코드 입력→자동 계정 인식→‘과거 경기 조회’→서버 임시 저장→5+5 비교→내전·실제 역할 확인→‘내전 등록’ 흐름을 구현한다.** 전송 대기/확인 대기/등록 대기/등록 완료/등록 취소를 구분한다. 모임 내전이 아닌 경기나 재경기는 확정하지 않으면 집계되지 않는다. 확인 대기 목록은 서버에서 다시 불러올 수 있어 LCU의 과거 경기 목록에서 사라진 뒤에도 확인할 수 있다. 인터넷이 없을 때 회원 명단 캐시로 미리 검사하고 서버에서 최종 검증한다. 최초 기기 인증은 온라인에서 수행한다.
+- [x] **3. 최초 코드 입력→자동 계정 인식→‘과거 경기 조회’→서버 임시 저장→5+5 비교→내전·실제 역할 확인→‘내전 등록’ 흐름을 구현한다.** main 조회→enqueueCollected, 확인→enqueueConfirmation을 화면에 연결하고 회원 명단 마지막 정상 응답을 캐시한다. 현재 상태별 안내와 명시적 등록은 [수집 흐름](../../spec.md#사용-흐름)과 [오프라인 대기](../../spec.md#오프라인-대기와-재시도)를 따른다.
 - [ ] **4. 자동 테스트와 Windows 통합 흐름을 확인한다.** 테스트 → PASS. 실제 Windows에서 서버 차단→조회 버튼→전송 대기→수집자 확인→등록 대기→프로그램 종료→재실행→연결 복구 후 임시 저장·등록 확정 순차 성공을 확인한다. 수집자가 확인하지 않은 자료는 복구 후에도 확인 대기로 남아야 한다. 반복 조회·다른 참가자의 전송으로 기존 점수와 역할이 바뀌지 않아야 한다.
 - [x] **5. 커밋한다.** `feat: add collector review and registration workflow`.
 
 ### T08. 포지션별 평가·누적 통계 순수 함수
 
-> Stage 3 구현·검증: [보고서](../../validation/stage3-report.md). T08–T12 구현은 통합 커밋으로 묶었다. 웹 검증 명령은 `pnpm test:web`이며 실제 서버 시나리오와 fixture UI 시나리오를 구분한다. T11/T12 단계 2의 정확한 선행 RED 절차와 T12 외부 네트워크 수용은 완료로 주장하지 않는다. C07 보류 및 T13–T14 미완료는 유지한다. C01/C02/C10과 T15는 사용자 결정으로 제외했다.
+> **2026-10-22 단계 3 구현·검증:** [보고서](../../validation/stage3-report.md). T08–T12 구현은 통합 커밋으로 묶었다. 웹 검증 명령은 `pnpm test:web`이며 실제 서버 시나리오와 fixture UI 시나리오를 구분한다. T11/T12 단계 2의 정확한 선행 RED 절차와 T12 외부 네트워크 수용은 완료로 주장하지 않는다. 당시 C07 보류 및 T13–T14 미완료를 기록했다. 2026-10-24의 C07 조사 완료와 후속 미완료는 다음 문단을 따른다. C01/C02/C10과 T15는 사용자 결정으로 제외했다.
 
 **확정 지표와 현재 구현 (2026-10-24):** [D24](../decisions/2026-10-22-overnight-decisions.md#d24--2026-10-24-목표물-공격-평가-기준-사용자-확정)에서 사용자가 목표물 공격에 탑=분당 포탑 피해, 나머지 네 역할=분당 목표물 피해를 쓰는 단일 지표 구성을 확정했다. 바깥 가중치는 유지하고 MIDDLE/BOTTOM의 이전 50:50 혼합은 적용하지 않는다. 현재 구현은 `objective-provisional-v1`이며, 새 계산 버전 확정·반영, 계약·화면 설명 갱신, 모든 유효 경기의 재계산·검증이 남아 있다. 테스트는 선택하지 않은 피해 필드 변경이 해당 항목 점수에 영향을 주지 않는지 포함한다. C07의 의미 조사는 완료했으며 단계 0 전체는 후속 반영·검증 전까지 보류한다.
 
 **Files:** Create `apps/server/src/main/java/cw/domain/{MatchFeatures,ScoringService,MemberAggregator,ScoringRulesV1}.java`; Test `apps/server/src/test/java/cw/domain/{ScoringServiceTest,MemberAggregatorTest}.java`.
 
-**Interfaces:** Consumes `EvaluationInput`. Produces `scoreMatches(input) -> GameScore 목록`, `aggregateMembers(scores, matches) -> MemberStats 목록`의 Java 계산; `GameScore={matchKey,memberId,role,scoringVersion,score,rank,breakdown}`, `MemberStats`는 경기 수/승패/승률/합계 KDA/포지션·챔피언별 집계/보정 점수/공식 순위/평가 상태를 포함한다. 아래 §5의 v1 계산을 그대로 사용한다.
+**Interfaces:** `EvaluationInput`을 받아 `scoreMatches(input)`과 `aggregateMembers(scores, matches)`의 Java 계산 결과를 만든다. GameScore/MemberStats 필드는 [현재 계산 계약](../../contracts/api.md#점수순위와-팀-추천), 계산식은 아래 §5의 정본 링크를 따른다.
 
 - [x] **1. 핵심 평가 테스트를 작성한다.** `loserCanRankFirst`, `zeroDenominatorsFinite`, `sameRoleOnly`, `seedAndSoloCannotAffectRank`, `threeGameThreshold`, `cancelReturnsToProvisional`: 잘한 패배자 순위 1 가능, 모든 점수 유한, 2경기 provisional/3경기 ranked, 보정 점수 `(sum+5*groupMean)/(n+5)`와 허용 오차 내 일치를 검증한다. 동일 표본·극단값·0데스 KDA도 포함한다.
 - [x] **2. 실패를 확인한다.** Java `ScoringServiceTest`, `MemberAggregatorTest` 실행 → 평가 함수 미구현으로 실패.
-- [x] **3. 지표·역할 표준화·가중치·누적을 구현한다.** 솔로랭크/seedSkill을 공개 점수 함수 입력으로 사용하지 않는다. EvaluationInput은 registered 경기만 사용하여 pending·canceled를 제외하며 도메인에서도 확정 역할이 있는 입력인지 검사한다. KDA는 표시만 하고 직접 가산하지 않는다.
+- [x] **3. 지표·역할 표준화·가중치·누적을 구현한다.** 지표·표준화·가중치·누적을 Java 도메인 함수로 구현한다. 입력에서 참고용 솔로/초기 실력을 분리하고 §5의 정본 규칙을 적용한다.
 - [x] **4. 검증한다.** 테스트 → PASS. 수작업 계산 가능한 작은 예시와 정확히 일치하고, 평가 점수는 0–100, 0경기는 점수/순위 null이어야 한다.
 - [x] **5. 커밋한다.** `feat: calculate role-aware performance and cumulative statistics`.
 
@@ -278,11 +192,11 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 **Files:** Create `apps/server/src/main/resources/db/migrations/002-evaluation.sql`, `apps/server/src/main/java/cw/evaluation/{EvaluationRepository,RecalculationWorker,GenerationPublisher,EvaluationController}.java`; Test `apps/server/src/test/java/cw/evaluation/RecalculationIntegrationTest.java`. Modify T02/T04 mutation handlers, T03 member updates.
 
-**Interfaces:** Consumes T08 함수와 DB source revision/jobs. Produces Java 작업자 `recalculate(sourceRevision) -> GenerationResult`, `readCurrentGeneration() -> CurrentGenerationResult`, `POST /api/admin/scoring-versions`, `GET /api/rankings`, `GET /api/members/:id/stats`. `CurrentGenerationResult`는 ready generation 또는 `{status:'recalculating',sourceRevision}`다.
+**Interfaces:** T08과 DB source revision/jobs를 사용해 `recalculate(sourceRevision)` 및 `readCurrentGeneration()`을 구현한다. 버전 게시·조회 응답은 [계산 규칙 검증·게시·복구](../../contracts/api.md#계산-규칙-검증게시복구)를 따른다.
 
 - [x] **1. 일관성·복구 테스트를 작성한다.** `singleVersionEverywhere`, `cancelDuringCalculation`, `workerRestart`, `staleGenerationNeverPublishes`: 공개 세대 revision과 최신 revision 일치, 공개 점수 전체의 평가 버전 동일, 취소 후 해당 회원 경기 수 2. 실패한 세대가 공개되지 않는지도 확인한다.
 - [x] **2. 실패를 확인한다.** Java `RecalculationIntegrationTest` 실행 → 작업자/세대 조회 미구현으로 실패.
-- [x] **3. 스냅샷 계산과 조건부 공개를 구현한다.** REPEATABLE READ로 입력을 확보하고 작업자를 한 개씩 실행한다. 완료 시 revision과 desired scoring version이 동일할 때만 active generation 포인터를 트랜잭션으로 교체한다. 변경되었으면 폐기 후 최신 job을 처리한다. 계산 중 공개 집계는 202/RECALCULATING이며 DB의 이전 점수를 혼합하지 않는다. 실패 job은 보존하고 재시작/운영자 재시도로 회복한다.
+- [x] **3. 스냅샷 계산과 조건부 공개를 구현한다.** 스냅샷 계산·조건부 게시와 실패 복구 작업자를 구현한다. 입력 revision/버전이 바뀌었을 때 오래된 결과를 게시하지 않는 기준은 [계산 세대 계약](../../contracts/api.md#계산-규칙-검증게시복구)을 따른다.
 - [x] **4. 장애 주입 테스트를 통과한다.** 테스트 → PASS. 기준 변경·역할 수정·등록 취소·새 경기 추가가 과거 점수와 누적 결과를 같은 세대로 갱신한다. seedSkill 변경은 공개 랭킹 값을 바꾸지 않는다. T10의 roleSkills도 같은 세대에 추가한다.
 - [x] **5. 커밋한다.** `feat: publish consistent versioned evaluation generations`.
 
@@ -290,11 +204,11 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 **Files:** Create `apps/server/src/main/java/cw/domain/{RoleSkillCalculator,TeamRecommender}.java`, `apps/server/src/main/java/cw/teams/TeamController.java`; Test `apps/server/src/test/java/cw/domain/TeamRecommenderTest.java`, `apps/server/src/test/java/cw/teams/TeamApiIntegrationTest.java`. Modify T09 generation builder.
 
-**Interfaces:** Consumes `Member[]`, `GameScore[]`와 유효 세대. Produces `calculateRoleSkills(members, scores) -> RoleSkill 목록`, `recommendTeams(members, skills) -> TeamRecommendation`의 Java 계산, `POST /api/teams/recommend` with `{memberIds:string[10]}`. `RoleSkill={memberId,role,value,n}`. 아래 §5 공식을 사용한다.
+**Interfaces:** Member·GameScore와 유효 세대로 `calculateRoleSkills(members, scores)`, `recommendTeams(members, skills)`를 계산한다. RoleSkill은 memberId·role·value·n을 가진다. 요청과 응답은 [팀 추천 계약](../../contracts/api.md#점수순위와-팀-추천), 실력식은 §5 링크를 따른다.
 
 - [x] **1. 배정 테스트를 작성한다.** `allowedRolesOnly`, `balanceBeforePreference`, `atMostThreeDistinctRosters`, `oneOrTwoOnly`, `impossibleMatching`, `anonymousAllowed`: 후보 수 최대 3, 선수 구성 키가 모두 고유함, 구성 불가 시 이유 존재. 특정 역할 가능 인원이 있어도 조합 전체가 불가능한 경우, 중복 10명/비활성 회원도 검사한다.
 - [x] **2. 실패를 확인한다.** Java `TeamRecommenderTest`, `TeamApiIntegrationTest` 실행 → 미구현으로 실패.
-- [x] **3. 가능한 배정을 열거하고 후보를 정렬한다.** 소규모 10명에 대해 같은 선수 집합의 진영 반전·역할 순열을 제거한다. 부족한 역할 또는 서로 겹치는 역할 제약을 설명하고 임의 강제 배정하지 않는다. 현재 revision+정렬한 10명 ID로 결과를 캐시하고 공개 호출 속도를 제한한다.
+- [x] **3. 가능한 배정을 열거하고 후보를 정렬한다.** 가능한 배정을 열거하고 같은 선수 집합의 반전·순열을 합쳐 후보를 정렬한다. 캐시·입력 오류·호출 제한은 [팀 추천 계약](../../contracts/api.md#점수순위와-팀-추천), 후보 기준은 §5 링크를 따른다.
 - [x] **4. 테스트와 비용을 확인한다.** 테스트 → PASS. 10명 전원이 5역할 가능한 입력의 실행 시간·후보 수를 기록한다. 목표 서버에서 2초 이내 응답을 목표로 하고 초과 시 결과를 바꾸지 않는 조합 탐색 최적화를 수행한다.
 - [x] **5. 커밋한다.** `feat: recommend balanced teams within playable roles`.
 
@@ -306,7 +220,7 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 - [x] **1. 사용자 화면 테스트를 작성한다.** `tenPlayerComparison`, `aggregateKdaFromTotals`, `provisionalVisible`, `anonymousTeamChoices`, `missingAssetFallback`: `expect(playerRows).toHaveCount(10)`, `expect(page.getByText('평가 중')).toBeVisible()`, `expect(recordAfterImage404).toBeVisible()`. 로그인 없이 모든 조회/추천을 수행한다.
 - [ ] **2. 실패를 확인한다.** `pnpm test:e2e -- tests/e2e/public-web.spec.ts` → 페이지 미구현으로 실패.
-- [x] **3. 화면을 구현한다.** 경기 상세에 팀별 5명, 시간·승패·챔피언·K/D/A·피해량·CS·골드·시야·아이템·역할·활약 순위를 표시한다. 개인별 포지션/챔피언 기록과 경기 필터, 랭킹의 경기 수·기준 설명·평가 중 구분을 제공한다. 누적 KDA는 합계에서 계산한다. 추천은 선수/역할과 균형 차이를 보여주며 선수 교환·선택 추적 UI는 만들지 않는다.
+- [x] **3. 화면을 구현한다.** 경기·개인·랭킹·팀 추천 화면과 이미지 실패 표시를 연결한다. 표시 항목은 [공개 전적](../../spec.md#공개-전적과-통계), 점수 표시는 [누적 기준](../../spec.md#누적-랭킹과-점수-표시), 추천 화면은 [팀 추천](../../spec.md#팀-편성용-실력과-팀-추천)을 따른다.
 - [x] **4. 접근과 실패 상태를 검증한다.** 테스트 → PASS. 좁은 화면은 전적 표 가로 스크롤을 제공한다. 키보드 조작·loading/빈 자료/계산 중/서버 오류 상태를 확인한다. 오래된/새로운 아이템 ID는 대체 아이콘과 ID를 표시한다.
 - [x] **5. 커밋한다.** `feat: add public match statistics rankings and team pages`.
 
@@ -314,14 +228,13 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 **Files:** Create `apps/web/src/features/admin/{Login,Members,Codes,MatchCorrections,Scoring,Jobs}.tsx`, `apps/server/src/main/java/cw/domain/RoleSuggester.java`, `apps/server/src/main/java/cw/members/MemberReferenceImporter.java`; Test `apps/server/src/test/java/cw/domain/RoleSuggesterTest.java`, `tests/e2e/admin-web.spec.ts`.
 
-**Interfaces:** Consumes T03/T04/T09 admin APIs와 T05 참고 파일. Produces `/admin/*`, `POST /api/admin/member-references`, Java `suggestRoles(samples) -> RoleSuggestion`, `POST /api/admin/recalculation/retry`; RoleSuggestion은 primary/secondary nullable, 표본 수·출처·권고 이유를 포함한다.
+**Interfaces:** T03/T04/T09와 T05 참고 파일을 관리 화면에 연결하고 `suggestRoles(samples)`를 구현한다. 제안의 primary/secondary nullable·표본 수·출처·이유는 [참고 자료 계약](../../contracts/api.md#공식-기록-참고-자료-가져오기), 재계산 재시도는 [작업 계약](../../contracts/api.md#계산-규칙-검증게시복구)에 둔다.
 
 - [x] **1. 관리 흐름 테스트를 작성한다.** `codeOnlyLogin`, `referenceDoesNotOverwriteManual`, `soloNeverEntersRanking`, `ownerCorrectsAndCancels`, `weightsCreateNewVersion`: `expect(afterImport.allowedRoles).toEqual(manualRoles)`, `expect(afterSoloImport.matchCount).toBe(beforeCount)`, `expect(oldScoringVersion.immutable).toBe(true)`. 새 브라우저 코드 발급과 기존 기기 인증 폐기도 포함한다.
 - [ ] **2. 실패를 확인한다.** Java `RoleSuggesterTest` 실행, `pnpm test:e2e -- tests/e2e/admin-web.spec.ts` → 미구현으로 실패.
-- [x] **3. 관리 화면과 제안 함수를 구현한다.** 참고 자료는 검증된 솔로랭크와 등록 내전의 최근 최대 20경기에서 확인된 역할 빈도로 상위 2개를 제안한다. 동률은 최근 플레이→고정 역할 순서, 알 수 없는 역할은 제외한다. 제안 적용은 운영자가 명시적으로 수행하며 주/부·가능 역할·0–100 초기 실력을 수정한다. 계정 ID 변경을 전적 통합 기능으로 만들지 않는다. 가중치는 역할별 합계 100·음수 없음·승패 최대 5를 검증해 새 불변 버전으로 저장한다.
+- [x] **3. 관리 화면과 제안 함수를 구현한다.** 관리 화면과 역할 제안 함수를 구현한다. 참고 표본·정렬·명시적 저장은 [초기 포지션 참고](../../spec.md#초기-포지션-참고-자료), 새 불변 규칙 입력은 [규칙 검증 계약](../../contracts/api.md#계산-규칙-검증게시복구)을 따른다.
 - [ ] **4. 외부 관리 사용자 흐름을 확인한다.** 테스트 → PASS. 포지션 수정/취소 후 재계산 상태, 코드 만료/로그아웃/인증 폐기, 원본 수치 읽기 전용, 취소 자료의 내부 보관을 확인한다.
 - [x] **5. 커밋한다.** `feat: add owner controls and reviewed role suggestions`.
-
 
 ### T13. Windows 설치·업데이트·진단
 
@@ -353,59 +266,31 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 ## 5. 초기 계산 규칙
 
-다음은 기획이 위임한 기술 세부사항의 실행 기본값이다. 실제 수집 필드가 V2에서 확인되어야 적용하며, 경기별·누적 순위는 모두 동일한 규칙 버전을 사용한다. 모임의 사후 활약 점수이며 Riot 공식 등급이나 랭크 추정치로 표시하지 않는다.
+기획이 위임한 수치 설계를 작업 T08–T10에 연결한 절이다. 제품 기준 전체를 계획서에 복제하지 않으며 현재 [경기별 활약 점수](../../spec.md#경기별-활약-점수)와 연결한 하위 절을 사용한다. 당시 V2 필드 확인이 적용 조건이었고, 이후 임시 구현 허용이 실측 완료로 바뀌지는 않았다.
 
 ### 지표와 가중치
 
-| 포지션 | 피해량 | 성장 | 교전 | 시야 | 오브젝트 | 사망 | 승패 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| TOP | 20 | 25 | 15 | 10 | 20 | 5 | 5 |
-| JUNGLE | 10 | 15 | 35 | 10 | 20 | 5 | 5 |
-| MIDDLE | 30 | 25 | 20 | 5 | 10 | 5 | 5 |
-| BOTTOM | 40 | 25 | 15 | 5 | 5 | 5 | 5 |
-| UTILITY | 5 | 0 | 40 | 40 | 5 | 5 | 5 |
+초기 전체 가중치·항목 내부 혼합 비율은 [현재 가중치](../../spec.md#포지션별-전체-가중치)와 [내부 지표](../../spec.md#항목-내부-지표)에 모았다.
 
-각 원시 지표를 아래 방식으로 같은 역할끼리 0–100 척도로 환산한 다음 항목 내부 비율로 합성한다.
-
-- 피해량: 분당 챔피언 피해량 70%, 팀 내 챔피언 피해량 비중 30%.
-- 성장: 분당 총 CS(laneCs+neutralCs) 50%, 분당 골드 50%.
-- 교전: 기본 킬 관여율. 서포터만 킬 관여율 70% + 분당 어시스트 30%.
-- 시야: 분당 시야 점수. 와드 제거 수가 확보되면 표시용 보조 자료로만 사용한다.
-- 오브젝트: 원래 안은 탑=분당 포탑 피해량, 정글/서포터=분당 오브젝트 피해량, 미드/원딜=두 지표 50%씩이었다. D04의 임시 단일 지표 구성은 2026-10-24 D24에서 사용자가 최종 채택했다. 탑은 분당 포탑 피해, 나머지 네 역할은 분당 목표물 피해를 쓰며 바깥 역할별 가중치는 유지한다. 합산/차감 파생값은 만들지 않고 이전 50:50 혼합은 적용하지 않는다. C07의 포함 관계 조사는 완료했으나 현재 구현은 `objective-provisional-v1`이다. 새 계산 버전 확정·반영과 모든 유효 경기의 재계산·검증이 남아 있다. 팀 용·바론 획득을 정글 개인 공로로 배분하지 않는다.
-- 사망: 10분당 사망을 환산한 뒤 `100 - 환산값`으로 방향을 뒤집는다. 받은 피해량이나 KDA는 직접 가산하지 않는다.
-- 승패: 승리 100, 패배 0에 5% 가중치. 다른 성적이 같으면 최대 5점 차이다.
+**변경 이력:** 원래 목표물 설계는 탑=포탑, 정글/서포터=목표물, 미드/원딜=포탑·목표물 50:50이었다. D04는 포함 관계가 미확인인 동안 중복 가중을 피하는 임시 단일 지표였다. 2026-10-24 C07 조사 후 사용자가 D24에서 탑=분당 포탑, 나머지=분당 목표물을 최종 채택하고 바깥 가중치는 유지했다. 원안·임시 선택·최종 사용자 선택의 순서를 구분한다. 당시 구현 식별자는 `objective-provisional-v1`이었고 새 버전 반영·재계산·검증은 남았다([D24](../decisions/2026-10-22-overnight-decisions.md#d24--2026-10-24-목표물-공격-평가-기준-사용자-확정)).
 
 ### 같은 역할 표준화
 
-현재 참가자의 지표를 x, 같은 경기 상대 역할의 지표를 y로 둔다. 모두 음수가 아닌 유효 값이다.
-
-1. 경기 내 비교 P: x+y=0이면 50. 아니면 `P = 50 + 0.5 × (100x/(x+y) - 50)`로 25–75 범위를 사용한다.
-2. 과거 비교 H: 현재 경기 양쪽을 제외한 모든 유효 내전의 같은 역할 표본 N개에서 `H = 100 × (x보다 작은 수 + 0.5×같은 수 + 5)/(N+10)`.
-3. 역사 표본 비중 a=`N/(N+20)`, 최종 지표=`clamp((1-a)×P+a×H, 5, 95)`.
-4. 팀 킬/피해량 분모가 실제로 0이면 해당 비율을 0으로 정의한다. 누락된 분모는 계산 오류이며 0과 혼동하지 않는다. 모든 값이 같으면 중립 50을 유지한다.
-
-새 경기가 내전으로 등록 확정되면 비교 표본도 달라지므로 모든 유효 경기 점수를 함께 재계산한다. 임시 저장이나 중복 자료 수신은 재계산을 일으키지 않는다. 미래 경기의 추가로 과거의 상대적 점수가 변할 수 있음을 기준 설명에 명시한다. 같은 역할 안의 챔피언 성향 차이는 v1에서 완전히 보정하지 않는다.
+경기 상대와 과거 같은 역할 표본을 섞는 보수적 계산은 작성자가 기술 위임 범위에서 정한 기본값이었다. 현재 P·H·표본 혼합 공식과 0/누락 처리는 [같은 포지션의 지표 환산](../../spec.md#같은-포지션의-지표-환산)에 있다. 새 내전 추가 때 과거 상대 점수도 바뀔 수 있다는 한계를 T09 재계산 검증에 연결했다.
 
 ### 누적·동점·표시
 
-- 모임 평균 G는 현재 세대의 유효 경기 참가자 점수 전체 평균이다. 개인 점수는 `(개인 점수 합 + 5G)/(n+5)`.
-- n=0은 점수/순위 없음, n=1–2는 평가 중, n≥3은 공식 순위. 취소로 n이 줄면 다시 평가 중이다.
-- 누적 KDA는 `(총 킬+총 어시스트)/총 데스`. 총 데스가 0이면 숫자 무한대를 내보내지 않고 ‘Perfect’와 원래 K/D/A를 표시한다.
-- 점수는 표시용 소수 둘째 자리로 반올림하고, 같은 표시 점수는 공동 순위 `1, 1, 3`을 적용한다. 같은 순위의 화면 정렬만 회원 ID로 안정화한다.
+누적 k=5와 3경기 기준은 사용자 승인 기획에서 왔고 반올림·공동 순위·0데스 표시는 기술 설계였다. 현재 공식과 수치·출력은 [누적 랭킹과 점수 표시](../../spec.md#누적-랭킹과-점수-표시)에 둔다. T08의 합계 KDA·표본 경계 테스트로 이 절을 검증하도록 계획했다.
 
 ### 팀 편성용 실력과 후보
 
-- 회원의 역할 r 실력=`(5×운영자 초기 실력 + r에서의 유효 경기 점수 합)/(5+r 경기 수)`. 기록이 없으면 초기값이다. 이 값과 초기값을 공개 누적 점수에 섞지 않는다.
-- 가능한 역할은 운영자 지정 allowedRoles만. 선호 비용은 주 역할 0, 부 역할 1, 추가 가능한 역할 2다.
-- 첫 회원을 A팀에 고정하면 10명 분할은 126개다. 각 팀의 가능한 역할 순열을 구해 실력 합 차이가 최소인 배정을 선택하고 동률이면 선호 비용·안정적 ID 순으로 정한다.
-- 선수 구성이 같은 역할 순열은 한 후보로 합친다. 전체 최선의 팀 합 차이를 d라 하면 `차이≤d+5`인 구성에서 차이→선호 비용→안정적 ID 순으로 최대 3개를 제공한다. 실력은 개인 0–100, 팀 합 0–500 척도다.
-- 가능한 구성이 없으면 제약의 이유를 반환한다. 역할 미지정 회원은 운영자 확인 대상으로 표시하고 임의 역할을 넣지 않는다.
+초기 실력과 역할별 기록 혼합, 선호 비용, 최선 차이+5, 126개 분할은 작성자의 세부 탐색 설계다. 현재 실력식은 [포지션별 실력 보정](../../spec.md#포지션별-실력-보정), 후보 선택 수치는 [후보 선택 규칙](../../spec.md#후보-선택-규칙), 선택 이유는 [D20](../decisions/2026-10-22-overnight-decisions.md#d20--팀-열거공개-웹관리-경계)을 따른다.
 
 ## 6. 계획 점검과 인계
 
-기획 대응: 계정/권한 §3–6·16→T03/T05/T12, 수집/재시도/중복 §7–9→V1–V2/T01/T02/T06/T07, 조회/평가 §10–13→T04/T08/T09/T11, 팀 §5·14→T10/T12, 정정/취소 §15→T04/T09, 운영 §17→T13/T14, 조정된 수용 §18–19→V2/T13/T14. 제외 범위 §20과 D22를 각 작업에 반영했다. T15는 제외했다.
+기획과 작업 연결은 권한/계정→T03·T05·T12, 수집/재시도/중복→V1–V2·T01·T02·T06·T07, 전적/계산→T04·T08·T09·T11, 팀→T10·T12, 정정/취소→T04·T09, 운영→T13·T14로 점검했다. T15는 D22 뒤 제외됐다.
 
-문서 작성 단계에서는 기획 범위·인터페이스 이름·검증 조건·Review Focus의 테스트 연결을 자체 점검한다. 실제 제품 테스트는 각 작업 실행 시 수행하며, 아직 통과했다고 주장하지 않는다. V1 도구·기존 Windows 자료와 단계 1–3 구현은 각 보고서에 기록했다. 2026-10-24에 C07의 포함 관계 조사와 D24의 지표 확정은 완료했다. 이후 작업은 새 계산 버전 확정·반영과 모든 유효 경기의 재계산·검증, T13 설치·업데이트, T14 외부 접속·백업·복원 순서로 진행한다.
+계획 작성 시에는 범위·인터페이스·검증 연결만 자체 점검했으며 제품 실행 성공을 주장하지 않았다. 이후 실행 증거는 아래 날짜 기록과 단계별 보고서에 남긴다. 2026-10-24 C07 조사와 D24 선택 뒤 새 버전 구현·전 경기 검증은 여전히 남았고, 최신 작업 순서는 [진행 상태](../../status.md#남은-작업-순서)에서 관리한다.
 
 ## 기술 선택 근거
 

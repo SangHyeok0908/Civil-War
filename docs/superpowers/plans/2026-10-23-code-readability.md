@@ -1,6 +1,8 @@
 # Code readability implementation plan
 
-> **For agentic workers:** Use superpowers:executing-plans to implement this plan task by task.
+> 기록일 2026-10-23. 현재: [제품 명세](../../spec.md).
+
+> 2026-10-25: 반복 설명을 정본 링크로 정리했다. 날짜별 사실·근거는 보존하며, 현재 링크의 값은 당시와 다를 수 있다.
 
 **Goal:** Make code consistently readable and reject formatting drift in CI.
 
@@ -12,11 +14,9 @@
 
 ## Global constraints
 
-- TypeScript/JavaScript/JSON/YAML/CSS/HTML use 2 spaces; Java uses 4 spaces through AOSP style.
-- Preserve application behavior, HTTP contracts, scoring priorities and deterministic team ordering.
-- Do not format historical documentation, captured fixtures, dependency locks or build output.
-- Preserve pre-existing staged AGENTS.md and unrelated working-tree documentation edits.
-- Work in the existing feature branch; do not create a worktree or publish changes.
+2026-10-23 사용자는 기존 기능·HTTP 계약·계산 우선순위와 팀 정렬을 유지하는 가독성 정리를 승인했다. 당시 작업은 기존 브랜치에서 진행하고 기존 staged AGENTS.md 및 다른 문서 변경을 보존하며 게시하지 않는 조건이었다. 과거 문서·실측 fixture·잠금 파일·생성물은 기계적 포맷 대상에서 제외했다.
+
+현재 들여쓰기·에디터·포맷 명령은 [코드 작성 규칙](../../development/code-style.md), 빌드·전체 검증 명령은 [개발 환경](../../development/setup.md#웹과-전체-통합-검증)에 모았다. 아래 결과 수치는 당시 실행 값이다.
 
 ## Review focus
 

@@ -1,8 +1,8 @@
 # LCU 실기 검증 Implementation Plan
 
-**2026-10-24 갱신:** C07의 포함 관계 조사는 완료했다. 공식 통계 정의와 클라이언트 화면 연결에 따라 목표물 피해는 포탑 피해를 포함한다. 목표물 공격 지표는 사용자가 [D24](../decisions/2026-10-22-overnight-decisions.md#d24--2026-10-24-목표물-공격-평가-기준-사용자-확정)에서 탑=분당 포탑 피해, 나머지 네 포지션=분당 목표물 피해로 확정했고 기존 전체 가중치를 유지한다. 새 계산 버전 확정·반영, 계약·화면 설명 갱신, 모든 유효 경기의 재계산·검증이 남아 있어 단계 0은 보류한다. 조사 근거는 [D23](../decisions/2026-10-22-overnight-decisions.md#d23--2026-10-24-c07-포함-관계-조사-결과)을 따른다. 아래 날짜가 붙은 이전 상태는 당시 기록이다.
+> 기록일 2026-10-21. 현재: [제품 명세](../../spec.md).
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> 2026-10-25: 반복 설명을 정본 링크로 정리했다. 날짜별 사실·근거는 보존하며, 현재 링크의 값은 당시와 다를 수 있다.
 
 **Goal:** 기존 Windows에서 수집한 사용자 설정 5대5 경기의 검증 결과를 유지하고, 남은 포탑·오브젝트 피해량의 의미와 점수 기준을 정리해 데이터 계약을 확정한다. 새 경기의 조회 시점 비교와 반영 시간·과거 조회 범위 측정은 2026-10-23 사용자 결정으로 제외했다.
 
@@ -10,7 +10,7 @@
 
 **Tech Stack:** 사용자 확정 — Node.js 24 LTS. 구현은 JavaScript ESM, `node:test`, Node 내장 HTTPS·파일 API를 사용하며 외부 패키지 의존성은 없다. 실제 Windows PC와 LoL 클라이언트에서 검증한다는 조건은 확정되어 있다.
 
-**서버 기술 결정 (2026-10-21):** 본 서비스 서버는 **Java 25 + Spring Boot 4.1.x의 최신 정식 패치 버전**, 서버 DB는 **PostgreSQL**, DB 접근과 동적 조회는 **Spring Data JPA + Specification**, 서버 빌드는 **Gradle + Groovy DSL(`build.gradle`)**로 사용자와 확정했다. Spring Boot의 정확한 패치 버전은 본 서비스 T01에서 공식 릴리스를 확인한 뒤 고정한다. 서버 선택과 독립적으로 검증 도구는 후속 대화에서 Node.js 24로 확정했다. 아래 `.mjs` 파일·Node 명령·테스트 절차를 사용한다. Windows PC 실측은 사용자가 나중에 진행한다. 검증 산출물인 원본 JSON·필드 맵·가명화 fixture·PASS/HOLD 기준은 서버 언어와 무관하다.
+**서버와 도구의 결정 구분 (2026-10-21):** 서버의 Java·DB·빌드 선택과 검증 도구 Node.js 24는 별도 사용자 결정이다. 당시 미정 도구·정확한 버전의 경계는 [기술 결정 기록](../decisions/2026-10-21-tech-stack-decisions.md)에 보존한다. 검증 산출물은 서버 언어에 관계없이 쓰도록 계획했다.
 
 **기술 선택 기록:** 대안별 장단점과 LCU 원본 보존 이유는 [기술 스택 선택 근거](../decisions/2026-10-21-tech-stack-decisions.md)에 정리한다.
 
@@ -20,17 +20,9 @@
 
 ## Global Constraints
 
-- 개발 환경은 macOS, 수집 프로그램 지원 환경은 Windows만 지원한다.
-- 새 경기 조회는 ‘과거 경기 조회’ 버튼을 눌렀을 때 시작하며, 프로그램의 경기 전후 실행 시점이나 경기 중 선행 수집에 의존하지 않는다.
-- 제품은 조회한 적격 경기를 서버에 임시 저장하고 확인한 경기만 집계한다. 이 단계에서는 그 자료를 조회할 수 있는지 검증한다.
-- 참가자 한 명의 수집으로 양 팀 10명의 기록을 얻어야 한다.
-- 화면 수치 검증은 G1을 대표 경기로 삼는다. G1의 일치 결과를 근거로 G2·G3 추가 검증을 생략한다는 사용자 결정을 반영하며, 두 경기의 화면 증거를 추가로 요구하거나 gate 보류 조건에 넣지 않는다. 이미 완료한 G1–G3 JSON 구조·수치 보존 검사는 유지한다.
-- 사용자 결정으로 클라이언트 재시작 후 같은 경기 재조회와 다른 참가자 PC의 경기 식별자 대조를 생략한다. 두 항목은 `범위 제외`로 기록하고 gate 보류 조건에서 제외한다. 참가자 간 동일 경기 키는 사용자 결정에 따른 전제로 두며 실측 PASS로 표현하지 않는다.
-- 친구 목록 조회는 수집·검증 범위에서 제외한다. 참가자 식별은 경기 상세를 기준으로 검증하며, 친구 목록 조회 성공을 회원 등록이나 전체 gate의 전제로 두지 않는다.
-- 솔로랭크 기록은 초기 포지션 참고 자료로만 사용한다. 2026-10-22 후속 경로는 [Riot 공식 Account-v1·Match-v5](../../validation/riot-solo-reference.md)다. LCU를 통한 다른 참가자 솔로랭크 조회 성공은 필수 조건에서 제외하며, 공식 API의 실제 접근·큐 구분·포지션 확인은 유지한다.
-- 경기 중 실시간 수집이나 수동 수치 입력으로 요구사항을 대체하지 않는다.
-- 경기 종료 후 첫 조회(C01), 미리 실행한 도구와의 조회 비교(C02), 반영 시간·과거 조회 범위 측정(C10)은 실행 작업·보류 사유·완료 조건에서 제외한다. 이 항목에 대한 새 경기나 관측 자료를 요구하지 않는다.
-- 이 문서는 검증 계획이다. 현재 실측 결과와 범위별 판정은 [검증 보고서](../../validation/lcu-report.md)를 따른다.
+당시 도구는 참가자 한 명이 양 팀 10명의 완료 기록을 얻는지 조사하는 범위였고 제품 구현과 분리했다. 제품 전체 조건은 [현재 명세](../../spec.md), 도구 사용·출력 보호는 [probe 사용법](../../../tools/lcu-probe/README.md)을 참조한다.
+
+**사용자 조정 조건:** 화면은 G1을 대표로 삼고 G2·G3 추가 화면, 재시작 후 같은 경기, 다른 PC 경기 키 대조는 생략했다. 동일 경기 키는 전제였으며 실측 PASS가 아니다. 친구 목록도 제외했다. 2026-10-22 솔로 참고 경로는 [공식 API 조사](../../validation/riot-solo-reference.md)로 분리했고 2026-10-23 C01/C02/C10과 T15를 제거했다. 새 경기·다른 PC 협조를 완료 조건으로 되살리지 않는다. 최신 제외 범위는 [진행 상태](../../status.md#범위-제외와-미확인-사실)를 따른다.
 
 ## Review Focus
 
@@ -73,23 +65,15 @@ LCU 연결은 `127.0.0.1`로 제한하고, lockfile에 외부 주소나 임의 �
 
 - [x] **1. 연결과 기록 보호 테스트를 작성한다.** `rejectNonLoopback`, `reloadChangedLockfile`, `preserveMissingVersusZero`, `redactSecretsAndStableIdentifiers`, `historyOnlyOnExplicitCommand`를 검증한다. 핵심 assertion은 `assert.equal(output.stats.visionScore, 0)`, `assert.equal('objectiveDamage' in output.stats, false)`, `assert.equal(log.includes(testPassword), false)`, `assert.equal(historyRequestsBeforeCommand, 0)`이며, 실제 계정 가명이 서로 다른 경기에서도 유지되어야 한다.
 - [x] **2. 실패를 확인한다.** `node --test tools/lcu-probe/probe.test.mjs` → 구현 모듈 부재 또는 assertion으로 실패. 문법·테스트 환경 오류를 기능 실패로 간주하지 않는다.
-- [x] **3. 명시적으로 지정한 경로에서 연결 정보를 읽는 CLI를 구현한다.** 기본 명령은 `node tools/lcu-probe/probe.mjs --lockfile "C:\Riot Games\League of Legends\lockfile" --out .private/lcu/run-01`이다. 이 명령은 1회 조회한다. `--out`은 프로젝트 루트의 `.private/lcu/` 아래 새 실행 폴더여야 하며 기존 실행을 덮어쓰지 않는다. 여기에 `--interactive`를 붙이면 Node 내장 readline으로 `history` 입력 때만 조회하는 대기 모드를 제공한다. 경로는 사용자 설치 위치에 맞게 바꾼다. POST/게임 조작·채팅 조회는 구현하지 않는다. 종료된 클라이언트와 응답 없는 LCU를 구분한다.
+- [x] **3. 명시적으로 지정한 경로에서 연결 정보를 읽는 CLI를 구현한다.** 1회 명령과 `--interactive`의 명시적 history 입력을 분리했다. 당시 POST·게임 조작·채팅 조회는 만들지 않았고 클라이언트 종료와 응답 없음도 구분했다. 실행 구문·출력 폴더 규칙은 [도구 사용법](../../../tools/lcu-probe/README.md#2-선택적-일회-조회)을 따른다.
 - [x] **4. 테스트와 가상 서버 실행을 확인한다.** 위 테스트 명령 → 전부 PASS. 테스트 암호·실제 lockfile 내용이 stdout, 오류 스택, 저장된 HTTP 메타데이터 어디에도 나오지 않아야 한다. fixture에 실제 자료를 넣기 전 이 테스트를 통과한다.
 - [x] **5. 검증 도구만 커밋한다.** `git add .gitignore tools/lcu-probe` 후 `git diff --cached --check`, `git commit -m "test: add read-only Windows LCU probe"`. 실제 응답은 커밋하지 않는다.
 
 ### 조회 후보
 
-아래 경로의 존재는 현재 클라이언트와 실제 게임에서 다시 확인한다. HTTP 200만으로 데이터 충족을 판정하지 않는다.
+당시 조사 후보는 현재 계정, 최근 경기, 경기 상세, 다른 참가자 기록(선택 진단), 타임라인(선택)이었다. 원래 API 경로의 근거는 아래 Swagger 자료이고 도구의 현재 허용 경로는 [client.mjs](../../../tools/lcu-probe/client.mjs)가 원본이다. 사용 명령은 [선택적 조회](../../../tools/lcu-probe/README.md#2-선택적-일회-조회)와 [대기 모드](../../../tools/lcu-probe/README.md#3-선택적-대기-모드-명령)를 참조한다.
 
-| 목적 | GET 경로 후보 | 확인 내용 |
-| --- | --- | --- |
-| 현재 계정 | `/lol-summoner/v1/current-summoner` | PUUID, Riot ID에 해당하는 표시값 |
-| 최근 경기 | `/lol-match-history/v1/products/lol/current-summoner/matches` | 기존 사용자 설정 경기의 목록·상세 연결. 페이지 범위·반영 지연 추가 측정은 제외 |
-| 경기 상세 | `/lol-match-history/v1/games/{gameId}` | 참가자 10명과 실제 통계 |
-| 다른 참가자 과거 기록 — 선택 진단 | `/lol-match-history/v1/products/lol/{puuid}/matches` | LCU 접근 범위만 확인. 솔로랭크 초기 포지션의 필수 경로는 공식 API로 분리 |
-| 선택적 타임라인 | `/lol-match-history/v1/game-timelines/{gameId}` | 이벤트의 존재·누락; 기본 수집 통과 조건에는 넣지 않음 |
-
-경기 상세의 `participantIdentities[].player.puuid`로 참가자 식별자를 확인한다. LCU의 다른 참가자 기록 조회는 선택 진단이다. 솔로랭크는 해당 참가자의 Riot ID를 공식 Account-v1로 해석해 얻은 PUUID로 조회하며, LCU 식별자와의 연결과 실제 기록 접근 가능 여부를 별도로 확인한다. 참가자 사전 등록 요구와 10명 전원이 수집 프로그램을 설치할 필요가 없다는 원칙은 유지한다. 친구 목록을 회원 등록 수단으로 요구하지 않으며, 회원 등록 절차 자체가 검증됐다고 간주하지 않는다.
+검증은 경기 상세의 참가자 식별자를 기준으로 했고 친구 목록 조회 성공을 등록 절차의 증거로 쓰지 않았다. 다른 사람의 LCU 기록 접근은 선택 진단으로 남겼다. 공식 계정 PUUID와 LCU PUUID 연결 및 실제 접근은 [공식 API 검증 기록](../../validation/riot-solo-reference.md)에 별도 증거를 남겼다.
 
 ## V2. 실제 경기 검증과 진행 판정
 
@@ -126,7 +110,7 @@ LCU 연결은 `127.0.0.1`로 제한하고, lockfile에 외부 주소나 임의 �
 
 ## 실기 검증 후 인계
 
-보고서 첫 화면에 `PASS/HOLD`, 검증일·패치, 가능/불가능/미확인 항목, 알려진 조회 제약을 적는다. 본 서비스 T01의 Java 정규화·입력 검증은 필드 맵과 가명화 JSON fixture를 입력으로 사용하며 추측한 응답 구조를 제품 계약으로 고정하지 않는다. 패치 이후 다시 확인할 수 있도록 동일 probe를 유지한다.
+계획 산출물은 판정·검증일·패치·가능/불가능/미확인 범위가 있는 보고서와 T01용 필드 맵·가명 fixture였다. 현재 정규화 조건은 [API 계약](../../contracts/api.md#lcu-원본을-정규화하는-규칙), 기존 Windows 관측은 [검증 보고서](../../validation/lcu-report.md)에서 확인한다. 패치 후 재확인 도구를 유지한다는 인계 조건도 남긴다.
 
 ## 근거 자료
 
