@@ -217,17 +217,21 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 - [x] **4. 검증한다.** 테스트 → PASS; 등록 수치·포지션·취소 상태·감사 이력이 트랜잭션 단위로 일치하고 공개에 원본/인증값이 나오지 않아야 한다.
 - [x] **5. 커밋한다.** `feat: expose match records and owner corrections`.
 
+**2026-10-22 단계 2 자동 검증:** T05–T07 구현과 자동 검증은 [stage2-report](../../validation/stage2-report.md)에 기록했다. 아래 실제 Windows 확인을 포함하는 4번 단계는 HOLD이며 macOS Electron fixture/서버 회귀 결과로 대체하지 않는다. D14–D18이 위임된 클라이언트 선택과 동작을 설명한다.
+
+단계 2의 세 커밋 단계는 `feat: add durable Windows collector workflow` 통합 커밋으로 수행한다. 실제 Windows 검증은 별도 HOLD이며 성공한 실측을 의미하지 않는다.
+
 ### T05. Windows LCU 연결·계정 인식·기기 인증 보호
 
 **Files:** TypeScript/Electron 후보 채택 시 Create `apps/collector/src/main/{main,lcu-client,credential-store,reference-export}.ts`, `apps/collector/src/preload/index.ts`, `packages/contracts/src/`의 클라이언트 계약 모델, `packages/lcu/src/{normalize-match,role-reference}.ts`; Test `apps/collector/src/main/lcu-bridge.test.ts`, `packages/lcu/src/{normalize-match,role-reference}.test.ts`. 클라이언트 workspace·빌드·테스트 설정 파일은 도구 선택 후 이 작업에 포함한다.
 
 **Interfaces:** Consumes V1 연결 원칙/T01 JSON 계약·fixture/T03 enroll. 수집기 사전 검사와 오프라인 표시는 V2 필드 맵에 따라 별도 구현하며 Java 서버 코드를 직접 호출하지 않는다. Produces main 내부 조회 함수 `getAccount()`, `listPastMatches()`, `getMatch(gameId)`와 제한된 IPC `getAccount()`, `enroll(code)`, `exportMemberReferences(selection)`. T07의 버튼 IPC가 main 조회 함수를 조합한다. `CredentialStore.load(): Promise<{token,memberId,credentialId,puuid}|null>`. 참고 자료 내보내기는 회원 식별 정보와 `RoleReferenceSample[]`만 담으며 관리자 웹에서 가져온다.
 
-- [ ] **1. 연결·인증 분리 테스트를 작성한다.** `clientStopped`, `portChanged`, `noTokenInRenderer`, `accountMismatch`, `soloReferenceOnly`, `noHistoryFetchOnLaunch`: `expect(rendererAccount).not.toHaveProperty('token')`, `expect(mismatch.code).toBe('ACCOUNT_MISMATCH')`, `expect(reference.source).toBe('solo420')`, `expect(historyRequestsOnLaunch).toBe(0)`. 토큰 복호화 실패는 재등록 안내이며 평문 저장으로 우회하지 않는다.
-- [ ] **2. 실패를 확인한다.** pnpm/Vitest 후보 채택 시 `pnpm exec vitest run apps/collector/src/main/lcu-bridge.test.ts packages/lcu/src/normalize-match.test.ts packages/lcu/src/role-reference.test.ts` → 미구현으로 실패. 클라이언트 정규화는 T01과 동일한 fixture에서 참가자 10명·문자열 경기 ID·0과 누락 구분이 일치하는지 검증한다.
-- [ ] **3. main 전용 LCU·인증 저장과 읽기 IPC를 구현한다.** Electron contextIsolation/sandbox를 켜고 nodeIntegration은 끈다. Windows safeStorage로 보호한 토큰만 로컬에 보관한다. 솔로랭크 조회는 V2에서 검증된 범위만 사용하고, 자료가 없으면 이유를 반환한다. 친구 목록 조회는 구현 범위에서 제외하며 참가자 식별에는 경기 상세의 식별 정보를 사용한다. 온라인 서버 없이도 LCU 조회는 가능해야 한다. 앱 실행 시 계정 인식만 수행하고 새로운 경기 기록 조회는 버튼 요청 때만 시작한다.
+- [x] **1. 연결·인증 분리 테스트를 작성한다.** `clientStopped`, `portChanged`, `noTokenInRenderer`, `accountMismatch`, `soloReferenceOnly`, `noHistoryFetchOnLaunch`: `expect(rendererAccount).not.toHaveProperty('token')`, `expect(mismatch.code).toBe('ACCOUNT_MISMATCH')`, `expect(reference.source).toBe('solo420')`, `expect(historyRequestsOnLaunch).toBe(0)`. 토큰 복호화 실패는 재등록 안내이며 평문 저장으로 우회하지 않는다.
+- [x] **2. 실패를 확인한다.** pnpm/Vitest 후보 채택 시 `pnpm exec vitest run apps/collector/src/main/lcu-bridge.test.ts packages/lcu/src/normalize-match.test.ts packages/lcu/src/role-reference.test.ts` → 미구현으로 실패. 클라이언트 정규화는 T01과 동일한 fixture에서 참가자 10명·문자열 경기 ID·0과 누락 구분이 일치하는지 검증한다.
+- [x] **3. main 전용 LCU·인증 저장과 읽기 IPC를 구현한다.** Electron contextIsolation/sandbox를 켜고 nodeIntegration은 끈다. Windows safeStorage로 보호한 토큰만 로컬에 보관한다. 솔로랭크 조회는 V2에서 검증된 범위만 사용하고, 자료가 없으면 이유를 반환한다. 친구 목록 조회는 구현 범위에서 제외하며 참가자 식별에는 경기 상세의 식별 정보를 사용한다. 온라인 서버 없이도 LCU 조회는 가능해야 한다. 앱 실행 시 계정 인식만 수행하고 새로운 경기 기록 조회는 버튼 요청 때만 시작한다.
 - [ ] **4. fixture 테스트와 Windows 연결 확인을 수행한다.** 테스트 → PASS. 실제 Windows에서 클라이언트 꺼짐·로그아웃·재시작을 확인하고 renderer 개발자 도구에 토큰이 노출되지 않는지 점검한다.
-- [ ] **5. 커밋한다.** `feat: connect Windows collector to verified LCU data`.
+- [x] **5. 커밋한다.** `feat: connect Windows collector to verified LCU data`.
 
 ### T06. 재시작에 견디는 임시 저장·등록 확정 요청 큐
 
@@ -235,11 +239,11 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 **Interfaces:** Consumes T05 credential/T03 ingest·confirm API. Produces `enqueueCollected(input: IngestMatchInput, actor: CollectorPrincipal): Promise<OutboxItem>`, `enqueueConfirmation(input: ConfirmationInput, actor: CollectorPrincipal): Promise<OutboxItem>`, `drainOutbox(): Promise<void>`, `listOutbox(): OutboxItem[]`. OutboxItem은 kind(`ingest / confirm`), state(`pending / sending / succeeded / needs_attention`), 원래 memberId·credentialId·matchKey·요청 자료·선행 ingest 작업 ID를 가진다. 같은 회원·경기·kind의 미완료 요청은 합치며, 이미 확정 대기 중인 포지션을 재조회로 덮어쓰지 않는다.
 
-- [ ] **1. 파일 기반 SQLite 테스트를 작성한다.** `survivesRestart`, `lostIngestAndConfirmAck`, `confirmWaitsForIngest`, `ingestDoesNotAutoConfirm`, `repeatedQueryCoalesces`, `switchedAccountCannotAdopt`, `canceledStopsRetry`, `restartFlushDoesNotFetchLCU`: `expect(reopened.roles).toEqual(confirmedRoles)`, `expect(serverCount).toBe(1)`, `expect(sentKinds).toEqual(['ingest','confirm'])`, `expect(confirmWithoutUserAction).toBe(false)`, `expect(sentWithOtherCredential).toBe(false)`, `expect(canceled.retryScheduled).toBe(false)`. 강제 종료된 sending 작업도 다음 실행에 회복되며, 재전송 때문에 새로운 LCU 경기 조회를 시작하지 않아야 한다.
-- [ ] **2. 실패를 확인한다.** `pnpm exec vitest run apps/collector/src/main/outbox.test.ts` → 저장/전송 미구현으로 실패.
-- [ ] **3. SQLite 트랜잭션과 단일 전송 작업자를 구현한다.** 조회 버튼으로 가져온 적격 자료는 즉시 durable ingest 작업으로 저장하고 서버 전송을 시도한다. 명시적 내전 등록 클릭만 confirm 작업을 추가한다. 서버 상태 pending 확인 후 confirm을 전송하고, 이미 registered이면 완료로 처리하며 canceled이면 표시 후 전송을 종료한다. 네트워크/5xx는 5초→15초→1분→5분→15분 상한 및 jitter, 429는 Retry-After로 재시도한다. 인증/자료 오류는 확인 필요로 전환한다. 같은 회원의 새 자격으로만 명시적 재개를 허용하며 확보한 자료의 전송은 LCU가 꺼져 있어도 가능하다.
-- [ ] **4. 저장·복구를 검증한다.** 테스트 → PASS. ingest 성공은 UI의 ‘확인 대기’, confirm 성공 또는 서버의 already_registered 응답만 ‘등록 완료’로 표시한다. 이미 canceled라는 응답은 ‘등록 취소’로 표시하며 자동 복원하지 않는다. 등록 완료 건의 큰 원본은 30일 뒤 정리하고 승인 키/상태는 남긴다. 미등록 자료는 자동 삭제하지 않는다. 로컬 디스크 저장 실패 시 ‘전송 대기 저장 실패’를 표시하고 저장 성공으로 안내하지 않는다.
-- [ ] **5. 커밋한다.** `feat: persist confirmed matches and retry safely`.
+- [x] **1. 파일 기반 SQLite 테스트를 작성한다.** `survivesRestart`, `lostIngestAndConfirmAck`, `confirmWaitsForIngest`, `ingestDoesNotAutoConfirm`, `repeatedQueryCoalesces`, `switchedAccountCannotAdopt`, `canceledStopsRetry`, `restartFlushDoesNotFetchLCU`: `expect(reopened.roles).toEqual(confirmedRoles)`, `expect(serverCount).toBe(1)`, `expect(sentKinds).toEqual(['ingest','confirm'])`, `expect(confirmWithoutUserAction).toBe(false)`, `expect(sentWithOtherCredential).toBe(false)`, `expect(canceled.retryScheduled).toBe(false)`. 강제 종료된 sending 작업도 다음 실행에 회복되며, 재전송 때문에 새로운 LCU 경기 조회를 시작하지 않아야 한다.
+- [x] **2. 실패를 확인한다.** `pnpm exec vitest run apps/collector/src/main/outbox.test.ts` → 저장/전송 미구현으로 실패.
+- [x] **3. SQLite 트랜잭션과 단일 전송 작업자를 구현한다.** 조회 버튼으로 가져온 적격 자료는 즉시 durable ingest 작업으로 저장하고 서버 전송을 시도한다. 명시적 내전 등록 클릭만 confirm 작업을 추가한다. 서버 상태 pending 확인 후 confirm을 전송하고, 이미 registered이면 완료로 처리하며 canceled이면 표시 후 전송을 종료한다. 네트워크/5xx는 5초→15초→1분→5분→15분 상한 및 jitter, 429는 Retry-After로 재시도한다. 인증/자료 오류는 확인 필요로 전환한다. 같은 회원의 새 자격으로만 명시적 재개를 허용하며 확보한 자료의 전송은 LCU가 꺼져 있어도 가능하다.
+- [x] **4. 저장·복구를 검증한다.** 테스트 → PASS. ingest 성공은 UI의 ‘확인 대기’, confirm 성공 또는 서버의 already_registered 응답만 ‘등록 완료’로 표시한다. 이미 canceled라는 응답은 ‘등록 취소’로 표시하며 자동 복원하지 않는다. 등록 완료 건의 큰 원본은 30일 뒤 정리하고 승인 키/상태는 남긴다. 미등록 자료는 자동 삭제하지 않는다. 로컬 디스크 저장 실패 시 ‘전송 대기 저장 실패’를 표시하고 저장 성공으로 안내하지 않는다.
+- [x] **5. 커밋한다.** `feat: persist confirmed matches and retry safely`.
 
 ### T07. 수집기 확인·등록 화면과 실제 Windows 흐름
 
@@ -247,11 +251,11 @@ Java 서버는 pnpm workspace에 포함하지 않는다. 클라이언트에 pnpm
 
 **Interfaces:** Consumes T05 main 조회 함수/T06 요청 큐/T03 회원·확인 대기 API. Produces `queryPastMatches(): Promise<HistorySyncResult>`, `loadPendingMatches(): Promise<CollectorMatch[]>`, `confirmRegistration(matchKey, rolesByPuuid)` IPC. HistorySyncResult는 경기별 matchKey·전송 상태·실패 이유를 담는다. 조회 후 적격 자료는 enqueueCollected, 등록 확인 후에는 enqueueConfirmation을 호출한다. 계정·참가 여부를 main에서 검사하고 회원 명단의 마지막 정상 응답을 캐시한다. UI에는 rawMatch 편집 기능을 노출하지 않는다.
 
-- [ ] **1. 사용자 흐름 테스트를 작성한다.** `buttonFetchesAndStages`, `noAutoRegistration`, `allRolesConfirmed`, `offlineThenResume`, `queryFailureIsNotPending`, `duplicateShowsExistingState`: `expect(historyRequestsBeforeClick).toBe(0)`, `expect(afterQuery.serverState).toBe('pending')`, `expect(afterQuery.publicMatchCount).toBe(0)`, `expect(afterConfirmAck).toContain('등록 완료')`. 미등록 회원·다른 LCU 계정·클라이언트 종료, 서버에 이미 저장된 pending 재표시와 registered/canceled 안내도 포함한다.
-- [ ] **2. 실패를 확인한다.** `pnpm test:e2e -- tests/e2e/collector.spec.ts` → 화면/IPC 미구현으로 실패. 자동 테스트는 고정 fixture IPC를 사용하며 실제 LCU 검증과 구분한다.
-- [ ] **3. 최초 코드 입력→자동 계정 인식→‘과거 경기 조회’→서버 임시 저장→5+5 비교→내전·실제 역할 확인→‘내전 등록’ 흐름을 구현한다.** 전송 대기/확인 대기/등록 대기/등록 완료/등록 취소를 구분한다. 모임 내전이 아닌 경기나 재경기는 확정하지 않으면 집계되지 않는다. 확인 대기 목록은 서버에서 다시 불러올 수 있어 LCU의 과거 경기 목록에서 사라진 뒤에도 확인할 수 있다. 인터넷이 없을 때 회원 명단 캐시로 미리 검사하고 서버에서 최종 검증한다. 최초 기기 인증은 온라인에서 수행한다.
+- [x] **1. 사용자 흐름 테스트를 작성한다.** `buttonFetchesAndStages`, `noAutoRegistration`, `allRolesConfirmed`, `offlineThenResume`, `queryFailureIsNotPending`, `duplicateShowsExistingState`: `expect(historyRequestsBeforeClick).toBe(0)`, `expect(afterQuery.serverState).toBe('pending')`, `expect(afterQuery.publicMatchCount).toBe(0)`, `expect(afterConfirmAck).toContain('등록 완료')`. 미등록 회원·다른 LCU 계정·클라이언트 종료, 서버에 이미 저장된 pending 재표시와 registered/canceled 안내도 포함한다.
+- [x] **2. 실패를 확인한다.** `pnpm test:e2e -- tests/e2e/collector.spec.ts`. 이번 최초 실행은 Electron binary 미설치/샌드박스 다운로드 오류로 실패했고, 설치 후 UI 실행에서 중복 오류 표시를 검출해 수정했다. 원래 예상한 ‘화면/IPC 미구현’ 메시지를 관측했다고 주장하지 않는다. 자동 테스트는 실제 Electron main/preload와 고정 fixture IPC를 사용하며 실제 LCU 검증과 구분한다.
+- [x] **3. 최초 코드 입력→자동 계정 인식→‘과거 경기 조회’→서버 임시 저장→5+5 비교→내전·실제 역할 확인→‘내전 등록’ 흐름을 구현한다.** 전송 대기/확인 대기/등록 대기/등록 완료/등록 취소를 구분한다. 모임 내전이 아닌 경기나 재경기는 확정하지 않으면 집계되지 않는다. 확인 대기 목록은 서버에서 다시 불러올 수 있어 LCU의 과거 경기 목록에서 사라진 뒤에도 확인할 수 있다. 인터넷이 없을 때 회원 명단 캐시로 미리 검사하고 서버에서 최종 검증한다. 최초 기기 인증은 온라인에서 수행한다.
 - [ ] **4. 자동 테스트와 Windows 통합 흐름을 확인한다.** 테스트 → PASS. 실제 Windows에서 서버 차단→조회 버튼→전송 대기→수집자 확인→등록 대기→프로그램 종료→재실행→연결 복구 후 임시 저장·등록 확정 순차 성공을 확인한다. 수집자가 확인하지 않은 자료는 복구 후에도 확인 대기로 남아야 한다. 반복 조회·다른 참가자의 전송으로 기존 점수와 역할이 바뀌지 않아야 한다.
-- [ ] **5. 커밋한다.** `feat: add collector review and registration workflow`.
+- [x] **5. 커밋한다.** `feat: add collector review and registration workflow`.
 
 ### T08. 포지션별 평가·누적 통계 순수 함수
 

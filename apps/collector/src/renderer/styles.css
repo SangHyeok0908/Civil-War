@@ -1,0 +1,224 @@
+:root {
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  color: #e8edf5;
+  background: #0e1522;
+  font-synthesis: none;
+  color-scheme: dark;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 1320px;
+  margin: auto;
+  padding: 32px;
+}
+h1 {
+  font-size: 32px;
+  margin: 6px 0;
+}
+h2 {
+  font-size: 18px;
+  margin: 6px 0;
+}
+p {
+  line-height: 1.6;
+}
+small {
+  color: #91a3ba;
+  font-size: 12px;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button {
+  background: #75d8bc;
+  color: #0e2721;
+  border: 0;
+  border-radius: 7px;
+  padding: 12px 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.secondary {
+  background: #27364a;
+  color: #e8edf5;
+}
+input,
+select {
+  background: #101c2c;
+  border: 1px solid #496079;
+  border-radius: 5px;
+  padding: 8px;
+  color: inherit;
+}
+input[type="checkbox"] {
+  accent-color: #75d8bc;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid #8edbff;
+  outline-offset: 2px;
+}
+.title,
+.account,
+.match header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+.provisional {
+  font-size: 12px;
+  color: #e4c385;
+  border: 1px solid #665a41;
+  padding: 8px;
+  border-radius: 5px;
+}
+.account,
+.match {
+  margin-top: 24px;
+  background: #182438;
+  border: 1px solid #2b3b52;
+  border-radius: 12px;
+  padding: 24px;
+}
+.account form {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.account label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.account p {
+  margin: 6px 0;
+}
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+.help {
+  color: #a7b8cd;
+  font-size: 14px;
+}
+.warning {
+  padding: 12px;
+  border-left: 3px solid #e3ba79;
+  background: #302a24;
+  color: #f5dba9;
+}
+.queue-summary {
+  display: flex;
+  gap: 20px;
+  padding: 16px 0;
+  flex-wrap: wrap;
+  color: #9fb1c8;
+  font-size: 14px;
+}
+.queue-summary strong {
+  color: #fff;
+}
+.badge {
+  background: #33455f;
+  padding: 8px 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.badge.done {
+  background: #245c4d;
+  color: #a2f2d8;
+}
+.teams {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 20px;
+}
+.teams h3 {
+  font-size: 16px;
+}
+.teams section:first-child h3 {
+  color: #88c8ff;
+}
+.teams section:last-child h3 {
+  color: #f8a0a7;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+th {
+  text-align: left;
+  color: #9fb1c8;
+  font-weight: 500;
+}
+td,
+th {
+  padding: 12px 5px;
+  border-bottom: 1px solid #2e3e55;
+}
+td small {
+  display: block;
+  margin-top: 4px;
+}
+details {
+  font-size: 11px;
+  color: #9fb1c8;
+  margin-top: 5px;
+}
+details p {
+  max-width: 240px;
+}
+.match footer {
+  border-top: 1px solid #304158;
+  margin-top: 24px;
+  padding-top: 24px;
+}
+.match footer p {
+  font-size: 13px;
+  color: #9fb1c8;
+}
+.empty {
+  border: 1px dashed #425570;
+  border-radius: 12px;
+  padding: 60px;
+  text-align: center;
+  color: #9fb1c8;
+}
+@media (max-width: 1000px) {
+  main {
+    padding: 20px;
+  }
+  .account {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .teams {
+    gap: 12px;
+  }
+  .match {
+    padding: 16px;
+  }
+}

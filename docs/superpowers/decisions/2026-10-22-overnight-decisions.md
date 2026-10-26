@@ -103,3 +103,36 @@
 - 검증: 먼저 HTTP/실DB 회귀 5개를 추가해 숫자 역할 확정·정정의 200 응답과 raw 소수 손실로 정확히 3개 실패를 확인했다. 수정 후 5개 모두 통과했고, 거절 후 상태/역할/audit/revision/job 불변·정상 문자열 역할 처리·중첩 소수 저장/관리자 조회·큰 정수 ID·필수 통계의 소수 토큰 거절·평가 double 호환성을 검사했다. 관리자 정정 audit 실패와 취소 job 실패의 rollback 테스트 2개도 추가했다. 전체 재실행은 서버 **70/70**, Node **31/31**, skipped 0이다.
 - CI 경계: 코디네이터가 이전 HEAD `727e2e0`의 Ubuntu 실PostgreSQL [CI 성공](https://github.com/SangHyeok0908/Civil-War/actions/runs/39643558919)을 확인했다. 이번 수정 커밋은 코디네이터 push 후 별도 CI 결과를 확인해야 하며, 이전 성공을 새 커밋 검증으로 대체하지 않는다.
 - 되돌리기 비용: mapper 설정과 회귀 테스트를 함께 검토하면 된다. migration/API 버전/fixture 수정은 없다. 이미 정밀도를 잃은 raw 자료가 있다면 보존된 원본에서 재수집해야 하며 자동 복구하지 않는다. [리뷰 결과와 최종 검증](../../validation/stage1-report.md#independent-review-and-resolution)에 상세를 남긴다.
+
+## D14 — 단계 2 클라이언트와 SQLite 런타임
+
+- 결정: 사용자 위임으로 TypeScript 7.0.2 / React·React DOM 19.3.1 / Electron 45.0.0 / pnpm 11.5.0을 선택한다. 개발 Node는 24.22.1, 타입은 @types/node 24.19.2이며 Vite 8.3.5, esbuild 0.28.2, Vitest 5.0.5, Playwright 1.64.1, Prettier 3.9.10을 정확히 고정한다. 직접 의존성은 exact version, 전체 그래프는 pnpm-lock.yaml로 유지한다.
+- 이유·검증: main/preload/renderer를 실제로 빌드·실행할 수 있으며 Java API와 독립 JSON fixture로 계약을 대조한다. SQLite는 Electron 내장 `node:sqlite` DatabaseSync를 사용해 별도 native-addon ABI rebuild를 없앤다. 실제 Electron 45 런타임은 Node 24.22.0 / SQLite 3.53.4로 관측했으며 파일 DB 재시작 UI 테스트도 이 런타임에서 실행했다. 개발 Node 24.22.1과 동일 버전이라고 주장하지 않는다. 소규모 수집기에서는 동기 SQLite 트랜잭션 비용이 작다.
+- 되돌리기 비용: Electron/Node 업그레이드 시 SQLite API와 DB 호환·재시작 테스트를 다시 실행한다. better-sqlite3 등으로 교체하면 어댑터와 native 배포 검증이 추가된다. Windows 설치·서명은 T13에서 별도 진행한다.
+
+## D15 — 인증·LCU·렌더러 경계
+
+- 결정: 기존 감사된 LCU transport를 재사용하며 매 요청마다 lockfile을 다시 읽는다. loopback HTTPS 한 요청에만 로컬 인증서 예외를 적용한다. main만 코드 교환과 Windows safeStorage 암복호화를 수행하고 토큰 전체를 암호화된 파일로 원자 교체한다. 보호 저장소를 사용할 수 없거나 복호화에 실패하면 재등록을 안내하며 평문으로 전환하지 않는다. preload는 제한된 기능만 노출하고 IPC 발신 창·정확한 local URL·top frame·payload를 검사한다.
+- 이유·검증: renderer에는 safe account와 명시적 normalized DTO만 전달한다. contextIsolation/sandbox true, nodeIntegration false를 실제 Electron UI 테스트에서 확인했다. 원본 LCU·token·credentialId는 IPC snapshot에 없고 임의 raw/stat 쓰기 명령도 없다. 서버 DTO에 추가 raw/secret 필드가 있어도 allowlist decoder가 제거하는 테스트가 있다. [Electron 보안 지침](https://www.electronjs.org/docs/latest/tutorial/security)과 [safeStorage의 OS별 범위](https://www.electronjs.org/docs/latest/api/safe-storage)를 확인했다. 실제 Windows DPAPI는 HOLD다.
+- 되돌리기 비용: IPC 확장 때 command/DTO validator와 발신자 검증을 유지해야 한다. Linux/macOS 일반 사용은 허용하지 않고 macOS 검증은 fixture 모드만 사용한다. Windows DPAPI는 다른 사용자 보호이며 같은 사용자 권한의 악성 앱까지 차단하는 저장소라고 설명하지 않는다.
+
+## D16 — 로컬 원본·소유자·순서 보존
+
+- 결정: SQLite WAL/FULL, transaction, schema version 1, immutable 원래 memberId/credentialId/puuid, kind/dependency 및 미완료 unique index를 사용한다. 원본 HTTP body 문자열을 별도로 보존하고 ingest envelope에 그대로 넣어 큰 정수와 추가 고정밀 소수를 반올림하지 않는다. 확인 역할과 초안은 재조회로 바꾸지 않으며 registered 표시에서는 서버 확정 역할을 우선한다.
+- 결정: pending 작업은 엄격 FIFO다. 선두가 backoff 중이면 젊은 독립 경기 전송도 기다린다. 5초→15초→1분→5분→15분 및 최대 15분 이내 jitter, 429 Retry-After를 적용한다. permanent/auth/canceled는 확인 필요로 멈추며 canceled 화면은 등록 취소다. 같은 회원의 새 자격은 새 authenticated roster로 member/PUUID를 확인하고 명시적 재개를 눌러 별도 rotation 허용행을 만든다. 원래 actor 열을 바꾸지 않는다.
+- 이유·검증: 파일 reopen/sending 복구, 두 종류 ACK 유실, 다른 회원/자격 차단, strict FIFO, concurrent drain, revoked/invalid/canceled, 기존 확인 역할 보존을 검사했다. 확인 전후 GET으로 상태를 확인하고 등록 상태가 확인되지 않으면 성공으로 처리하지 않는다. 최초로 로컬 ingest를 만드는 경우에도 이미 받은 server record를 덮어쓰지 않는다. 완료된 ingest tombstone은 이후 재조회에서 raw 재전송 대신 서버 GET 상태 갱신에 사용한다.
+- 보관: 미완료 자료는 자동 삭제하지 않는다. registered + succeeded ingest의 큰 payload만 30일 뒤 정리하고 키·상태·normalized/역할을 남긴다. SQLite 자체에는 비공개 자료가 평문 저장되며 credential은 별도 보호 파일에만 있다.
+- 되돌리기 비용: DB 변경은 forward migration과 기존 요청 decoder가 필요하다. strict FIFO는 한 네트워크 장애가 다른 전송을 지연시키지만 순서와 진단이 명확하다. 성공 tombstone 정책을 바꿀 때 서버 취소/기존 역할을 새 raw로 덮어쓰지 않는 회귀를 유지한다.
+
+## D17 — 느린 서버·꺼진 League와 명시적 사용자 확인
+
+- 결정: local 초기화와 원격 초기화를 분리해 창 표시를 서버 timeout 뒤로 미루지 않는다. 최초 온라인 enrollment/roster 이후에는 캐시를 즉시 사용하고 roster refresh는 별도로 수행한다. LCU 새 기록은 버튼만 조회한다. 기존 저장 또는 서버 pending 경기의 명시적 확인·전송은 League가 꺼져 있어도 원래 인증 소유자로 가능하며, 알고 있는 다른 LCU 계정은 차단한다.
+- 이유·검증: unresolved server promise 중에도 local snapshot과 실제 LCU fixture collection의 durable 저장이 가능하다. 재시작 전 명시적으로 큐에 넣은 confirm만 자동 재전송하며 새로운 confirm은 생성하지 않는다. 실제 Electron fixture UI에서 offline 수집→5+5/내전 확인→등록 대기→종료→재시작 후 ingest/confirm 순차 성공과 history 0건을 검사했다. 서버 pending은 LCU 목록에서 없어도 표시하며, 재조회가 외부 등록·취소를 갱신한다.
+- 되돌리기 비용: 캐시는 서버 최신 명단보다 오래될 수 있으므로 서버의 최종 검증을 유지해야 한다. live LCU를 기존 전송의 필수조건으로 바꾸면 장애 복구 요구를 깨므로 제품 변경 승인이 필요하다.
+
+## D18 — 솔로 참고 자료와 검증 범위의 정직한 handoff
+
+- 결정: C11에서 확인한 Account-v1→Match-v5를 유일한 솔로 참고 경로로 유지한다. 직접 HTTP가 차단된 기존 상태를 우회하거나 새로 재시도하지 않고 수집기 export는 `OFFICIAL_API_UNAVAILABLE`와 한국어 사유를 반환한다. 다른 플레이어 LCU 성공이나 참고 파일 생성을 가장하지 않는다. 순수 role-reference adapter는 queue420, 알려진 역할, 조기 종료 아님, 5분 이상 표본만 인정하고 LCU PUUID와 공식 PUUID를 분리한다. `RoleReferenceSample`은 기존 Java handoff의 puuid/source/gameId/playedAt/role/evidence 형태를 따른다.
+- 이유·검증: 실제 키와 통합 경로가 없는 상태에서 데이터 생성보다 명시적 unavailable이 정확하다. 5분 기준은 초기 참고 표본을 보수적으로 거르는 선택이며 내전 적격성/점수 계산에는 적용하지 않는다. 정상 짧은 솔로 경기 일부를 제외할 수 있다. 표본으로 사용자 주·부 포지션을 자동 변경하지 않는다.
+- 결정: [stage2-report](../../validation/stage2-report.md)에 자동 검증, screenshot, outstanding Windows 절차와 stage3 API handoff를 기록한다. hosted Windows fixture CI는 추가했으나 코디네이터 push 후 실제 결과를 따로 확인한다. macOS Electron fixture 결과와 Windows 실기 결과를 구분하며 C01/C02/C07/C10 HOLD를 유지한다.
+- 되돌리기 비용: 향후 승인된 공식 API 연동/키 운영과 rate limit 처리, Riot ID→공식 PUUID 계정 연결 검증, 실제 export/import 계약 검증을 추가해야 한다. 참고 표본의 5분 필터를 바꾸는 비용은 낮지만 초기 역할 제안 표본 수가 달라진다. 설치 파일·실제 Windows·운영 readiness는 이번 검증으로 대체하지 않는다.

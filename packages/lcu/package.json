@@ -1,0 +1,7 @@
+{
+  "name": "@cw/lcu",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": "./src/normalize-match.ts"
+}

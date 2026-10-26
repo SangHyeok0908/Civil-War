@@ -1,0 +1,35 @@
+{
+  "name": "civil-war",
+  "private": true,
+  "version": "0.2.0-provisional",
+  "type": "module",
+  "packageManager": "pnpm@11.5.0",
+  "engines": {
+    "node": "24.22.1"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "build": "node scripts/build-collector.mjs",
+    "dev:collector": "pnpm build && electron apps/collector/dist/main.cjs",
+    "test:probe": "node --test tools/lcu-probe/*.test.mjs",
+    "format:check": "prettier --check apps/collector/src packages tests/e2e scripts/build-collector.mjs *.config.ts package.json pnpm-workspace.yaml tsconfig.json"
+  },
+  "dependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "vite": "8.3.5",
+    "vitest": "5.0.5",
+    "@playwright/test": "1.64.1",
+    "electron": "45.0.0",
+    "esbuild": "0.28.2",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "prettier": "3.9.10"
+  }
+}
