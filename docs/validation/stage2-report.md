@@ -1,8 +1,10 @@
 # Stage 2 — T05–T07 provisional collector verification
 
-**2026-10-24 update:** The C07 inclusion review is complete: the official result-stat definition includes turret damage in objective damage, supported by the installed client display mapping and existing G1 comparison. The user confirmed TOP=turret damage per minute and the other four roles=objective damage per minute, retaining the existing overall weights ([D24](../superpowers/decisions/2026-10-22-overnight-decisions.md#d24--2026-10-24-목표물-공격-평가-기준-사용자-확정)). Stage 0 remains HOLD pending selection and implementation of a new algorithm version, contract/UI updates, and recalculation and validation of all eligible matches. The current `objective-provisional-v1` implementation is retained until that follow-up is completed. See [C07 evidence](lcu-objective-semantics.md) and [D23](../superpowers/decisions/2026-10-22-overnight-decisions.md#d23--2026-10-24-c07-포함-관계-조사-결과). Earlier dated status notes are historical.
+> **과거 기록 · 2026-10-22.** 현재 기준은 [정본](../status.md)을 따른다.
 
-**Scope update, 2026-10-23:** C01/C02 lookup-timing comparisons, C10 delay/history-range measurements, and T15 pilot games are excluded by user decision. They are not pending Windows acceptance tasks. C07 damage semantics/scoring and T13–T14 installation, credential preservation, deployment, and restore remain. See [D22](../superpowers/decisions/2026-10-22-overnight-decisions.md#d22--2026-10-23-사용자-요청에-따른-검증-작업-제외).
+**2026-10-23 범위 보완:** 사용자가 C01/C02 조회 시점 비교·C10 지연/과거 범위 측정·T15 시범 운영을 제외했다. 제외를 측정 성공으로 보지 않는다. 결정 주체와 이유는 [D22](../superpowers/decisions/2026-10-22-overnight-decisions.md#d22--2026-10-23-사용자-요청에-따른-검증-작업-제외)에 있다.
+
+> **2026-10-25 편집 보완:** 반복 설명을 정본 링크로 줄였다. 사건 날짜·실측값은 당시 기록이며 현재 링크로 갱신하지 않았다.
 
 - Date: 2026-10-22 KST.
 - Base: `8e48b3a` (stage 1 final reviewed head); branch `codex/stage-2-windows-collector`.
@@ -59,15 +61,9 @@ Meaningful regressions were observed failing before fixes: strict FIFO head dela
 
 ## Behavior and preservation rules
 
-- Startup initializes protected credential/local state and recognizes only the LCU account. Server roster/pending refresh and saved outbox retries are separate; there is no automatic LCU history or automatic new confirmation.
-- Explicit history lookup paginates in 20-item pages, deduplicates exact string IDs, rejects stalled pagination, fetches full details, verifies current account again, and writes eligible ingests durably before upload. A cached roster avoids waiting for a slow remote server; the server remains the final membership authority.
-- LCU transport is the existing reviewed `tools/lcu-probe/client.mjs`; only its loopback HTTPS requests relax certificate verification, with no global TLS setting or arbitrary-host path. This collector does not call friends or other-player solo routes.
-- SQLite WAL + FULL synchronous mode and transactions preserve owner `(memberId,credentialId,puuid)`, original submissions, confirmation dependency, draft roles, retry state, and cached server records. A successful ingest tombstone coalesces later queries; those queries refresh server state through GET rather than re-uploading or overwriting raw data.
-- Draining is strict FIFO among pending jobs and stops at a delayed/transient head. Permanent errors move to attention; dependent confirmation also stops. Retries use 5s/15s/1m/5m/15m with bounded positive jitter, maximum 15m; 429 respects Retry-After independently. Startup recovers `sending` to `pending`.
-- A stored owner may explicitly confirm/retry already saved data while League is stopped. A known different LCU account blocks it. Same-member credential rotation requires the **본인 대기 요청 재개** action after a fresh authenticated member/PUUID check. Original actor columns never change.
-- Lost ingest/confirm responses are retried using the saved submission. Ingest success remains confirmation-pending. Before confirm, GET handles already registered/canceled. After sending confirm, registered GET is required before marking success. Registered views always use server-confirmed roles.
-- Renderer receives a safe account and explicit normalized match DTO, never a token, full roster, raw response, arbitrary endpoint, filesystem handle, or generic IPC function. Main validates sender webContents ID, exact local frame URL, top-level frame, command schema and roles. `contextIsolation` and `sandbox` are true; `nodeIntegration` is false; navigation, popups and permissions are denied; renderer CSP blocks networking.
-- Protected token file is Windows safeStorage ciphertext. DPAPI protects against other OS users, not malicious applications with the same Windows user authority. No plaintext fallback is present. See [Electron safeStorage](https://www.electronjs.org/docs/latest/api/safe-storage) and [IPC/context isolation guidance](https://www.electronjs.org/docs/latest/tutorial/context-isolation).
+당시 제품 동작을 다시 설명하던 목록은 [수집·확인·등록](../spec.md#경기-수집확인등록), [오프라인 대기·재시도](../spec.md#오프라인-대기와-재시도), [수집자 인증·보호 경계](../spec.md#수집자-기기-인증)로 연결한다. 각 동작을 어느 환경에서 확인했는지는 위 Acceptance map이 증거다.
+
+보호 저장소의 오류 분기는 가상 보호기로 시험했다. 실제 Windows DPAPI(Data Protection API, 운영체제의 사용자별 데이터 보호 기능)는 이 실행에서 검증하지 않았다. 당시 검토한 [Electron safeStorage](https://www.electronjs.org/docs/latest/api/safe-storage)와 [프로세스 간 통신·화면 격리 안내](https://www.electronjs.org/docs/latest/tutorial/context-isolation)는 설계 근거이며 실제 Windows 실행 증거가 아니다.
 
 ## Screenshot review
 
@@ -77,22 +73,21 @@ Captured from the real Electron fixture UI and visually inspected by the impleme
 
 ## Exact outstanding Windows manual run — HOLD
 
-Use the target Windows installation and existing collected records or isolated test records for installation/update and credential-preservation checks. No new normal game, lookup-timing comparison, history-range measurement, or fixed game count is required. Keep raw capture/credentials in private storage; do not put them in this report.
+2026-10-22 이 보고서 작성 시점에는 실제 Windows의 설치·업데이트·자격 증명 보존을 실행하지 않았다. 아래는 당시 미실행 수용 계획의 고유 확인 항목이며, 시험 성공이나 실행 결과가 아니다. macOS Electron·가상 LCU·가상 서버 결과를 Windows 성공으로 확대하지 않는다.
 
-1. Install exact Node/pnpm; `pnpm install --frozen-lockfile`, `pnpm build`; set `CW_SERVER_ORIGIN` and `CW_LCU_LOCKFILE`; `pnpm dev:collector`. Verify default `%APPDATA%\Civil War Collector` location and SQLite reopen on the target filesystem.
-2. Verify account states and **zero history/detail calls before the button**. Verify renderer devtools sees no LCU credential/device token/raw match and cannot use Node or arbitrary IPC. The previously excluded real-client restart comparison is not required.
-3. Enroll with the owner's code; restart under the same Windows user and verify actual safeStorage decryption. Verify unavailable/corrupted protected storage gives re-enrollment, not plaintext. Verify a mismatched LCU account cannot consume the owner's enrollment code. Actual DPAPI/user-profile behavior remains untested here.
-4. After first online enrollment/roster cache, block the server and collect via the button. Verify 전송 대기, review all 5+5 roles and explicit inhouse checkbox, then verify 등록 대기. Exit/restart while offline; reconnect and observe ingest before confirm and registered state. A second unconfirmed match must remain 확인 대기.
-5. Interrupt the network after server ingest and after server confirmation commits; reconnect and verify one server match/registration, preserved original roles, and no new history call during retry. Repeat query and another participant's upload; confirm no scores/roles/raw overwrite.
-6. With pending work, switch LCU accounts, revoke credentials and enroll a new same-member credential. Verify no cross-owner send; only explicit owner-verified resume works. Stop League and verify saved original-owner upload/confirmation still works. Test cancel response, disk-full enqueue failure, and expired LCU history with server pending reload.
+1. 대상 파일시스템에서 기본 `%APPDATA%\Civil War Collector` 저장 위치와 SQLite 재열기, 설치·업데이트 뒤 기존 자격 증명·미완료 요청 보존을 확인할 계획이었다. 설치·빌드 명령은 [수집기 개발·실행](../development/setup.md#수집기-개발실행)에서 관리한다.
+2. 버튼을 누르기 전 경기 목록·상세 요청 **0건**, 화면 개발 도구에 LCU 비밀값·기기 토큰·원본이 전달되지 않는지, Node·임의 프로세스 간 통신 접근이 차단되는지를 확인할 계획이었다. 제외된 실제 클라이언트 재시작 비교는 요구하지 않았다.
+3. 운영자의 코드로 등록한 뒤 같은 Windows 사용자로 재시작해 실제 safeStorage 복호화를 확인할 계획이었다. 저장소 사용 불가·암호문 손상 시 재등록 안내, 계정 불일치 시 등록 코드 미소비도 확인 대상이었다. 실제 DPAPI·Windows 사용자 프로필 동작은 미확인이다.
+4. 최초 온라인 등록·회원 목록 캐시 뒤 서버를 차단하고 버튼으로 수집해 전송 대기, **5+5** 포지션·내전 확인 뒤 등록 대기, 오프라인 종료·재시작·복구를 확인할 계획이었다. 재연결 시 임시 저장이 등록보다 먼저 처리되고, 별도로 확인하지 않은 두 번째 경기는 확인 대기에 남는지를 관찰할 예정이었다.
+5. 서버의 임시 저장·등록 반영 직후 응답을 잃게 한 뒤 재연결해 단일 경기·단일 등록, 원래 포지션 보존, 재시도 중 경기 기록 요청 없음, 반복 조회·다른 참가자의 업로드에서 점수·포지션·원본을 덮어쓰지 않는지를 확인할 계획이었다.
+6. 미완료 요청이 있는 상태에서 LCU 계정 변경·인증 폐기·같은 회원의 새 인증 발급을 수행하고, 다른 소유자의 전송 차단과 본인 확인 후 명시적 재개를 확인할 계획이었다. League 종료 뒤 원래 소유자의 저장 자료 전송·등록, 취소 응답, 디스크 부족 시 저장 실패, LCU 기록 만료 후 서버 확인 대기 재조회도 미실행 항목이었다.
+
+2026-10-23에 제외한 조회 시점·과거 범위·시범 운영은 위 D22 기록으로 구분한다. 현재 필수 검증의 범위·상태는 [남은 작업 순서](../status.md#남은-작업-순서)에서 관리한다.
 
 ## Stage 3 handoff
 
-- Existing wire contract remains [stage1-api.md](../contracts/stage1-api.md) / JSON Schema / Java records. Stage 2 adds no server routes or migrations. T08–T12 should add migration V2+ and maintain revision/idempotency/authorization semantics.
-- `packages/contracts/src/index.ts`: Role, normalized participant/match, private collector input/response, principal and `RoleReferenceSample`; `decode.ts`: runtime allowlisted member/match decoders. These are **private collector DTOs**. Public web DTOs must stay separate and omit PUUID/raw/auth.
-- `RoleReferenceSample` aligns with the existing Java handoff fields `puuid,source,gameId,playedAt,role,evidence`. `puuid` is the member's LCU identity; `evidence.officialPuuid` is a separately resolved official API identity. `roleReference(raw,officialPuuid,lcuPuuid)` accepts only known queue-420, non-early, >=5-minute observations with known roles. It does not verify the account linkage itself and does not apply member preferences.
-- Export currently returns `{available:false,code:'OFFICIAL_API_UNAVAILABLE',reason}`. C11 portal evidence did not resolve direct HTTP access; no new attempts or bypasses were made. T12 must not expect a successful file import produced by this collector yet. A later approved official API integration must resolve Riot ID via Account-v1, keep identities distinct, place keys in main/server only, handle rate limits and preserve manual operator approval.
-- Preload interface: `getAccount`, `snapshot`, `enroll`, `queryPastMatches`, `loadPendingMatches`, `saveDraft`, `confirmRegistration(matchKey,rolesByPuuid,inhouse)`, `resumeOwnRequests`, `exportMemberReferences`. There is no renderer transport or credential getter.
-- Local DB schema version **1** is in `outbox-migrations.ts`; future changes must migrate forward, preserve owner fields and unfinished requests, and keep the stable userData path. Confirmed roles never become initial role suggestions automatically.
-- Main-local methods are `Outbox.enqueueCollected(input,actor,normalizedMatch)`, `enqueueConfirmation(matchKey,input,actor)`, `listOutbox()` and `Uploader.drainOutbox()`. SQLite methods are synchronous transactional operations; service/IPC methods are async. The already validated normalized match is passed separately to avoid parsing a preserved raw body twice. These are internal implementation interfaces, not additional HTTP endpoints.
-- Remaining work: C07 damage semantics and scoring finalization, Windows installer/update and credential-preservation checks T13, production origin/configuration and backup/restore T14. C01/C02/C10 and pilot T15 are excluded by user decision. No operating-readiness claim is made.
+2026-10-22 인계 당시 서버 경로·마이그레이션 변경은 없었다. 로컬 SQLite 스키마 버전은 **1**이었으며 `outbox-migrations.ts`에 기록했다. 현재 서버 통신은 [통합 계약](../contracts/api.md), 원본·계약 보존은 [명세](../spec.md#원본계약호환성)를 따른다. 내부 함수·화면 통신 메서드의 상세 목록은 원본 코드에서 관리한다.
+
+당시 공식 참고 자료 내보내기는 `{available:false,code:'OFFICIAL_API_UNAVAILABLE',reason}`을 반환했다. C11의 포털 성공이 직접 HTTP 접근 해결을 뜻하지 않았고 실제 가져오기 성공 자료를 수집기가 만들지 못했다. 같은 사람의 LCU 식별자와 공식 API 식별자는 서로 달랐으며, 계정 연결 자체는 이 단계 어댑터의 검증 범위가 아니었다. 실제 외부 경로의 성공·실패는 [공식 API 검증 기록](riot-solo-reference.md#4-실제-시도와-성공-증거)에 있다.
+
+T08–T12 인계 이후의 구현·검증 및 현재 남은 작업은 [진행 상태](../status.md#단계별-확인-범위)에서 관리한다. 이 보고서의 로컬 시험 결과로 운영 준비 완료를 주장하지 않는다.

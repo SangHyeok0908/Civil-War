@@ -1,13 +1,17 @@
 # 솔로랭크 초기 포지션 참고 경로
 
+> **과거 기록 · 2026-10-22.** 현재 기준은 [정본](../status.md)을 따른다.
+
+> **2026-10-25 편집 보완:** 반복 설명을 정본 링크로 줄였다. 사건 날짜·실측값은 당시 기록이며 현재 링크로 갱신하지 않았다.
+
 - 확인일: 2026-10-22 KST
-- 경로: **Riot 공식 Account-v1 → Match-v5**. 내전 수집은 기존 LCU를 유지한다.
+- 실제 검증 경로: **Riot 공식 Account-v1 → Match-v5**. LCU 내전 표본과 별도로 조회했다.
 - 상태: **C11 PASS — 다른 참가자 1명의 계정·목록 2페이지·상세 6경기 실측 완료.** 전체 LCU gate는 HOLD다.
 - 사용자 확인: 승인된 Personal API Key 보유. 공식 개발자 포털에서 등록 앱을 선택해 검증했다. 에이전트 요청은 `Header Param`을 사용했고 키·인증 헤더·쿠키는 저장한 증거와 문서에서 제외했다.
 
 ## 1. 조회 경로와 확인 기준
 
-한국 계정의 Account-v1·Match-v5는 `asia.api.riotgames.com`을 사용한다. 인증은 `X-Riot-Token` 헤더로 전달한다. 계정 조회는 이름과 태그를 각각 URL 인코딩한다. [공식 계정·지역 안내](https://developer.riotgames.com/docs/lol#summoner-names-to-riot-ids)
+2026-10-22 한국 계정 검증에는 `asia.api.riotgames.com`을 사용했다. `X-Riot-Token` 헤더와 URL 인코딩한 이름·태그로 아래 요청을 보냈다. [공식 계정·지역 안내](https://developer.riotgames.com/docs/lol#summoner-names-to-riot-ids)
 
 | 단계 | GET 경로 | 확인 내용 |
 | --- | --- | --- |
@@ -17,13 +21,13 @@
 
 기존 H2 내전의 참가자 `H2-P01`을 선택했다. 수집자는 `H2-P08`이며 두 계정이 다름을 원본에서 확인했다. H2-P01의 Riot ID로 Account-v1 조회가 성공했고 반환된 PUUID는 솔로랭크 상세 6건에서 각각 정확히 1명과 연결됐다. 따라서 본인 이외 참가자의 조회 경로도 실측됐다.
 
-**H2-P01의 LCU PUUID와 공식 API PUUID는 달랐다.** LCU 값을 Match-v5에 그대로 전달하지 않고, 같은 참가자의 Riot ID를 Account-v1로 해석해 공식 API 식별자를 별도로 보존한다. 표시 이름을 영구 키로 사용하지 않으며 이름 변경·계정 연결 불일치는 검토 대상으로 남긴다. 사용자가 제공한 첫 Account-v1 성공 화면은 수집자 본인의 결과로, 다른 참가자 검증 증거와 구분했다.
+**H2-P01의 LCU PUUID와 공식 API PUUID는 달랐다.** 같은 참가자의 Riot ID를 Account-v1로 해석해 받은 공식 API 식별자로 상세 6건을 연결했다. 현재 연결·확인 기준은 [초기 포지션 참고 자료](../spec.md#초기-포지션-참고-자료)에 있다. 이름 변경에 따른 연결 유지까지 실측하지는 않았다. 사용자가 제공한 첫 Account-v1 성공 화면은 수집자 본인의 결과로, 다른 참가자 검증 증거와 구분했다.
 
-공식 큐 사전에서 `420`은 솔로/듀오 랭크, `440`은 자유랭크다. 목록에 `queue=420`을 지정하고 상세의 `info.queueId`도 확인한다. 일반 경기·자유랭크·사용자 설정 경기는 이 참고 표본에 넣지 않는다. [Riot 큐 사전](https://static.developer.riotgames.com/docs/lol/queues.json)
+당시 공식 큐 사전의 `420`=솔로/듀오 랭크, `440`=자유랭크 정의와 대조했다. 목록에 `queue=420`을 지정하고 6건 상세의 `info.queueId`도 확인했다. 다른 경기 종류는 이 경로 실측에 포함하지 않았다. [Riot 큐 사전](https://static.developer.riotgames.com/docs/lol/queues.json)
 
 ## 2. 포지션 필드
 
-`info.participants[]`에서 대상 PUUID로 참가자를 찾고 다음을 보존한다.
+실측한 `info.participants[]`에서 대상 PUUID의 행을 찾고 다음 필드를 대조했다.
 
 | 필드 | 사용 범위 |
 | --- | --- |
@@ -31,25 +35,25 @@
 | `individualPosition` | 개인 단위의 추정값. 진단·교차 확인용으로 보존 |
 | `lane`, `role` | 원본 보조값. LCU와 필드·값이 같다고 가정하지 않음 |
 
-공식 문서는 일반적으로 `teamPosition` 사용을 권장한다. 이는 사용자가 선택한 주·부 포지션이나 매칭 때 배정받은 포지션을 직접 반환한다는 뜻은 아니다. [Match-v5 공식 명세](https://developer.riotgames.com/apis#match-v5/GET_getMatch)
+2026-10-22 확인한 공식 문서는 일반적으로 `teamPosition` 사용을 권장했다. 이는 사용자가 선택한 주·부 포지션이나 매칭 때 배정받은 포지션을 직접 반환한다는 뜻은 아니다. [Match-v5 공식 명세](https://developer.riotgames.com/apis#match-v5/GET_getMatch)
 
-검증 시 `TOP/JUNGLE/MIDDLE/BOTTOM/UTILITY`를 각각 탑/정글/미드/원딜/서포터 참고값으로 점검한다. 이번 6경기의 참가자 60행에 모두 다섯 값 중 하나가 있었고 각 팀에서 다섯 포지션이 한 번씩 반환됐다. 대상 참가자 6행의 `teamPosition`과 `individualPosition`은 일치했다. 빈 문자열·누락·알 수 없는 값은 ‘자료 부족’으로 남기고 챔피언만으로 포지션을 채우지 않는다. 실제 플레이와의 정확도 검증이나 모든 패치에 대한 보장은 아니다.
+당시 `TOP/JUNGLE/MIDDLE/BOTTOM/UTILITY`를 각각 탑/정글/미드/원딜/서포터 참고값으로 점검했다. 이번 6경기의 참가자 60행에 모두 다섯 값 중 하나가 있었고 각 팀에서 다섯 포지션이 한 번씩 반환됐다. 대상 참가자 6행의 `teamPosition`과 `individualPosition`은 일치했다. 이 표본에는 빈 문자열·누락·알 수 없는 값이 없었으므로 해당 경우의 실제 응답은 미측정이다. 실제 플레이와의 정확도 검증이나 모든 패치에 대한 보장은 아니다.
 
 78초·79초 경기에서도 `endOfGameResult=GameComplete`였지만 `gameEndedInEarlySurrender=true`였다. 두 건은 포지션 빈도 참고 표본에서 제외했다. 해당 참가자의 `lane=NONE`, `role=SUPPORT`를 실제 서포터 플레이로 해석하면 잘못된 결과가 된다. 나머지 4경기는 정글 2회·서포터 1회·원딜 1회다. `GameComplete`만으로 정상 경기라고 판단하지 않는다.
 
-실제 응답에 `positionAssignedByMatchmaking`, `selectedRolePreferences`도 관찰됐다. 현재 확인한 공식 필드 설명에서 값의 계약·형식을 확정하지 못했으므로 진단용 관측값으로만 보존하며 주·부 포지션 확정 로직에는 사용하지 않는다.
+실제 응답에 `positionAssignedByMatchmaking`, `selectedRolePreferences`도 관찰됐다. 당시 공식 필드 설명에서 값의 계약·형식을 확정하지 못해 진단용 관측값으로 보존했다. 이 필드로 실제 주·부 포지션을 검증하지 않았다.
 
-기존 기획대로 운영자가 주·부 포지션을 최종 확인한다. 솔로랭크 기록을 모임의 전적·점수·랭킹·팀 편성용 실력 보정에 섞지 않으며 운영자 지정값을 자동 덮어쓰지 않는다. 이번 6건은 경로 확인용 표본이며 주·부 포지션을 확정하기에 충분한 표본 수라고 정한 것이 아니다.
+이번 6건은 경로 확인용 표본이며 주·부 포지션을 확정하기에 충분한 표본 수라고 정하지 않았다. 모임 점수와 참고 자료를 구분하고 운영자가 확인하는 제품 기준은 [초기 포지션 참고 자료](../spec.md#초기-포지션-참고-자료)에서 관리한다.
 
 ## 3. 키와 조회 조건
 
-승인된 Personal Key는 개발자 또는 소규모 비공개 모임용이다. 포털 로그인 시 자동 발급되는 Development Key의 24시간 만료 조건과 구분한다. Personal Key의 기본 제한은 지역별 초당 20회·2분당 100회이며 응답의 적용 제한을 함께 확인한다. 공개 서비스 운영에는 Production Key가 필요하다. 공개 웹을 포함한 최종 운영 범위의 키 승인은 이번 개인 검증과 별개다. [Riot API 키 안내](https://developer.riotgames.com/docs/portal#api-keys)
+2026-10-22 당시 공식 안내에서 Personal Key는 개발자·소규모 비공개 모임용, Development Key는 24시간 만료, Personal Key의 기본 제한은 지역별 초당 20회·2분당 100회로 확인했다. 공개 서비스용 Production Key 승인까지 검증한 것은 아니다. 실제 응답의 적용 제한은 아래 4절에 별도로 기록했다. [Riot API 키 안내](https://developer.riotgames.com/docs/portal#api-keys)
 
 - `start`는 목록 시작 인덱스, `count`는 요청 건수다. 문서상 `count` 범위는 0~100이다. 이번에는 `start=0/3`, `count=3`으로 두 페이지를 조회했고 중복 없는 6개 ID를 받았다. 100건 요청과 최대 과거 범위는 미측정이다.
-- 기간 조건을 쓸 때 `startTime/endTime`은 epoch **초**다. LCU의 `begIndex/endIndex`와 혼용하지 않는다.
+- 당시 명세의 `startTime/endTime` 단위는 epoch **초**였다. 이 필터와 LCU의 `begIndex/endIndex` 대응 동작은 실측하지 않았다.
 - 이번에는 `type/startTime/endTime` 필터를 설정하지 않았다. `type=ranked`만으로 솔로랭크를 구분하지 않고 `queue=420`을 사용한다.
-- 요청 범위·응답 수·가장 오래된 실제 반환 시각을 기록한다. 문서상 필터 지원을 전체 보관 기간 보장으로 해석하지 않는다.
-- 401/403, 404, 429, 5xx와 정상 빈 목록을 구분한다. 429는 `Retry-After`를 지키며 자동 반복 조회하지 않는다.
+- 요청 범위·응답 수·가장 오래된 실제 반환 시각은 아래 4절에 기록했다. 전체 보관 기간의 한계는 측정하지 않았다.
+- 당시 응답 코드 안내의 401/403·404·429·5xx 및 429의 `Retry-After` 처리를 확인했다. 실제 기록은 아래 403과 200뿐이며 429·정상 빈 목록 등 전체 분기는 실측하지 않았다.
 - 다른 참가자 1명의 성공으로 모든 계정·지역·과거 기간의 접근을 보장하지 않는다.
 
 [목록 요청 명세](https://developer.riotgames.com/apis#match-v5/GET_getMatchIdsByPUUID), [응답 코드 안내](https://developer.riotgames.com/docs/portal#response-codes)

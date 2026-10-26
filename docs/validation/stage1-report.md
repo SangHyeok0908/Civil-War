@@ -1,18 +1,18 @@
 # Stage 1 record foundation verification — 2026-10-22 KST
 
-**2026-10-24 update:** The C07 inclusion review is complete: the official result-stat definition includes turret damage in objective damage, supported by the installed client display mapping and existing G1 comparison. The user confirmed TOP=turret damage per minute and the other four roles=objective damage per minute, retaining the existing overall weights ([D24](../superpowers/decisions/2026-10-22-overnight-decisions.md#d24--2026-10-24-목표물-공격-평가-기준-사용자-확정)). Stage 0 remains HOLD pending selection and implementation of a new algorithm version, contract/UI updates, and recalculation and validation of all eligible matches. The current `objective-provisional-v1` implementation is retained until that follow-up is completed. See [C07 evidence](lcu-objective-semantics.md) and [D23](../superpowers/decisions/2026-10-22-overnight-decisions.md#d23--2026-10-24-c07-포함-관계-조사-결과). Earlier dated status notes are historical.
+> **과거 기록 · 2026-10-22.** 현재 기준은 [정본](../status.md)을 따른다.
 
-**Result: provisional T01–T04 implemented, independently reviewed, and review fixes locally verified. Stage 0 remains HOLD.** No Windows LCU claim, production deployment, push, or PR is part of this worker's result. Coordinator owns GitHub integration and CI verification for the new commit.
+**2026-10-22 결과:** 임시 T01–T04 구현을 독립 검토했고 수정 후 로컬 검증을 마쳤다. 당시 단계 0은 HOLD였다. 실제 Windows LCU·운영 배포는 검증하지 않았으며, 이 작업자는 push·PR을 수행하지 않았다. 새 커밋의 원격 통합·CI 확인은 코디네이터에게 남겼다.
+
+> **2026-10-25 편집 보완:** 반복 설명을 정본 링크로 줄였다. 사건 날짜·실측값은 당시 기록이며 현재 링크로 갱신하지 않았다.
 
 Base: `d65f5d6` (stage 0). Branch: `codex/stage-1-record-foundation`.
 
 ## Delivered
 
-- Strict Jackson 3 normalization of the observed custom SR tuple, lossless 1–30 digit game IDs, ten-identity join, five players per team, win consistency, positive duration, required metrics/items, missing/null/zero distinctions, supported schema version checks.
-- PostgreSQL/Flyway/JPA persistence for immutable raw/normalized pending ingest, participant-only access/confirmation, first confirmation wins, all-state platform/game uniqueness, transactionally coupled audit/revision/jobs, immutable canceled state.
-- Scoped hashed one-use codes, device/account binding, revocable credentials, admin session cookies and CSRF/origin enforcement, session reload, inactivity/absolute lifetime, local recovery, stable member IDs, allowed roles and bounded seed skill.
-- Safe public DTOs, registered-only access, same-participant Specification filters, stable keyset pagination, owner role correction/cancellation and audit history. Names/profile roles do not overwrite historical roles; semantic no-ops do not recalculate.
-- Shared provisional JSON expectations, 29 JSON Schema definitions, API consumer documentation, root start guide, dependency lockfile, official checksum wrapper, isolated Compose DB and CI workflow.
+2026-10-22 구현 범위는 원본 정규화·경기 저장과 확인·기기 및 운영자 인증·공개 조회였다. 당시 공유 스키마에는 정의 29개가 있었고, 임시 기대값·실행 안내·의존성 고정·격리 시험 DB·CI 설정을 추가했다. 구현 범위와 실제 검증 결과는 아래 시험 표를 구분해 읽는다.
+
+각 기능의 현재 세부 기준은 [원본 정규화 계약](../contracts/api.md#lcu-원본을-정규화하는-규칙), [등록·중복 처리](../contracts/api.md#경기-수집등록과-중복-처리), [인증·권한](../contracts/api.md#인증과-권한), [공개 조회·정정](../contracts/api.md#공개-기록과-관리자-정정)에 있다.
 
 ## Environment and reproducibility
 
@@ -28,14 +28,7 @@ Base: `d65f5d6` (stage 0). Branch: `codex/stage-1-record-foundation`.
 | Test DB | `cw_test`, loopback port 55432, `cw-stage1-test` project and named volume |
 | Migration | `V1__core.sql`, successful Flyway rows=1, service_state rows=1 |
 
-Commands (root; Java 25 selected through JAVA_HOME):
-
-```sh
-docker compose -f infra/compose.test.yml up -d --wait
-./apps/server/gradlew -p apps/server clean build
-node --test tools/lcu-probe/probe.test.mjs tools/lcu-probe/audit-candidates.test.mjs
-git diff --check
-```
+당시 아래 시험은 저장소 루트에서 Java 25를 선택해 실행했다. 일반적인 DB 시작·빌드·복구 명령은 [서버 빌드와 테스트](../development/setup.md#서버-빌드와-테스트)를 따른다. 아래 `--rerun-tasks` 실행과 회복 프로세스 출력은 이 보고서의 결과를 특정하는 기록이다.
 
 The worker used `/tmp/cw-gradle-cache` as GRADLE_USER_HOME and the installed OpenJDK path; neither local path is required by repository code. Initial sandbox-only Gradle invocation failed at its local lock socket; rerun with authorized access succeeded. DB tests are not conditional, skipped, or substituted with H2. The test superclass rejects any database whose name is not `cw_test` before cleanup.
 
@@ -90,18 +83,14 @@ Before the mapper fix, the focused five-test suite had exactly the three expecte
 
 ## API and next-stage handoff
 
-- [API shapes, auth, errors and examples](../contracts/stage1-api.md)
-- [JSON Schema](../contracts/stage1.schema.json)
-- [Independent provisional G1–G3 expectations](../../fixtures/contracts/v1/README.md)
-- [Start and recovery instructions](../../README.md)
-- [Decisions D07–D12](../superpowers/decisions/2026-10-22-overnight-decisions.md)
+당시 T08–T12에 전달한 자료는 [단계 1 계약 기록](../contracts/stage1-api.md), [단계 1 스키마](../contracts/stage1.schema.json), [G1–G3 임시 기대값의 용도](../../fixtures/contracts/v1/README.md), [D07–D12 결정](../superpowers/decisions/2026-10-22-overnight-decisions.md)이다.
 
-T08–T12 can consume `MemberContracts`, `EvaluationContracts`, registered matches via MatchRepository/MatchViews, confirmed participant roles and stable member IDs. `service_state` owns the source revision and desired-version/active-generation pointers; `recalculation_jobs` durably records pending revisions. Future scoring mutations must use the same transaction boundary and preserve immutable raw data. Add V2+ migrations; do not edit applied V1.
+현재 소비자 계약은 [통합 계약](../contracts/api.md), 변경·재계산 경계는 [명세](../spec.md#변경재계산일관성), 실행·복구는 [개발 안내](../development/setup.md#최초-관리자와-복구)를 따른다. 이 링크는 이후 구현이 당시 시험에 포함됐다는 뜻이 아니다.
 
 ## Remaining limitations
 
-- Current scope, 2026-10-23: C07 damage semantics remains HOLD. C01/C02/C10 and T15 pilot games are excluded by explicit user decision ([D22](../superpowers/decisions/2026-10-22-overnight-decisions.md#d22--2026-10-23-사용자-요청에-따른-검증-작업-제외)); prior review notes retain their historical scope. Candidate IDs/PUUIDs/timestamps are synthetic/pseudonymous; fixtures are not relabeled verified or seeded as public demo players.
-- Scoring workers/generations and frontend/Windows collector belong to subsequent stages. Public evaluation status is currently `recalculating`, scoringVersion null, jobs pending.
-- The global mutation lock intentionally limits write throughput for this small group. Internal private queues return complete state-filtered lists; only public records have cursor pagination.
-- Auth throttling is per-process/direct-IP and resets on restart. Production trusted-proxy configuration, TLS deployment, operational backups, JVM patch pin and Windows packaging remain stage 4 work.
+- 범위 보완 기록, 2026-10-23: C07 damage semantics remains HOLD. C01/C02/C10 and T15 pilot games are excluded by explicit user decision ([D22](../superpowers/decisions/2026-10-22-overnight-decisions.md#d22--2026-10-23-사용자-요청에-따른-검증-작업-제외)); prior review notes retain their historical scope. Candidate IDs/PUUIDs/timestamps are synthetic/pseudonymous; fixtures are not relabeled verified or seeded as public demo players.
+- 2026-10-22에는 계산 작업자·세대 공개·화면·Windows 수집기가 후속 단계였다. 당시 공개 평가 상태는 `recalculating`, scoringVersion은 null, 작업은 pending이었다. 이후 결과는 [현재 상태](../status.md#단계별-확인-범위)에서 확인한다.
+- 당시 소규모 모임용 전역 쓰기 잠금과 전체 상태별 내부 목록을 사용했다. 대규모 쓰기 처리량은 측정하지 않았다. 현재 일관성·조회 기준은 [변경·재계산 명세](../spec.md#변경재계산일관성)와 [공개 조회 계약](../contracts/api.md#공개-기록과-관리자-정정)을 따른다.
+- 당시 시험은 인증 요청 제한의 실제 프록시 환경·운영 TLS·백업·JVM 패치 고정·Windows 패키징을 다루지 않았다. 운영 설계는 [설치·운영 명세](../spec.md#설치운영-설계), 후속 검증 상태는 [남은 작업](../status.md#남은-작업-순서)을 따른다.
 - The coordinator confirmed prior HEAD CI success as linked above; this fix commit has only local verification until the coordinator pushes and checks its own run. No remote push/PR or production changes were made by this worker.

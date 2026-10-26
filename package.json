@@ -19,7 +19,10 @@
     "format:java": "node scripts/format-java.mjs spotlessApply",
     "format:java:check": "node scripts/format-java.mjs spotlessCheck",
     "build:web": "vite build --config vite.web.config.ts",
-    "test:web": "playwright test -c playwright.web.config.ts"
+    "test:web": "playwright test -c playwright.web.config.ts",
+    "docs:check": "node scripts/docs.mjs check",
+    "docs:index": "node scripts/docs.mjs index",
+    "test:docs": "node --test scripts/docs.test.mjs"
   },
   "dependencies": {
     "react": "19.3.1",
