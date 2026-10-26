@@ -1,0 +1,33 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '4.1.1'
+}
+group = 'cw'
+version = '0.1.0-provisional'
+java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
+repositories { mavenCentral() }
+dependencies {
+    implementation platform('org.springframework.boot:spring-boot-dependencies:4.1.1')
+    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-flyway'
+    runtimeOnly 'org.flywaydb:flyway-database-postgresql'
+    runtimeOnly 'org.postgresql:postgresql'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+    dependsOn tasks.named('bootJar')
+    systemProperty 'cw.serverJar', tasks.named('bootJar').get().archiveFile.get().asFile.absolutePath
+    maxParallelForks = 1
+    testLogging { events 'failed', 'skipped'; exceptionFormat = 'short' }
+    systemProperty 'cw.fixtureRoot', file('../../fixtures/lcu/candidates/h2-20261021').absolutePath
+}
+tasks.named('wrapper') {
+    gradleVersion = '9.8.2'
+    distributionType = Wrapper.DistributionType.BIN
+    distributionSha256Sum = '21bd5da2de49b642904077f38c0efdc7778e92b3ed0889392dca61b97e389607'
+}
+dependencyLocking { lockAllConfigurations() }

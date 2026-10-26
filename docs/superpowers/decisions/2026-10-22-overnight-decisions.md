@@ -1,6 +1,6 @@
 # 야간 단계 0–3 결정 기록
 
-작성일: 2026-10-22 KST. 본 파일은 최신 사용자 승인으로 위임받은 판단과 코디네이터 ruling을 기록한다. 단계 0의 실기 판정은 **HOLD**이며 미실측을 성공으로 바꾸지 않는다. 이 dispatch의 구현 범위는 단계 0이다. 이후 단계의 세부 기술 결정은 해당 담당자가 근거·검증·되돌리기 비용과 함께 추가한다.
+작성일: 2026-10-22 KST. 본 파일은 최신 사용자 승인으로 위임받은 판단과 코디네이터 ruling을 기록한다. 단계 0의 실기 판정은 **HOLD**이며 미실측을 성공으로 바꾸지 않는다. 이 파일은 단계 0–3의 누적 결정 기록이다. 각 단계 담당자는 자신의 구현 범위와 근거·검증·되돌리기 비용을 아래에 이어서 기록한다.
 
 ## D01 — HOLD 중 단계 1–3의 조건부 draft 개발
 
@@ -50,3 +50,56 @@
 - 결정: C01은 도구가 전혀 실행되지 않은 정상 경기 A, C02는 다음 정상 경기 B 전 idle 요청 0건과 종료 후 명시 조회를 기록한다. C02의 B를 종료 후 새 프로세스로 조회해 동일 게임 수치를 비교한다. C01의 A와 C02의 B를 같은 경기로 비교하거나 B의 control을 도구 미실행 C01로 주장하지 않는다.
 - 이유·검증: 한 경기에서 ‘어떤 도구도 미실행’과 ‘도구를 미리 실행’을 동시에 만족시킬 수 없다. 두 정상 경기와 B의 제어 조회로 조건을 분리했고 실제 도구 옵션/session 필드와 대조했다. 새 Windows 실행은 아직 없다.
 - 되돌리기 비용: 관측 양식만 수정 가능하며 실측 결과의 의미를 소급 변경하지 않는다. 추가 비정상 게임이나 별도 PC는 필요 없다.
+
+## D07 — 단계 1 도구와 계약 표현
+
+- 결정: OpenJDK 25.0.1+8-27(현재 로컬 설치), Spring Boot 4.1.1, 공식 Gradle 9.8.2 Wrapper와 SHA-256, PostgreSQL 18.6 digest 고정, Boot BOM 관리 Flyway/Jackson 3/JUnit을 사용한다. 일반 저장/조회는 JPA, 필터는 Specification, JSON 계약은 언어 중립 문서와 Java records 및 공통 후보 fixture로 유지한다.
+- 이유·검증: 사용자 지정 Java/Boot/JPA/Groovy와 일치한다. 공식 Boot 요구사항 페이지는 4.1.1·Java 26까지·Gradle 9.x 지원을 표시했다. Wrapper 공식 task 생성, 다운로드 checksum 검증 및 T01 8개 테스트 PASS. JDK 패치 업그레이드와 운영 이미지 검증은 배포 단계에서 별도 수행한다.
+- 되돌리기 비용: 빌드 버전/CI 변경과 전체 테스트, JSON 어댑터 변경 시 계약 소비자 동시 갱신. raw/normalized는 PostgreSQL text JSON으로 분리하여 정밀도 손실 없는 원문 수치 재처리가 가능하다.
+
+## D08 — 단계 1의 작은 규모 트랜잭션 직렬화
+
+- 결정: 모든 데이터 mutation은 singleton `service_state` 행의 pessimistic write lock을 먼저 획득한다. DB `(platform_id,game_id)` UNIQUE를 함께 유지하고 읽기는 잠그지 않는다. 신규 임시 저장은 revision을 올리지 않으며 실제 확정/정정/취소/회원 팀 입력 변경만 revision과 durable job을 함께 저장한다.
+- 이유: 30명 규모에서는 한 트랜잭션 경계가 명확하며 중복·확정·코드 소비·복구 경합의 결과가 결정적이다. 별도 브로커와 분산 락이 필요 없다.
+- 되돌리기 비용: 요청량이 증가하면 행별 잠금/원자 upsert로 분리하고 동시성 회귀 테스트를 확장한다. 현재에는 mutation 처리량이 한 DB 트랜잭션씩 제한된다.
+
+## 외부 실기 접근 후속 확인
+
+코디네이터가 Chrome Remote Desktop 앱/탭을 나중에 발견했으나 Orca GUI는 OS 접근성 권한이 없었고 기존 원격 탭의 브라우저 접근은 사용자 origin 접근 거절로 정책상 차단되었다. 우회하지 않으며 Windows 실측 HOLD를 유지한다. 이전 ‘Orca에 연결된 Windows 호스트 없음’은 Orca inventory 확인 범위의 기록이다.
+
+## D09 — 보존·마이그레이션·후속 평가 경계
+
+- 결정: raw JSON과 정규화 JSON은 별도 `text` 열로 저장하고 JPA participant 행에는 회원/팀/챔피언/승패/최종 역할을 둔다. 원본은 추가 필드를 보존하되 중복 JSON 키는 거절한다. Flyway 표준 이름 `V1__core.sql`을 사용하며 이후 단계는 V2 이상 migration을 추가한다. `service_state`와 durable `recalculation_jobs`를 먼저 만들고 평가 세대/점수/참고 표본 테이블은 T08–T12에서 추가한다.
+- 이유·검증: JSON 파싱이 큰 정수 토큰을 lossless 보존하며 30자리 ID 문자열과 원본 수치를 훼손하지 않는다. SQL 검색은 필요한 participant 열과 Specification EXISTS를 사용하므로 raw JSON 검색 인덱스가 필요 없다. 전체 원문 바이트/공백이 아니라 JSON 값의 보존이다. JUnit 실제 PostgreSQL 테스트에서 ingest/confirm 중 audit/job 실패를 주입해 전체 rollback을 확인했다.
+- 되돌리기 비용: JSONB가 필요해지면 새 migration에서 캐스팅하고 기존 raw 보존 정책을 유지한다. job/세대 테이블 확장은 기존 revision 의미를 지켜야 한다. 아직 평가가 없어 공개 DTO는 계산 중으로만 표시한다.
+
+## D10 — 인증과 HTTP 기본값의 명시적 운영 한계
+
+- 결정: 고엔트로피 코드/토큰의 SHA-256만 DB 보관, 관리자 쿠키와 동일 origin+CSRF, 1 MiB write body cap, 직접 remote IP의 bounded 메모리 인증 실패 제한을 사용한다. 기본은 Secure `__Host-cw-admin`; dev/test profile과 명시 설정이 함께 있을 때만 HTTP `cw-admin-dev`를 쓴다. CSRF는 인증된 `GET /api/admin/session`에서 재확보한다. forwarded 헤더는 기본 비신뢰다.
+- 이유·검증: 추가 로그인 제품 없이 한 운영자/친구 모임 모델에 맞는다. 동시 코드 소비 양 scope, 만료/폐기/계정 불일치, 실제 chunked HTTP, 쿠키 플래그, 코드/계정 로그 비노출, 실제 실행 JAR 복구를 검사했다. 로컬 복구는 웹 리스너 없이 종료하고 새 코드 1회 출력만 한다.
+- 되돌리기 비용: 분산 인스턴스나 운영 proxy를 도입하면 중앙 rate-limit/신뢰 proxy 설정을 바꾸고 HTTP 보안 테스트를 재실행한다. 현재 limiter는 재시작 시 초기화되고 proxy 뒤 사용자가 같은 remote IP로 묶일 수 있으므로 T14에서 고정된 proxy 범위를 설정해야 한다.
+
+## D11 — v1 소비자 계약과 안정적 조회
+
+- 결정: 계약은 `docs/contracts/stage1-api.md`, JSON Schema `$defs`, Java records, 별도 독립 매핑 G1–G3 expected JSON으로 제공한다. 평가/팀 모델은 T08–T12 handoff 타입이며 stage 1에서 점수 계산을 수행하지 않는다. 공개 페이지는 `(startedAt,matchKey)` 내림차순 keyset cursor와 한 참가자에 대한 correlated EXISTS Specification을 사용한다. 내부 pending 큐는 소규모 전체 배열이다.
+- 이유·검증: 서버 Java와 수집기 TypeScript의 구현을 공유하지 않고도 wire-format을 대조한다. 공개 DTO에서 PUUID/raw/auth를 제외하며 같은 timestamp와 여러 matching participant에서도 중복/누락 없이 페이지를 순회한다. allowedRoles의 순서만 바뀐 요청은 의미 있는 변경이 아니므로 역할 순서를 정규화하여 audit/revision/job을 만들지 않는다.
+- 되돌리기 비용: API를 변경하면 schemaVersion/문서/기대값과 모든 소비 테스트를 함께 바꾼다. 내부 큐가 커지면 public과 같은 cursor 계약을 별도 버전으로 추가한다. cursor는 페이지 간 DB snapshot을 고정하지 않으며 새로 수정/취소된 자료는 최신 공개 상태를 따른다.
+
+## D12 — 재현 빌드와 CI 범위
+
+- 결정: Java dependencies는 Boot 4.1.1 BOM과 Gradle lockfile로 고정하고 Wrapper checksum을 기록한다. CI는 immutable action SHA, Java 25, 동일 Compose PostgreSQL, 전체 Gradle build를 실행한다. 운영 배포는 포함하지 않는다.
+- 이유·검증: 로컬 OpenJDK 25.0.1과 CI Temurin 25.0.1은 같은 toolchain major와 update를 준수한다. 현재 로컬 전체 빌드/실DB 검증을 완료하고 GitHub Actions 실제 실행은 코디네이터 push 후 확인한다. mock-only/H2 skip 경로가 없다.
+- 되돌리기 비용: 버전 업그레이드 때 lockfile/checksum/image digest와 전체 회귀 테스트를 갱신한다. CI는 Temurin 25.0.1과 ubuntu-24.04를 명시한다. 운영용 JDK patch 갱신과 배포판은 T14에서 다시 검증한다.
+
+## 단계 1 마지막 검토 보완
+
+- 인증 경로는 raw URI 문자열 접두사가 아니라 Spring MVC가 실제로 매핑하는 decoded path segments를 사용한다. matrix parameter/percent-encoded 경로의 인증 우회가 두 실패 테스트에서 재현되었고 수정 후 MockMvc와 실제 HTTP 회귀가 모두 통과했다. 이 검증은 일반 라우트 테스트만으로 인증 경계를 보장할 수 없다는 발견이며, canonical 경로 처리를 우회하는 새 라우팅 계층을 도입할 때 동일 테스트를 유지한다.
+- 독립 리뷰 전 clean build는 서버 **63/63**, 기존 Node **31/31**, skipped 0이었다. CLI 복구의 sanitized 결과와 한계는 stage1-report에 보존했다. 역할 집합 순서만 바꾸는 요청과 일반 framework 오류 형식도 실패 후 수정했다. 후속 독립 리뷰와 수정 검증은 아래 D13에 기록한다.
+
+## D13 — 독립 리뷰의 JSON 계약 결함 수정
+
+- 발견·권한: 별도 리뷰 dispatch가 `727e2e0`의 실제 코드와 PostgreSQL 테스트를 검토하고 P2 두 건을 재현했다. 숫자 역할 0–4가 enum 순번으로 변환되어 확정/정정에 사용됐고, 추가 raw JSON의 고정밀 소수는 저장 전에 double로 반올림됐다. 코디네이터는 리뷰 종료 후 새 구현 dispatch로 두 수정을 승인했다. 조건부 draft·`objective-provisional-v1`은 승인된 결정이며 단계 0 HOLD는 유지한다.
+- 결정: Jackson 3의 `EnumFeature.FAIL_ON_NUMBERS_FOR_ENUMS`와 `DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS`를 활성화한다. 역할 계약은 문자열만 받고 raw JSON tree는 임의 정밀도 소수의 수치값을 보존한다. 명시적으로 선언된 평가 `double`/`Double` 필드는 기존 타입을 유지한다. 원문 공백·소수 표기 형식 자체 보존이나 기존 저장값의 복원은 주장하지 않는다.
+- 검증: 먼저 HTTP/실DB 회귀 5개를 추가해 숫자 역할 확정·정정의 200 응답과 raw 소수 손실로 정확히 3개 실패를 확인했다. 수정 후 5개 모두 통과했고, 거절 후 상태/역할/audit/revision/job 불변·정상 문자열 역할 처리·중첩 소수 저장/관리자 조회·큰 정수 ID·필수 통계의 소수 토큰 거절·평가 double 호환성을 검사했다. 관리자 정정 audit 실패와 취소 job 실패의 rollback 테스트 2개도 추가했다. 전체 재실행은 서버 **70/70**, Node **31/31**, skipped 0이다.
+- CI 경계: 코디네이터가 이전 HEAD `727e2e0`의 Ubuntu 실PostgreSQL [CI 성공](https://github.com/SangHyeok0908/Civil-War/actions/runs/39643558919)을 확인했다. 이번 수정 커밋은 코디네이터 push 후 별도 CI 결과를 확인해야 하며, 이전 성공을 새 커밋 검증으로 대체하지 않는다.
+- 되돌리기 비용: mapper 설정과 회귀 테스트를 함께 검토하면 된다. migration/API 버전/fixture 수정은 없다. 이미 정밀도를 잃은 raw 자료가 있다면 보존된 원본에서 재수집해야 하며 자동 복구하지 않는다. [리뷰 결과와 최종 검증](../../validation/stage1-report.md#independent-review-and-resolution)에 상세를 남긴다.

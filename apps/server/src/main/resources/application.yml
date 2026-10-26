@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: civil-war
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USER}
+    password: ${DATABASE_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    locations: classpath:db/migrations
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+server:
+  forward-headers-strategy: none
+  error:
+    include-message: never
+    include-stacktrace: never
+cw:
+  origin: ${SERVER_ORIGIN:https://localhost}
+  dev-http: false
+logging:
+  level:
+    org.hibernate.orm.jdbc.error: OFF
+    org.hibernate.engine.jdbc.spi.SqlExceptionHelper: OFF

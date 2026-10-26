@@ -1,0 +1,948 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cw:contracts:stage1:v1",
+  "title": "Civil War provisional stage 1 contracts",
+  "description": "Select a named $defs entry. Stage 0 HOLD; candidate timestamps and identifiers are synthetic.",
+  "$comment": "Team counts, participant joins, authorization, and role uniqueness are semantic constraints enforced by the server.",
+  "$defs": {
+    "Role": {
+      "enum": [
+        "TOP",
+        "JUNGLE",
+        "MIDDLE",
+        "BOTTOM",
+        "UTILITY"
+      ]
+    },
+    "State": {
+      "enum": [
+        "pending",
+        "registered",
+        "canceled"
+      ]
+    },
+    "MatchKey": {
+      "type": "string",
+      "pattern": "^[A-Z0-9]{1,16}:[0-9]{1,30}$"
+    },
+    "SubmissionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "Timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "Roles": {
+      "type": "object",
+      "minProperties": 10,
+      "maxProperties": 10,
+      "additionalProperties": {
+        "$ref": "#/$defs/Role"
+      }
+    },
+    "ParticipantRecord": {
+      "type": "object",
+      "properties": {
+        "puuid": {
+          "type": "string",
+          "minLength": 1
+        },
+        "teamId": {
+          "enum": [
+            100,
+            200
+          ]
+        },
+        "win": {
+          "type": "boolean"
+        },
+        "championId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "kills": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "deaths": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "assists": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "championDamage": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "damageTaken": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "laneCs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "neutralCs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "goldEarned": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "visionScore": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "objectiveDamage": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "turretDamage": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "minItems": 7,
+          "maxItems": 7
+        }
+      },
+      "required": [
+        "puuid",
+        "teamId",
+        "win",
+        "championId",
+        "kills",
+        "deaths",
+        "assists",
+        "championDamage",
+        "damageTaken",
+        "laneCs",
+        "neutralCs",
+        "goldEarned",
+        "visionScore",
+        "objectiveDamage",
+        "turretDamage",
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "NormalizedMatch": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "platformId": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{1,16}$"
+        },
+        "gameId": {
+          "type": "string",
+          "pattern": "^[0-9]{1,30}$"
+        },
+        "startedAtUtc": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "durationSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "mapId": {
+          "const": 11
+        },
+        "gameType": {
+          "const": "CUSTOM_GAME"
+        },
+        "patch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "participants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ParticipantRecord"
+          },
+          "minItems": 10,
+          "maxItems": 10
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "platformId",
+        "gameId",
+        "startedAtUtc",
+        "durationSeconds",
+        "mapId",
+        "gameType",
+        "patch",
+        "participants"
+      ],
+      "additionalProperties": false
+    },
+    "IngestMatchInput": {
+      "type": "object",
+      "properties": {
+        "rawMatch": {
+          "type": "object"
+        },
+        "clientSubmissionId": {
+          "$ref": "#/$defs/SubmissionId"
+        },
+        "schemaVersion": {
+          "const": 1
+        }
+      },
+      "required": [
+        "rawMatch",
+        "clientSubmissionId",
+        "schemaVersion"
+      ],
+      "additionalProperties": false
+    },
+    "IngestMatchAck": {
+      "type": "object",
+      "properties": {
+        "matchKey": {
+          "$ref": "#/$defs/MatchKey"
+        },
+        "state": {
+          "$ref": "#/$defs/State"
+        },
+        "disposition": {
+          "enum": [
+            "created_pending",
+            "already_pending",
+            "already_registered",
+            "already_canceled"
+          ]
+        }
+      },
+      "required": [
+        "matchKey",
+        "state",
+        "disposition"
+      ],
+      "additionalProperties": false
+    },
+    "ConfirmationBody": {
+      "type": "object",
+      "properties": {
+        "rolesByPuuid": {
+          "$ref": "#/$defs/Roles"
+        },
+        "clientSubmissionId": {
+          "$ref": "#/$defs/SubmissionId"
+        }
+      },
+      "required": [
+        "rolesByPuuid",
+        "clientSubmissionId"
+      ],
+      "additionalProperties": false
+    },
+    "RegistrationAck": {
+      "type": "object",
+      "properties": {
+        "matchKey": {
+          "$ref": "#/$defs/MatchKey"
+        },
+        "disposition": {
+          "enum": [
+            "created",
+            "already_registered"
+          ]
+        },
+        "sourceRevision": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "matchKey",
+        "disposition",
+        "sourceRevision"
+      ],
+      "additionalProperties": false
+    },
+    "CollectorMatch": {
+      "type": "object",
+      "properties": {
+        "matchKey": {
+          "$ref": "#/$defs/MatchKey"
+        },
+        "state": {
+          "$ref": "#/$defs/State"
+        },
+        "match": {
+          "$ref": "#/$defs/NormalizedMatch"
+        },
+        "confirmedRoles": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Roles"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "matchKey",
+        "state",
+        "match",
+        "confirmedRoles"
+      ],
+      "additionalProperties": false
+    },
+    "Member": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "puuid": {
+          "type": "string",
+          "minLength": 1
+        },
+        "riotId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "primaryRole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Role"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "secondaryRole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Role"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "allowedRoles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Role"
+          },
+          "uniqueItems": true,
+          "maxItems": 5
+        },
+        "seedSkill": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "profileRevision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "id",
+        "puuid",
+        "riotId",
+        "displayName",
+        "active",
+        "primaryRole",
+        "secondaryRole",
+        "allowedRoles",
+        "seedSkill",
+        "profileRevision"
+      ],
+      "additionalProperties": false
+    },
+    "PublicMember": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "primaryRole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Role"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "secondaryRole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Role"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "allowedRoles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Role"
+          },
+          "uniqueItems": true,
+          "maxItems": 5
+        }
+      },
+      "required": [
+        "id",
+        "displayName",
+        "active",
+        "primaryRole",
+        "secondaryRole",
+        "allowedRoles"
+      ],
+      "additionalProperties": false
+    },
+    "MemberCreate": {
+      "type": "object",
+      "properties": {
+        "puuid": {
+          "type": "string",
+          "minLength": 1
+        },
+        "riotId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "primaryRole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Role"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "secondaryRole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Role"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "allowedRoles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Role"
+          },
+          "uniqueItems": true,
+          "maxItems": 5
+        },
+        "seedSkill": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "puuid",
+        "riotId",
+        "displayName",
+        "seedSkill"
+      ],
+      "additionalProperties": false
+    },
+    "MemberPatch": {
+      "type": "object",
+      "properties": {
+        "riotId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "primaryRole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Role"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "secondaryRole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Role"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "allowedRoles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Role"
+          },
+          "uniqueItems": true,
+          "maxItems": 5
+        },
+        "seedSkill": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "PublicParticipant": {
+      "type": "object",
+      "properties": {
+        "teamId": {
+          "enum": [
+            100,
+            200
+          ]
+        },
+        "win": {
+          "type": "boolean"
+        },
+        "championId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "kills": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "deaths": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "assists": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "championDamage": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "damageTaken": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "laneCs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "neutralCs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "goldEarned": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "visionScore": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "objectiveDamage": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "turretDamage": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "minItems": 7,
+          "maxItems": 7
+        },
+        "memberId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "$ref": "#/$defs/Role"
+        }
+      },
+      "required": [
+        "teamId",
+        "win",
+        "championId",
+        "kills",
+        "deaths",
+        "assists",
+        "championDamage",
+        "damageTaken",
+        "laneCs",
+        "neutralCs",
+        "goldEarned",
+        "visionScore",
+        "objectiveDamage",
+        "turretDamage",
+        "items",
+        "memberId",
+        "displayName",
+        "role"
+      ],
+      "additionalProperties": false
+    },
+    "PublicMatch": {
+      "type": "object",
+      "properties": {
+        "matchKey": {
+          "$ref": "#/$defs/MatchKey"
+        },
+        "startedAtUtc": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "durationSeconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "mapId": {
+          "const": 11
+        },
+        "patch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "participants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PublicParticipant"
+          },
+          "minItems": 10,
+          "maxItems": 10
+        },
+        "evaluationStatus": {
+          "const": "recalculating"
+        },
+        "scoringVersion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceRevision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "matchKey",
+        "startedAtUtc",
+        "durationSeconds",
+        "mapId",
+        "patch",
+        "participants",
+        "evaluationStatus",
+        "scoringVersion",
+        "sourceRevision"
+      ],
+      "additionalProperties": false
+    },
+    "MatchPage": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PublicMatch"
+          }
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "nextCursor"
+      ],
+      "additionalProperties": false
+    },
+    "EnrollmentInput": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "currentPuuid": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "code",
+        "currentPuuid"
+      ],
+      "additionalProperties": false
+    },
+    "EnrollmentReply": {
+      "type": "object",
+      "properties": {
+        "token": {
+          "type": "string"
+        },
+        "memberId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "credentialId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "puuid": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "token",
+        "memberId",
+        "credentialId",
+        "puuid"
+      ],
+      "additionalProperties": false
+    },
+    "AdminLoginInput": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "additionalProperties": false
+    },
+    "AdminSessionReply": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "csrfToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "csrfToken"
+      ],
+      "additionalProperties": false
+    },
+    "IssueCodeInput": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "enum": [
+            "admin",
+            "collector"
+          ]
+        },
+        "memberId": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "scope"
+      ],
+      "additionalProperties": false
+    },
+    "CodeReply": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "code": {
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "admin",
+            "collector"
+          ]
+        },
+        "expiresAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "id",
+        "code",
+        "scope",
+        "expiresAt"
+      ],
+      "additionalProperties": false
+    },
+    "Issue": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "code"
+      ],
+      "additionalProperties": false
+    },
+    "ValidationResult": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Issue"
+          }
+        }
+      },
+      "required": [
+        "ok",
+        "issues"
+      ],
+      "additionalProperties": false
+    },
+    "Error": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Issue"
+          }
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "retryable",
+        "details"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

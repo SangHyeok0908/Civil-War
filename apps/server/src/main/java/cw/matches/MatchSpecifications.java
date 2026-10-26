@@ -1,0 +1,29 @@
+package cw.matches;
+import cw.contracts.*;
+import java.time.Instant;
+import java.util.*;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.Predicate;
+public final class MatchSpecifications {
+    private MatchSpecifications() {}
+    public record Filters(String memberId,Integer championId,Role role,Boolean win) {}
+    public record Cursor(Instant startedAt,String key) {}
+    public static Specification<MatchEntity> registered(Filters filters,Cursor cursor) {
+        return (root,query,cb)-> {
+            List<Predicate> predicates=new ArrayList<>(); predicates.add(cb.equal(root.get("state"),"registered"));
+            if(cursor!=null) predicates.add(cb.or(cb.lessThan(root.get("startedAt"),cursor.startedAt()),
+                cb.and(cb.equal(root.get("startedAt"),cursor.startedAt()),cb.lessThan(root.get("id"),cursor.key()))));
+            if(filters.memberId()!=null || filters.championId()!=null || filters.role()!=null || filters.win()!=null) {
+                // One correlated participant row must satisfy every filter. EXISTS never multiplies match rows.
+                var sub=query.subquery(Integer.class); var p=sub.from(MatchParticipantEntity.class); List<Predicate> where=new ArrayList<>();
+                where.add(cb.equal(p.get("match").get("id"),root.get("id")));
+                if(filters.memberId()!=null) where.add(cb.equal(p.get("memberId"),filters.memberId()));
+                if(filters.championId()!=null) where.add(cb.equal(p.get("championId"),filters.championId()));
+                if(filters.role()!=null) where.add(cb.equal(p.get("role"),filters.role()));
+                if(filters.win()!=null) where.add(cb.equal(p.get("win"),filters.win()));
+                sub.select(cb.literal(1)).where(where.toArray(Predicate[]::new)); predicates.add(cb.exists(sub));
+            }
+            return cb.and(predicates.toArray(Predicate[]::new));
+        };
+    }
+}
