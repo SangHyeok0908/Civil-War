@@ -1,0 +1,6 @@
+{
+  "name": "@cw/web",
+  "version": "0.1.0-provisional",
+  "private": true,
+  "type": "module"
+}

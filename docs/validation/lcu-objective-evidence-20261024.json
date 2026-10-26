@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "reviewedOnKst": "2026-10-24",
+  "conclusion": {
+    "turretDamageIncludedInObjectiveDamage": "supported-by-official-stat-definition-and-observed-field-mapping",
+    "c07MeaningReview": "complete-for-observed-summoners-rift-scope",
+    "stage0Gate": "HOLD",
+    "remainingDecision": "final-algorithm-version",
+    "newWindowsMeasurement": false,
+    "scoringPolicyStatus": "user-confirmed-in-D24",
+    "remainingWork": [
+      "implement-new-algorithm-version-and-update-contract-and-ui",
+      "recalculate-and-validate-all-eligible-matches"
+    ]
+  },
+  "officialReferences": [
+    {
+      "file": "riot-patch-7.9.html",
+      "url": "https://web.archive.org/web/20170504081043id_/http://na.leagueoflegends.com/en/news/game-updates/patch/patch-79-notes",
+      "archiveCapturedAtUtc": "2017-05-04T08:10:43Z",
+      "bytes": 213868,
+      "sha256": "c1d1a23fbc22e3a15a187fdad536fcf423fba914d8ff6d789de512ffff739e9b"
+    },
+    {
+      "file": "riot-patch-7.24.html",
+      "url": "https://web.archive.org/web/20171206053701id_/https://na.leagueoflegends.com/en/news/game-updates/patch/patch-724-notes",
+      "archiveCapturedAtUtc": "2017-12-06T05:37:01Z",
+      "bytes": 164972,
+      "sha256": "843dcf0b59c0500828e0e940371c21f2cbd28780662b610354c6abe316db5fa2"
+    },
+    {
+      "file": "riot-match-v5.json",
+      "url": "https://developer.riotgames.com/api-details/match-v5",
+      "archiveCapturedAtUtc": null,
+      "bytes": 168191,
+      "sha256": "e98cf514af947a324e6735cf6bc90cdc73e7cb652b43001319e76578f1475e0f"
+    }
+  ],
+  "localRiotClient": {
+    "platform": "macOS",
+    "gameOkVersion": "16.20.8297896",
+    "archive": "Plugins/rcp-fe-lol-match-history/assets.wad",
+    "archiveBytes": 1950944,
+    "archiveSha256": "7896bbe9806c7c592839f6ae95096dafd538edde32945b852151f10df6ade41d",
+    "wadVersion": "3.4",
+    "entryCount": 125,
+    "selectedEntries": [
+      {
+        "entryIndex": 6,
+        "pathHash": "0ca8d3eca2b39150",
+        "sha256": "7ad2b6adee89738444bd213628b8190e58d23031e4c4671ce845f2b1656d688b"
+      },
+      {
+        "entryIndex": 25,
+        "pathHash": "3f1fdf6bef8af760",
+        "sha256": "d458cd6e76d7e0f0575dc833fb76f987353327a9fcfd06f4fca4f1cfef0754a2"
+      },
+      {
+        "entryIndex": 53,
+        "pathHash": "70f9590985796fa8",
+        "sha256": "ebf3e05ac3b04e90a2dc2eeea80e7d4f5e6ea3edda32b9fd8ed0233f29020120"
+      }
+    ],
+    "displayMappings": [
+      {
+        "labelKey": "MATCH_HISTORY_STATS_ATTR_DMG_DEALT_TOTAL_OBJECTIVES",
+        "koKR": "목표물에게 가한 피해량",
+        "field": "damageDealtToObjectives",
+        "format": "number"
+      },
+      {
+        "labelKey": "MATCH_HISTORY_STATS_ATTR_DMG_DEALT_TOTAL_TURRETS",
+        "koKR": "포탑에게 가한 피해량",
+        "field": "damageDealtToTurrets",
+        "format": "number"
+      }
+    ]
+  },
+  "lcuExistingH2": {
+    "games": 3,
+    "participantRows": 30,
+    "objectivesAtLeastTurrets": 30,
+    "objectivesEqualTurrets": 3,
+    "objectiveZeros": 1,
+    "turretZeros": 4,
+    "sourceStatsCompared": 660,
+    "privateIdentityScan": "passed",
+    "existingG1ScreenMatchesPerField": 10
+  },
+  "officialApiExistingProjection": {
+    "games": 6,
+    "participantRows": 60,
+    "objectivesMinusTurretsMinusEpicMonsters": {
+      "0": 46,
+      "1": 14
+    },
+    "allFourDamageFieldsZeroRows": 21,
+    "nonzeroDamageRows": 39,
+    "exactEqualityAmongNonzeroDamageRows": 25,
+    "buildingsEqualTurrets": 60,
+    "earlyEndedGamesExcluded": 2,
+    "participantRowsExcludingEarlyEndedGames": 40,
+    "exactEqualityExcludingEarlyEndedGames": 26
+  }
+}

@@ -67,7 +67,13 @@ export interface RoleReferenceSample {
   gameId: string;
   playedAt: string;
   role: Role;
-  evidence: { officialPuuid: string; queueId: 420; teamPosition: Role };
+  evidence: {
+    officialPuuid: string;
+    queueId: 420;
+    teamPosition: Role;
+    durationSeconds: number;
+    earlyEnded: false;
+  };
 }
 export class ClientError extends Error {
   constructor(

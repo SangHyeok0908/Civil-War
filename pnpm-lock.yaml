@@ -48,6 +48,8 @@ importers:
 
   apps/collector: {}
 
+  apps/web: {}
+
   packages/contracts: {}
 
   packages/lcu: {}

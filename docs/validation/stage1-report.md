@@ -1,5 +1,7 @@
 # Stage 1 record foundation verification — 2026-10-22 KST
 
+**2026-10-24 update:** The C07 inclusion review is complete: the official result-stat definition includes turret damage in objective damage, supported by the installed client display mapping and existing G1 comparison. The user confirmed TOP=turret damage per minute and the other four roles=objective damage per minute, retaining the existing overall weights ([D24](../superpowers/decisions/2026-10-22-overnight-decisions.md#d24--2026-10-24-목표물-공격-평가-기준-사용자-확정)). Stage 0 remains HOLD pending selection and implementation of a new algorithm version, contract/UI updates, and recalculation and validation of all eligible matches. The current `objective-provisional-v1` implementation is retained until that follow-up is completed. See [C07 evidence](lcu-objective-semantics.md) and [D23](../superpowers/decisions/2026-10-22-overnight-decisions.md#d23--2026-10-24-c07-포함-관계-조사-결과). Earlier dated status notes are historical.
+
 **Result: provisional T01–T04 implemented, independently reviewed, and review fixes locally verified. Stage 0 remains HOLD.** No Windows LCU claim, production deployment, push, or PR is part of this worker's result. Coordinator owns GitHub integration and CI verification for the new commit.
 
 Base: `d65f5d6` (stage 0). Branch: `codex/stage-1-record-foundation`.
@@ -98,7 +100,7 @@ T08–T12 can consume `MemberContracts`, `EvaluationContracts`, registered match
 
 ## Remaining limitations
 
-- C01/C02/C07/C10 remain external HOLD. Candidate IDs/PUUIDs/timestamps are synthetic/pseudonymous; fixtures are not relabeled verified or seeded as public demo players.
+- Current scope, 2026-10-23: C07 damage semantics remains HOLD. C01/C02/C10 and T15 pilot games are excluded by explicit user decision ([D22](../superpowers/decisions/2026-10-22-overnight-decisions.md#d22--2026-10-23-사용자-요청에-따른-검증-작업-제외)); prior review notes retain their historical scope. Candidate IDs/PUUIDs/timestamps are synthetic/pseudonymous; fixtures are not relabeled verified or seeded as public demo players.
 - Scoring workers/generations and frontend/Windows collector belong to subsequent stages. Public evaluation status is currently `recalculating`, scoringVersion null, jobs pending.
 - The global mutation lock intentionally limits write throughput for this small group. Internal private queues return complete state-filtered lists; only public records have cursor pagination.
 - Auth throttling is per-process/direct-IP and resets on restart. Production trusted-proxy configuration, TLS deployment, operational backups, JVM patch pin and Windows packaging remain stage 4 work.

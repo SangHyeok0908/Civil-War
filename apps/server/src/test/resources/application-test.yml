@@ -10,6 +10,8 @@ spring:
   flyway:
     locations: classpath:db/migrations
 cw:
+  evaluation:
+    enabled: false
   origin: http://localhost:8080
   dev-http: true
 logging:

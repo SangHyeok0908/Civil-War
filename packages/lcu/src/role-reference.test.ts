@@ -48,6 +48,12 @@ it("keeps the LCU member identity distinct from the official API identity", () =
   expect(sample).toMatchObject({
     puuid: "lcu-puuid",
     gameId: "KR_1",
-    evidence: { officialPuuid: "official-puuid" },
+    evidence: {
+      officialPuuid: "official-puuid",
+      queueId: 420,
+      teamPosition: "TOP",
+      durationSeconds: 1800,
+      earlyEnded: false,
+    },
   });
 });

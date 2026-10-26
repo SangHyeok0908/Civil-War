@@ -1,0 +1,17 @@
+# Generated artifacts and dependencies
+**/node_modules/**
+**/build/**
+**/dist/**
+**/.gradle/**
+test-results/
+playwright-report/
+.private/
+.superpowers/
+pnpm-lock.yaml
+
+# Historical records, captured data and schemas are maintained separately.
+docs/
+fixtures/
+AGENTS.md
+README.md
+tools/lcu-probe/README.md

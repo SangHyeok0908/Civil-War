@@ -1,13 +1,21 @@
 package cw.matches;
-import cw.contracts.*;
-import cw.contracts.MatchContracts.*;
+
+import cw.contracts.ApiException;
+import cw.contracts.MatchContracts.CollectorPrincipal;
+import cw.contracts.MatchContracts.IngestMatchAck;
+import cw.contracts.MatchContracts.IngestMatchInput;
+import cw.contracts.MatchContracts.NormalizedMatch;
+import cw.contracts.MatchContracts.ParticipantRecord;
 import cw.db.MutationCoordinator;
-import cw.members.*;
+import cw.members.MemberEntity;
+import cw.members.MemberRepository;
 import java.time.Clock;
-import java.util.*;
+import java.util.Optional;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
+
 @Service
 public class IngestService {
     private final MatchInputValidator validator;
@@ -17,30 +25,77 @@ public class IngestService {
     private final MatchViews views;
     private final JsonMapper json;
     private final Clock clock;
-    public IngestService(MatchInputValidator validator,MatchRepository matches,MemberRepository members,
-            MutationCoordinator mutations,MatchViews views,JsonMapper json,Clock clock) {
-        this.validator=validator; this.matches=matches; this.members=members; this.mutations=mutations; this.views=views; this.json=json; this.clock=clock;
+
+    public IngestService(
+            MatchInputValidator validator,
+            MatchRepository matches,
+            MemberRepository members,
+            MutationCoordinator mutations,
+            MatchViews views,
+            JsonMapper json,
+            Clock clock) {
+        this.validator = validator;
+        this.matches = matches;
+        this.members = members;
+        this.mutations = mutations;
+        this.views = views;
+        this.json = json;
+        this.clock = clock;
     }
+
     @Transactional
-    public IngestMatchAck ingestMatch(IngestMatchInput input,CollectorPrincipal actor) {
-        var normalized=validator.normalize(input);
+    public IngestMatchAck ingestMatch(IngestMatchInput input, CollectorPrincipal actor) {
+        NormalizedMatch normalized = validator.normalize(input);
         mutations.lock();
-        var existing=matches.findById(normalized.matchKey());
-        if(existing.isPresent()) {
-            views.requireParticipant(existing.get(),actor);
-            return new IngestMatchAck(existing.get().id,existing.get().state,"already_"+existing.get().state);
+
+        Optional<MatchEntity> existing = matches.findById(normalized.matchKey());
+
+        if (existing.isPresent()) {
+            views.requireParticipant(existing.get(), actor);
+            return new IngestMatchAck(
+                    existing.get().id, existing.get().state, "already_" + existing.get().state);
         }
-        var entity=new MatchEntity(); entity.id=normalized.matchKey(); entity.platformId=normalized.platformId(); entity.gameId=normalized.gameId();
-        entity.state="pending"; entity.startedAt=normalized.startedAtUtc(); entity.createdAt=clock.instant();
-        entity.rawJson=json.writeValueAsString(input.rawMatch()); entity.normalizedJson=json.writeValueAsString(normalized);
-        for(var record:normalized.participants()) {
-            var member=members.findByPuuid(record.puuid()).orElseThrow(()->new ApiException(422,"UNREGISTERED_PARTICIPANT"));
-            var p=new MatchParticipantEntity(); p.id=UUID.randomUUID().toString(); p.match=entity; p.memberId=member.id;
-            p.puuid=record.puuid(); p.teamId=record.teamId(); p.championId=record.championId(); p.win=record.win(); entity.participants.add(p);
+
+        MatchEntity match = createPendingMatch(input, normalized);
+        views.requireParticipant(match, actor);
+        matches.save(match);
+        mutations.audit("match_ingested", actor.memberId(), match.id, "{}");
+
+        return new IngestMatchAck(match.id, match.state, "created_pending");
+    }
+
+    private MatchEntity createPendingMatch(IngestMatchInput input, NormalizedMatch normalized) {
+        MatchEntity match = new MatchEntity();
+        match.id = normalized.matchKey();
+        match.platformId = normalized.platformId();
+        match.gameId = normalized.gameId();
+        match.state = "pending";
+        match.startedAt = normalized.startedAtUtc();
+        match.createdAt = clock.instant();
+        match.rawJson = json.writeValueAsString(input.rawMatch());
+        match.normalizedJson = json.writeValueAsString(normalized);
+
+        for (ParticipantRecord record : normalized.participants()) {
+            match.participants.add(createParticipant(record, match));
         }
-        views.requireParticipant(entity,actor);
-        matches.save(entity);
-        mutations.audit("match_ingested",actor.memberId(),entity.id,"{}");
-        return new IngestMatchAck(entity.id,entity.state,"created_pending");
+
+        return match;
+    }
+
+    private MatchParticipantEntity createParticipant(ParticipantRecord record, MatchEntity match) {
+        MemberEntity member =
+                members.findByPuuid(record.puuid())
+                        .orElseThrow(() -> new ApiException(422, "UNREGISTERED_PARTICIPANT"));
+
+        MatchParticipantEntity participant = new MatchParticipantEntity();
+        participant.id = UUID.randomUUID().toString();
+        participant.match = match;
+        participant.memberId = member.id;
+        participant.puuid = record.puuid();
+        participant.teamId = record.teamId();
+        participant.championId = record.championId();
+        participant.win = record.win();
+
+        return participant;
     }
 }

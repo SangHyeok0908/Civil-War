@@ -34,6 +34,8 @@ export function roleReference(
       officialPuuid,
       queueId: 420,
       teamPosition: players[0].teamPosition,
+      durationSeconds: i.gameDuration,
+      earlyEnded: false,
     },
     playedAt: new Date(i.gameStartTimestamp).toISOString(),
     role: players[0].teamPosition,

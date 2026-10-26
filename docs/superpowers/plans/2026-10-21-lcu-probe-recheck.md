@@ -1,5 +1,7 @@
 # LCU probe Windows 재검증 준비 계획
 
+**2026-10-23 범위 변경:** C01/C02 새 경기 조회 시점 비교, C10 반영 시간·과거 조회 범위 측정, T15 실제 3–5경기 시범 운영은 사용자 결정으로 제외했다. 이 문서는 완료한 도구 수정의 이력이며 추가 Windows 수집 실행 지시가 아니다. 현재 남은 항목은 피해량 의미·점수 기준, Windows 설치·업데이트, 서버 외부 접속·백업·복원이다. [결정 D22](../decisions/2026-10-22-overnight-decisions.md#d22--2026-10-23-사용자-요청에-따른-검증-작업-제외).
+
 **현재 범위 정정:** 사용자 요청에 따라 친구 목록 조회와 1.0.2 Windows 친구 재검증을 제외한다. 솔로랭크 조회는 초기 포지션 참고용으로 유지한다. 아래 계획·완료 항목의 친구 관련 내용은 당시 작업 이력이며 현재 실행 지시가 아니다. 현재 절차와 판정은 [README](../../../tools/lcu-probe/README.md)와 [검증 보고서](../../validation/lcu-report.md)를 따른다.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
