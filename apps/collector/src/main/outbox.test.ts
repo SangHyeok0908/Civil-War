@@ -5,7 +5,11 @@ import { join } from "node:path";
 import { Outbox } from "./outbox";
 import { Uploader } from "./uploader";
 import { normalizeMatch } from "../../../../packages/lcu/src/normalize-match";
-import { ClientError } from "../../../../packages/contracts/src/index";
+import {
+  ClientError,
+  type CollectorMatch,
+  type Role,
+} from "../../../../packages/contracts/src/index";
 const raw = JSON.parse(
   readFileSync("fixtures/lcu/candidates/h2-20261021/G1.json", "utf8"),
 );
@@ -275,3 +279,54 @@ it("first local ingest preserves a previously fetched authoritative server recor
     match: { durationSeconds: match.durationSeconds },
   });
 });
+
+it.each([
+  ["pending", "pending", true],
+  ["pending", "registered", true],
+  ["pending", "canceled", true],
+  ["registered", "pending", false],
+  ["registered", "registered", true],
+  ["registered", "canceled", true],
+  ["canceled", "pending", false],
+  ["canceled", "registered", false],
+  ["canceled", "canceled", true],
+] as const)(
+  "saved %s accepts incoming %s: %s, including after restart",
+  (savedState, incomingState, accepted) => {
+    const b = db();
+    const saved: CollectorMatch = {
+      matchKey: key,
+      state: savedState,
+      match,
+      confirmedRoles:
+        savedState === "pending" ? null : (roles as Record<string, Role>),
+    };
+    b.saveMatch(actor, saved);
+    b.db
+      .prepare(
+        "UPDATE matches SET updated_at=1000 WHERE member_id=? AND match_key=?",
+      )
+      .run(actor.memberId, key);
+    const correctedRoles = {
+      ...roles,
+      [match.participants[0].puuid]: "JUNGLE",
+      [match.participants[1].puuid]: "TOP",
+    } as Record<string, Role>;
+    const incoming: CollectorMatch = {
+      ...saved,
+      state: incomingState,
+      confirmedRoles: incomingState === "pending" ? null : correctedRoles,
+    };
+    b.saveMatch(actor, incoming);
+    const updated = b.db
+      .prepare(
+        "SELECT updated_at FROM matches WHERE member_id=? AND match_key=?",
+      )
+      .get(actor.memberId, key) as { updated_at: number };
+    if (accepted) expect(updated.updated_at).toBeGreaterThan(1000);
+    else expect(updated.updated_at).toBe(1000);
+    const path = b.path;
+    b.close();
+    expect(db(path).matches(actor)[0]).toEqual(accepted ? incoming : saved);
+  },
+);

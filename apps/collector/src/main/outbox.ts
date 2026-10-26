@@ -92,9 +92,16 @@ export class Outbox {
     ).map((r) => JSON.parse(r.record));
   }
   saveMatch(actor: CollectorPrincipal, record: CollectorMatch) {
+    // Late server responses must not undo registration or cancellation.
     this.db
       .prepare(
-        "INSERT INTO matches VALUES (?,?,?,?,?) ON CONFLICT(member_id,match_key) DO UPDATE SET record=excluded.record,updated_at=excluded.updated_at",
+        `INSERT INTO matches VALUES (?,?,?,?,?)
+         ON CONFLICT(member_id,match_key) DO UPDATE
+         SET record=excluded.record,updated_at=excluded.updated_at
+         WHERE CASE json_extract(excluded.record,'$.state')
+           WHEN 'pending' THEN 0 WHEN 'registered' THEN 1 WHEN 'canceled' THEN 2 END
+         >= CASE json_extract(matches.record,'$.state')
+           WHEN 'pending' THEN 0 WHEN 'registered' THEN 1 WHEN 'canceled' THEN 2 END`,
       )
       .run(
         actor.memberId,

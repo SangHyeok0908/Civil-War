@@ -30,6 +30,26 @@ export const statFields = [
   "item5",
   "item6",
 ];
+// This fixed public H2 projection requires review when provenance text changes.
+const approvedMetadata = {
+  source:
+    "User-supplied Windows H2 capture, three custom games; G1 result screen checked in the existing report.",
+  sourceGamePatch: "16.20.824.8524",
+  capturePlatform: "win32",
+  captureNode: "v24.22.1",
+  captureDate: "2026-10-21",
+  publishedDate: "2026-10-22",
+};
+const approvedTransformations = {
+  gameId:
+    "Synthetic decimal strings, deliberately above JavaScript safe integer range. Not real match IDs.",
+  gameCreation:
+    "Synthetic UTC dates 2000-01-01 through 2000-01-03; not measured event times.",
+  "participantIdentities[].player":
+    "Only stable fixture-player-NN aliases retained; account IDs, Riot IDs and names omitted.",
+  otherFields:
+    "Only explicitly selected structure, patch, completion marker and measured numeric stats retained; no raw metadata, paths, screenshots or alias map.",
+};
 function requireValid(condition) {
   // Never echo a rejected value, key, path or source JSON.
   if (!condition) throw new Error("CANDIDATE_INVALID");
@@ -184,6 +204,11 @@ export async function auditCandidates(
       manifest.gate === "HOLD" &&
       manifest.productionReady === false,
   );
+  for (const [key, value] of Object.entries(approvedMetadata))
+    requireValid(manifest[key] === value);
+  exactKeys(manifest.transformations, Object.keys(approvedTransformations));
+  for (const [key, value] of Object.entries(approvedTransformations))
+    requireValid(manifest.transformations[key] === value);
   same([...manifest.statFields].sort(), [...statFields].sort());
   same(manifest.checks, { C01: "HOLD", C02: "HOLD", C07: "HOLD", C10: "HOLD" });
   requireValid(Array.isArray(manifest.files) && manifest.files.length === 3);
