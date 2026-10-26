@@ -201,13 +201,15 @@ PublicMatch에는 `matchKey`, `startedAtUtc`, `durationSeconds`, `mapId`, `patch
 | 관리자 메서드·경로 | 동작 |
 | --- | --- |
 | `GET /api/admin/scoring-versions` | 변경 불가능한 전체 규칙 버전, 생성 시각·ID의 오래된 순서 |
-| `POST /api/admin/scoring-versions` | 전체 ScoringRuleSet 생성. 고유한 새 ID 필요. desired 버전·revision·영속 작업을 함께 변경하고 생성 규칙 반환 |
+| `POST /api/admin/scoring-versions` | 전체 [NewScoringRuleSet](stage3.schema.json#/$defs/NewScoringRuleSet) 생성. 고유한 새 ID 필요. desired 버전·revision·영속 작업을 함께 변경하고 생성 규칙 반환 |
 | `GET /api/admin/recalculation/jobs` | 최신 100개 작업: id, sourceRevision, status, 생성·점유·완료 시각, 점유 시 scoringVersion, attempts, 정제한 errorCode |
 | `POST /api/admin/recalculation/retry` | 현재 최신 revision의 실패 작업만 pending으로 돌리고 감사 기록. `{status:"pending"}` 반환, 과거 실패는 이력 유지 |
 
 ScoringRuleSet의 필드·숫자 상수는 [현재 스키마](stage3.schema.json#/$defs/ScoringRuleSet)를 따른다. ID는 `[A-Za-z0-9_-]{1,100}`이고 중복이면 409 `CONFLICT`다. 서버는 다섯 역할의 7개 가중치가 빠짐없이 있고 유한한 0 이상 값인지, 역할별 합이 100인지, win이 5 이하인지 검사한다. `metricMix`는 모든 값이 0~1이고 세 쌍(damagePerMinute+damageShare, csPerMinute+goldPerMinute, supportParticipation+supportAssists)이 각각 1이어야 한다. 합 검사의 허용 오차는 `1e-8`이다. 지원하지 않는 규칙은 422 `INVALID_SCORING_RULES`다.
 
-현재 구현이 받아들이는 `algorithmVersion`은 `objective-provisional-v1`이며, normalization·cumulativePrior는 해당 구현의 고정값만 받는다([검증 코드](../../apps/server/src/main/java/cw/domain/ScoringRulesV1.java)). 운영자가 바꿀 수 있는 값은 가중치·metricMix이고 다른 알고리즘·정규화는 별도 구현이 필요하다. 이는 현재 지원 입력에 관한 설명이며 사용자 확정 지표의 새 계산 버전 구현 완료를 뜻하지 않는다. 선택된 의미는 [제품 명세](../spec.md), 최신 반영·재계산·검증 상태는 [현재 상태](../status.md)를 따른다.
+새 규칙 생성의 `algorithmVersion`은 `objective-position-v1`만 받는다. 이전 `objective-provisional-v1` 규칙은 과거 기록 조회·재현을 위해 유지하지만 신규 생성 요청은 `422 INVALID_SCORING_RULES`로 거절한다. normalization·cumulativePrior는 [검증 코드](../../apps/server/src/main/java/cw/domain/ScoringRulesV1.java)의 고정값만 받고, 운영자는 가중치·metricMix를 조정할 수 있다. 포지션별 원시 지표의 의미는 [제품 명세](../spec.md#항목-내부-지표)를 따른다.
+
+[V4 DB 이전](../../apps/server/src/main/resources/db/migrations/V4__confirmed_objective.sql)은 서버 시작 중 현재 선택된 임시 규칙을 새 ID로 복사한다. 새 ID는 `objective-position-v1-` 뒤에 이전 ID의 MD5 해시(문자열을 고정 길이로 바꾼 식별용 값)를 붙이며 보안 용도로 쓰지 않는다. 가중치·내부 비율·고정 상수는 유지하고, sourceRevision 증가·활성 세대 비우기·pending 작업 생성·이전 버전을 담은 감사 기록을 한 트랜잭션으로 처리한다. 이전 규칙·세대·두 원본 피해 필드는 수정하지 않는다. 빈 DB는 확정 기본 규칙으로 시작하며 이미 확정 규칙을 선택했다면 다시 이전하지 않는다. 계산 중 공개 응답은 아래의 기존 세대 정책을 따른다.
 
 `service_state(id=1,source_revision,desired_scoring_version,active_generation_id)`가 변경 번호의 기준이다. 계산에 영향을 주는 변경은 같은 트랜잭션에서 revision을 올리고 활성 세대 포인터를 비우며 `recalculation_jobs`에 영속 pending 작업을 만든다. 작업의 source_revision에는 고유 제약이 있고 메모리 큐만으로 처리하지 않는다. `MutationCoordinator.lock/changed/audit`는 호출자의 트랜잭션에 참여하며 변경은 상태 잠금부터 잡고, 실질 변경이 없으면 `changed`를 건너뛴다.
 

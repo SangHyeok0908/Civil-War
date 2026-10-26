@@ -14,7 +14,7 @@ export const metricName: Record<string, string> = {
   growth: "성장",
   combat: "교전",
   vision: "시야",
-  objective: "오브젝트",
+  objective: "목표물 공격",
   deaths: "사망 보정",
   win: "승패",
 };
@@ -138,12 +138,21 @@ export function RuleNote({ version }: { version?: string | null }) {
       </p>
       <p>
         받은 피해량과 KDA는 직접 가산하지 않습니다. 솔로랭크·초기 실력은 공개
-        점수에 포함되지 않습니다. 현재 오브젝트 기준은 잠정 기준으로, 탑은 포탑
-        피해량, 나머지 역할은 오브젝트 피해량을 사용합니다. Riot 공식 등급이
-        아닙니다.
+        점수에 포함되지 않습니다. Riot 공식 등급이 아닙니다.
       </p>
+      <ObjectiveRuleNote />
       {version && <RuleWeights version={version} />}
     </details>
+  );
+}
+
+export function ObjectiveRuleNote() {
+  return (
+    <p>
+      목표물 공격은 탑은 분당 포탑 피해, 정글·미드·원딜·서포터는 분당 목표물
+      피해로 평가합니다. 목표물 피해에는 포탑 피해가 포함되므로 두 피해량을
+      더하거나 섞지 않습니다. 두 원본 수치는 각각 보존합니다.
+    </p>
   );
 }
 

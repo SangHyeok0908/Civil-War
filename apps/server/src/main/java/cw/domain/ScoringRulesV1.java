@@ -11,8 +11,10 @@ import java.util.Map;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Complete immutable parameters of the provisional algorithm, never mutable global tuning. */
+/** Immutable parameters; legacy rules remain readable for historical evaluations. */
 public final class ScoringRulesV1 {
+    public static final String ALGORITHM_VERSION = "objective-position-v1";
+    public static final String LEGACY_ALGORITHM_VERSION = "objective-provisional-v1";
     public static final List<String> CATEGORIES =
             List.of("damage", "growth", "combat", "vision", "objective", "deaths", "win");
 
@@ -42,8 +44,8 @@ public final class ScoringRulesV1 {
         JsonMapper json = JsonMapper.builder().build();
 
         return new ScoringRuleSet(
-                "objective-provisional-v1",
-                "objective-provisional-v1",
+                ALGORITHM_VERSION,
+                ALGORITHM_VERSION,
                 Map.copyOf(byRole),
                 json.readTree(
                         "{\"damagePerMinute\":0.7,\"damageShare\":0.3,\"csPerMinute\":0.5,\"goldPerMinute\":0.5,\"supportParticipation\":0.7,\"supportAssists\":0.3}"),
@@ -64,7 +66,8 @@ public final class ScoringRulesV1 {
         if (r == null
                 || r.id() == null
                 || !r.id().matches("[A-Za-z0-9_-]{1,100}")
-                || !"objective-provisional-v1".equals(r.algorithmVersion())
+                || !(ALGORITHM_VERSION.equals(r.algorithmVersion())
+                        || LEGACY_ALGORITHM_VERSION.equals(r.algorithmVersion()))
                 || r.cumulativePrior() != 5
                 || r.weightsByRole() == null
                 || r.weightsByRole().size() != 5) {
@@ -134,6 +137,13 @@ public final class ScoringRulesV1 {
                     > 1e-8) {
                 invalid();
             }
+        }
+    }
+
+    public static void validateNewVersion(ScoringRuleSet r) {
+        validate(r);
+        if (!ALGORITHM_VERSION.equals(r.algorithmVersion())) {
+            invalid();
         }
     }
 

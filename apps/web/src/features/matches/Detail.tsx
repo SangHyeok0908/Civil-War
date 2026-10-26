@@ -113,7 +113,7 @@ function TeamReport({ teamId, match }: { teamId: 100 | 200; match: Match }) {
                 "CS",
                 "골드",
                 "시야",
-                "오브젝트 / 포탑",
+                "목표물 / 포탑",
                 "최종 아이템",
                 "활약",
               ].map((column) => (

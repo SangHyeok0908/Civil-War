@@ -136,7 +136,7 @@ public class EvaluationRepository {
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public ScoringRuleSet createRules(ScoringRuleSet rules) {
-        ScoringRulesV1.validate(rules);
+        ScoringRulesV1.validateNewVersion(rules);
 
         ServiceState state = mutations.lock();
 

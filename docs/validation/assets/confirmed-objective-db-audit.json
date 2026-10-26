@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-26",
+  "database": "cw_web_test",
+  "scope": "isolated synthetic browser test data",
+  "query": "WITH active AS (\n SELECT s.desired_scoring_version, g.result_json::jsonb AS result, v.rules_json::jsonb AS rules\n FROM service_state s JOIN evaluation_generations g ON g.id=s.active_generation_id\n JOIN scoring_versions v ON v.id=s.desired_scoring_version\n WHERE s.id=1 AND s.source_revision=g.source_revision AND s.desired_scoring_version=g.scoring_version\n), scores AS (SELECT jsonb_array_elements(result->'gameScores') AS score FROM active)\nSELECT jsonb_build_object(\n 'registeredMatches',(SELECT count(*) FROM matches WHERE state='registered'),\n 'scoredMatches',(SELECT count(DISTINCT score->>'matchKey') FROM scores),\n 'participantScores',(SELECT count(*) FROM scores),\n 'algorithm',(SELECT rules->>'algorithmVersion' FROM active),\n 'scoringVersion',(SELECT desired_scoring_version FROM active),\n 'mismatchedVersions',(SELECT count(*) FROM scores,active WHERE score->>'scoringVersion'<>desired_scoring_version),\n 'missingMatches',(SELECT count(*) FROM matches m WHERE m.state='registered' AND NOT EXISTS(SELECT 1 FROM scores WHERE score->>'matchKey'=m.id)),\n 'excludedMatchesScored',(SELECT count(*) FROM matches m WHERE m.state<>'registered' AND EXISTS(SELECT 1 FROM scores WHERE score->>'matchKey'=m.id))\n);",
+  "result": {
+    "algorithm": "objective-position-v1",
+    "scoredMatches": 12,
+    "missingMatches": 0,
+    "scoringVersion": "browser-v2",
+    "participantScores": 120,
+    "registeredMatches": 12,
+    "mismatchedVersions": 0,
+    "excludedMatchesScored": 0
+  }
+}
