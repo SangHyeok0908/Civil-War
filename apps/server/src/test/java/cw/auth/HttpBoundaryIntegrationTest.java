@@ -31,7 +31,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
     record Login(Cookie cookie, String csrf) {}
 
     Login login() throws Exception {
-        limiter.succeeded("127.0.0.1");
+        limiter.succeeded("collector", "127.0.0.1");
 
         CodeReply code = auth.issueCode("admin", null, "test");
         MockHttpServletResponse response =
@@ -53,7 +53,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void secretsNeverEnterApplicationLogs(CapturedOutput captured) throws Exception {
-        limiter.succeeded("127.0.0.1");
+        limiter.succeeded("collector", "127.0.0.1");
 
         String sentinel = "private-code-log-sentinel";
         MockHttpServletResponse response =
@@ -62,16 +62,12 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
                                         .contentType("application/json")
                                         .content(
                                                 json.writeValueAsString(
-                                                        Map.of(
-                                                                "code",
-                                                                sentinel,
-                                                                "currentPuuid",
-                                                                "private-account-sentinel"))))
+                                                        enrollmentBody(sentinel, 1))))
                         .andReturn()
                         .getResponse();
         assertThat(response.getStatus()).isEqualTo(401);
         assertThat(captured.getAll()).doesNotContain(sentinel, "private-account-sentinel");
-        limiter.succeeded("127.0.0.1");
+        limiter.succeeded("collector", "127.0.0.1");
     }
 
     @Test
@@ -163,7 +159,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void codeAttemptsLimitedAndSuccessfulLoginResets() throws Exception {
-        limiter.succeeded("127.0.0.1");
+        limiter.succeeded("collector", "127.0.0.1");
 
         try {
             for (int i = 0; i < 5; i++) {
@@ -172,7 +168,10 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
                                                 post("/api/collector/enroll")
                                                         .contentType("application/json")
                                                         .content(
-                                                                "{\"code\":\"invalid-private-code\",\"currentPuuid\":\"none\"}"))
+                                                                json.writeValueAsString(
+                                                                        enrollmentBody(
+                                                                                "invalid-private-code",
+                                                                                1))))
                                         .andReturn()
                                         .getResponse()
                                         .getStatus())
@@ -189,26 +188,23 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
             assertThat(blocked.getStatus()).isEqualTo(429);
             assertThat(blocked.getHeader("Retry-After")).isEqualTo("600");
             assertThat(blocked.getContentAsString()).doesNotContain("invalid-private-code");
-            limiter.succeeded("127.0.0.1");
+            limiter.succeeded("collector", "127.0.0.1");
 
-            CodeReply code = auth.issueCode("collector", "member-1", "test");
+            CodeReply code = collectorCode();
             assertThat(
                             mvc.perform(
                                             post("/api/collector/enroll")
                                                     .contentType("application/json")
                                                     .content(
                                                             json.writeValueAsString(
-                                                                    Map.of(
-                                                                            "code",
-                                                                            code.code(),
-                                                                            "currentPuuid",
-                                                                            actor(1).puuid()))))
+                                                                    enrollmentBody(
+                                                                            code.code(), 1))))
                                     .andReturn()
                                     .getResponse()
                                     .getStatus())
                     .isEqualTo(200);
         } finally {
-            limiter.succeeded("127.0.0.1");
+            limiter.succeeded("collector", "127.0.0.1");
         }
     }
 
@@ -276,7 +272,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void schemaVersionAndUnknownEnvelopeFieldsNeverCoerce() throws Exception {
-        CodeReply code = auth.issueCode("collector", "member-1", "test");
+        CodeReply code = collectorCode();
         String token = auth.enroll(code.code(), actor(1).puuid()).token();
 
         for (String version : List.of("1.2", "\"1\"")) {
@@ -303,7 +299,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void collectorHttpRoundTripKeepsLargeNumericGameId() throws Exception {
-        CodeReply code = auth.issueCode("collector", "member-1", "test");
+        CodeReply code = collectorCode();
         String token = auth.enroll(code.code(), actor(1).puuid()).token();
         ObjectNode r = raw();
         r.put("gameId", new BigInteger("9000000000000000000001"));

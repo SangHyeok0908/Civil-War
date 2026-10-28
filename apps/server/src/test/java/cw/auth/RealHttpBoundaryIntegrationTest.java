@@ -91,7 +91,7 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
     void encodedMatchKeyColonWorksForCollectorAndPublicRequests() throws Exception {
         ingest.ingestMatch(input(), actor(1));
 
-        CodeReply code = auth.issueCode("collector", "member-1", "test");
+        CodeReply code = collectorCode();
         String token = auth.enroll(code.code(), actor(1).puuid()).token();
         String encodedKey = KEY.replace(":", "%3A");
 

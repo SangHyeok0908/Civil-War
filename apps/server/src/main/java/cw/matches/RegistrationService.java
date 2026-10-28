@@ -1,5 +1,6 @@
 package cw.matches;
 
+import cw.auth.GroupCodeService;
 import cw.contracts.ApiException;
 import cw.contracts.MatchContracts.CollectorPrincipal;
 import cw.contracts.MatchContracts.ConfirmationInput;
@@ -15,16 +16,19 @@ public class RegistrationService {
     private final MatchInputValidator validator;
     private final MutationCoordinator mutations;
     private final MatchViews views;
+    private final GroupCodeService groups;
 
     public RegistrationService(
             MatchRepository matches,
             MatchInputValidator validator,
             MutationCoordinator mutations,
-            MatchViews views) {
+            MatchViews views,
+            GroupCodeService groups) {
         this.matches = matches;
         this.validator = validator;
         this.mutations = mutations;
         this.views = views;
+        this.groups = groups;
     }
 
     @Transactional
@@ -32,6 +36,7 @@ public class RegistrationService {
         MatchInputValidator.submission(input.clientSubmissionId());
 
         ServiceState state = mutations.lock();
+        groups.requireCurrentGeneration(actor);
         MatchEntity entity =
                 matches.findById(input.matchKey())
                         .orElseThrow(() -> new ApiException(404, "NOT_FOUND"));

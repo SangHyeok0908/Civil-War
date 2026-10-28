@@ -89,7 +89,7 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
     void onlyOwnerEdits() throws Exception {
         registered();
 
-        CodeReply code = auth.issueCode("collector", "member-1", "test");
+        CodeReply code = collectorCode();
         String token = auth.enroll(code.code(), actor(1).puuid()).token();
         assertThat(
                         mvc.perform(

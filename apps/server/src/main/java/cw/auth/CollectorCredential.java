@@ -13,4 +13,5 @@ public class CollectorCredential {
     public String memberId;
     public Instant createdAt;
     public boolean revoked;
+    public long codeGeneration;
 }

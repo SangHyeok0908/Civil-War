@@ -24,7 +24,9 @@ public class AdminReadController {
     @GetMapping("/api/admin/codes")
     public Object codes() {
         return em
-                .createQuery("from EnrollmentCode order by expiresAt desc", EnrollmentCode.class)
+                .createQuery(
+                        "from EnrollmentCode where scope='admin' order by expiresAt desc",
+                        EnrollmentCode.class)
                 .setMaxResults(100)
                 .getResultList()
                 .stream()

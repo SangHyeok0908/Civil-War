@@ -57,7 +57,12 @@ public final class MatchContracts {
             NormalizedMatch match,
             Map<String, Role> confirmedRoles) {}
 
-    public record CollectorPrincipal(String memberId, String credentialId, String puuid) {}
+    public record CollectorPrincipal(
+            String memberId, String credentialId, String puuid, long codeGeneration) {
+        public CollectorPrincipal(String memberId, String credentialId, String puuid) {
+            this(memberId, credentialId, puuid, 0);
+        }
+    }
 
     public record Issue(String path, String code) {}
 

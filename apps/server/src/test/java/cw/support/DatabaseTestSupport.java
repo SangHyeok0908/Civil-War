@@ -2,6 +2,8 @@ package cw.support;
 
 import cw.accounts.PlayerAccountEntity;
 import cw.accounts.PlayerAccountRepository;
+import cw.auth.AuthService.CodeReply;
+import cw.auth.GroupCodeService;
 import cw.contracts.MatchContracts.CollectorPrincipal;
 import cw.contracts.MatchContracts.ConfirmationInput;
 import cw.contracts.MatchContracts.IngestMatchInput;
@@ -36,6 +38,8 @@ import tools.jackson.databind.node.ObjectNode;
 @ActiveProfiles("test")
 public abstract class DatabaseTestSupport {
     @Autowired protected JdbcTemplate jdbc;
+    @Autowired protected GroupCodeService groups;
+    private String groupSecret;
     @Autowired protected JsonMapper json;
     @Autowired protected MemberRepository members;
     @Autowired protected PlayerAccountRepository accounts;
@@ -53,10 +57,13 @@ public abstract class DatabaseTestSupport {
         }
 
         jdbc.execute(
-                "TRUNCATE solo_rank_snapshots, account_identity_evidence, player_accounts, evaluation_generations, scoring_versions, audit_log, recalculation_jobs, match_participants, matches, collector_credentials, admin_sessions, enrollment_codes, members CASCADE");
+                "TRUNCATE auth_attempts, solo_rank_snapshots, account_identity_evidence, player_accounts, evaluation_generations, scoring_versions, audit_log, recalculation_jobs, match_participants, matches, collector_credentials, admin_sessions, enrollment_codes, members CASCADE");
         jdbc.update(
                 "update service_state set source_revision=0, desired_scoring_version=null, active_generation_id=null");
 
+        jdbc.update(
+                "update group_collector_code set secret_hash=null, generation=1, issued_at=null where id=1");
+        groupSecret = null;
         for (int i = 1; i <= 11; i++) {
             MemberEntity m = new MemberEntity();
             m.id = "member-" + i;
@@ -94,9 +101,39 @@ public abstract class DatabaseTestSupport {
         return new IngestMatchInput(raw(), "submission-1", 1);
     }
 
-    protected CollectorPrincipal actor(int i) {
+    protected CodeReply collectorCode() {
+        if (!groups.status().active()) {
+            groupSecret = groups.issue().code();
+            jdbc.update("delete from audit_log where action='group_code_replaced'");
+        }
+        return new CodeReply("group", groupSecret, "collector", null);
+    }
+
+    protected Map<String, Object> enrollmentBody(String code, int i) {
+        return Map.of(
+                "code",
+                code,
+                "protocolVersion",
+                2,
+                "currentAccount",
+                Map.of(
+                        "puuid",
+                        String.format("fixture-player-%02d", i),
+                        "riotId",
+                        "Player" + i + "#test",
+                        "source",
+                        "current_summoner",
+                        "observedAt",
+                        Instant.now().toString()));
+    }
+
+    protected synchronized CollectorPrincipal actor(int i) {
+        if (!groups.status().active()) collectorCode();
         return new CollectorPrincipal(
-                "member-" + i, "credential-" + i, String.format("fixture-player-%02d", i));
+                "member-" + i,
+                "credential-" + i,
+                String.format("fixture-player-%02d", i),
+                groups.status().generation());
     }
 
     protected Map<String, Role> roles(boolean reverse) {

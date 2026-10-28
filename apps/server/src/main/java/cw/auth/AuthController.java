@@ -2,6 +2,7 @@ package cw.auth;
 
 import cw.auth.AuthService.AdminPrincipal;
 import cw.auth.AuthService.EnrollmentReply;
+import cw.contracts.AccountContracts.IdentityObservation;
 import cw.contracts.ApiException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
@@ -30,7 +31,8 @@ public class AuthController {
 
     public record CodeInput(String code) {}
 
-    public record EnrollmentInput(String code, String currentPuuid) {}
+    public record EnrollmentInput(
+            String code, IdentityObservation currentAccount, Integer protocolVersion) {}
 
     public record IssueCodeInput(String scope, String memberId) {}
 
@@ -69,16 +71,16 @@ public class AuthController {
     @PostMapping("/api/collector/enroll")
     public AuthService.EnrollmentReply enroll(
             @RequestBody EnrollmentInput input, HttpServletRequest req) {
-        limiter.check(req.getRemoteAddr());
-
+        limiter.check("collector", req.getRemoteAddr());
         try {
-            EnrollmentReply reply = auth.enroll(input.code(), input.currentPuuid());
-            limiter.succeeded(req.getRemoteAddr());
-
+            if (input.protocolVersion() == null || input.protocolVersion() != 2)
+                throw new ApiException(426, "COLLECTOR_UPDATE_REQUIRED");
+            EnrollmentReply reply = auth.enroll(input.code(), input.currentAccount());
+            limiter.succeeded("collector", req.getRemoteAddr());
             return reply;
-        } catch (ApiException e) {
-            limiter.failed(req.getRemoteAddr());
-            throw e;
+        } catch (ApiException error) {
+            limiter.failed("collector", req.getRemoteAddr());
+            throw error;
         }
     }
 

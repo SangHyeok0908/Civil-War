@@ -42,18 +42,14 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
     }
 
     String enroll(int member) throws Exception {
-        CodeReply code = auth.issueCode("collector", "member-" + member, "test");
+        CodeReply code = collectorCode();
         MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/collector/enroll")
                                         .contentType("application/json")
                                         .content(
                                                 json.writeValueAsString(
-                                                        Map.of(
-                                                                "code",
-                                                                code.code(),
-                                                                "currentPuuid",
-                                                                actor(member).puuid()))))
+                                                        enrollmentBody(code.code(), member))))
                         .andReturn()
                         .getResponse();
         assertThat(response.getStatus()).isEqualTo(200);
@@ -62,11 +58,9 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
     }
 
     @Test
-    void oneUseAtomic() throws Exception {
-        CodeReply code = auth.issueCode("collector", "member-1", "test");
-        String body =
-                json.writeValueAsString(
-                        Map.of("code", code.code(), "currentPuuid", actor(1).puuid()));
+    void commonCodeSupportsConcurrentDevices() throws Exception {
+        CodeReply code = collectorCode();
+        String body = json.writeValueAsString(enrollmentBody(code.code(), 1));
         List<Integer> result =
                 concurrent(
                         () ->
@@ -85,9 +79,9 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                         .andReturn()
                                         .getResponse()
                                         .getStatus());
-        assertThat(result).containsExactlyInAnyOrder(200, 401);
+        assertThat(result).containsExactlyInAnyOrder(200, 200);
         assertThat(jdbc.queryForObject("select count(*) from collector_credentials", Integer.class))
-                .isEqualTo(1);
+                .isEqualTo(2);
     }
 
     @Test
@@ -122,7 +116,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
     @Test
     void ownerCanRevokeCredentialAndUnusedCodeOverHttp() throws Exception {
         String token = enroll(1);
-        CodeReply code = auth.issueCode("collector", "member-2", "test");
+        CodeReply code = collectorCode();
         Login login = login();
         String credential =
                 jdbc.queryForObject("select id from collector_credentials limit 1", String.class);
@@ -130,7 +124,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
         for (String path :
                 List.of(
                         "/api/admin/collector-credentials/" + credential,
-                        "/api/admin/codes/" + code.id())) {
+                        "/api/admin/collector-code")) {
             assertThat(
                             mvc.perform(
                                             delete(path)
@@ -157,11 +151,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                                 .contentType("application/json")
                                                 .content(
                                                         json.writeValueAsString(
-                                                                Map.of(
-                                                                        "code",
-                                                                        code.code(),
-                                                                        "currentPuuid",
-                                                                        actor(2).puuid()))))
+                                                                enrollmentBody(code.code(), 2))))
                                 .andReturn()
                                 .getResponse()
                                 .getStatus())
@@ -193,7 +183,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                 .getStatus())
                 .isEqualTo(403);
 
-        CodeReply code = auth.issueCode("collector", "member-1", "test");
+        CodeReply code = collectorCode();
         assertThat(
                         mvc.perform(
                                         post("/api/admin/session")
@@ -214,11 +204,8 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                                 .contentType("application/json")
                                                 .content(
                                                         json.writeValueAsString(
-                                                                Map.of(
-                                                                        "code",
-                                                                        adminCode.code(),
-                                                                        "currentPuuid",
-                                                                        actor(1).puuid()))))
+                                                                enrollmentBody(
+                                                                        adminCode.code(), 1))))
                                 .andReturn()
                                 .getResponse()
                                 .getStatus())
@@ -227,21 +214,18 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void expiredAndRevoked() throws Exception {
-        CodeReply code = auth.issueCode("collector", "member-1", "test");
+        CodeReply code = auth.issueCode("admin", null, "test");
         jdbc.update(
                 "update enrollment_codes set expires_at=now()-interval '1 second' where id=?",
                 code.id());
         assertThat(
                         mvc.perform(
-                                        post("/api/collector/enroll")
+                                        post("/api/admin/session")
+                                                .header("Origin", "http://localhost:8080")
                                                 .contentType("application/json")
                                                 .content(
                                                         json.writeValueAsString(
-                                                                Map.of(
-                                                                        "code",
-                                                                        code.code(),
-                                                                        "currentPuuid",
-                                                                        actor(1).puuid()))))
+                                                                Map.of("code", code.code()))))
                                 .andReturn()
                                 .getResponse()
                                 .getStatus())
@@ -370,31 +354,34 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
     }
 
     @Test
-    void accountMismatchDoesNotConsumeCode() throws Exception {
-        CodeReply code = auth.issueCode("collector", "member-1", "test");
-        MockHttpServletResponse response =
+    void unknownCollectorCannotJoinAndCodeRemainsUsable() throws Exception {
+        var code = collectorCode();
+        var body =
+                Map.of(
+                        "code",
+                        code.code(),
+                        "protocolVersion",
+                        2,
+                        "currentAccount",
+                        Map.of(
+                                "puuid",
+                                "unregistered-current-player",
+                                "riotId",
+                                "Unknown#test",
+                                "source",
+                                "current_summoner",
+                                "observedAt",
+                                java.time.Instant.now().toString()));
+        var response =
                 mvc.perform(
                                 post("/api/collector/enroll")
                                         .contentType("application/json")
-                                        .content(
-                                                json.writeValueAsString(
-                                                        Map.of(
-                                                                "code",
-                                                                code.code(),
-                                                                "currentPuuid",
-                                                                actor(2).puuid()))))
+                                        .content(json.writeValueAsString(body)))
                         .andReturn()
                         .getResponse();
         assertThat(response.getStatus()).isEqualTo(403);
-        assertThat(response.getContentAsString())
-                .contains("ACCOUNT_MISMATCH")
-                .doesNotContain(actor(1).puuid());
-        assertThat(
-                        jdbc.queryForObject(
-                                "select consumed from enrollment_codes where id=?",
-                                Boolean.class,
-                                code.id()))
-                .isFalse();
+        assertThat(response.getContentAsString()).contains("UNREGISTERED_COLLECTOR");
+        assertThat(auth.enroll(code.code(), actor(1).puuid()).token()).hasSize(43);
     }
 
     @Test

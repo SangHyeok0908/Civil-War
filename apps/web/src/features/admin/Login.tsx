@@ -37,6 +37,10 @@ export function Login() {
           운영자 등록 코드
           <input
             type="password"
+            inputMode="numeric"
+            pattern="[0-9]{6}"
+            minLength={6}
+            maxLength={6}
             autoComplete="off"
             value={code}
             required
@@ -47,7 +51,7 @@ export function Login() {
           {busy ? "인증 중…" : "운영자 인증"}
         </button>
         <p className="caption">
-          사용한 코드는 다시 사용할 수 없습니다. 수집자 코드는 운영자 권한을
+          사용한 코드는 다시 사용할 수 없습니다. 모임 코드는 운영자 권한을
           부여하지 않습니다.
         </p>
       </form>

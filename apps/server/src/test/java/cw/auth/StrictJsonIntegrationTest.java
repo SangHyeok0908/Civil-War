@@ -32,7 +32,7 @@ class StrictJsonIntegrationTest extends DatabaseTestSupport {
     record Login(Cookie cookie, String csrf) {}
 
     private String collectorToken() {
-        CodeReply code = auth.issueCode("collector", "member-1", "test");
+        CodeReply code = collectorCode();
         return auth.enroll(code.code(), actor(1).puuid()).token();
     }
 

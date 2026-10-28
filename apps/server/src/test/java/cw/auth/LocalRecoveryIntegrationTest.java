@@ -63,7 +63,7 @@ class LocalRecoveryIntegrationTest extends DatabaseTestSupport {
             assertThat(codes).hasSize(1);
 
             String fresh = codes.getFirst().substring("ADMIN_CODE=".length());
-            assertThat(fresh).matches("[A-Za-z0-9_-]{43}");
+            assertThat(fresh).matches("[0-9]{6}");
             assertThat(captured).doesNotContain("Tomcat started", session.token(), oldCode.code());
             assertThat(captured.split(Pattern.quote(fresh), -1)).hasSize(2);
             assertThatThrownBy(() -> auth.requireAdmin(session.token()))

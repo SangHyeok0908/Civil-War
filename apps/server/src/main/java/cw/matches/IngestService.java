@@ -1,6 +1,7 @@
 package cw.matches;
 
 import cw.accounts.AccountLinkService;
+import cw.auth.GroupCodeService;
 import cw.contracts.ApiException;
 import cw.contracts.MatchContracts.CollectorPrincipal;
 import cw.contracts.MatchContracts.IngestMatchAck;
@@ -25,6 +26,7 @@ public class IngestService {
     private final MemberRepository members;
     private final MutationCoordinator mutations;
     private final MatchViews views;
+    private final GroupCodeService groups;
     private final JsonMapper json;
     private final Clock clock;
     private final AccountLinkService accounts;
@@ -37,12 +39,14 @@ public class IngestService {
             MatchViews views,
             JsonMapper json,
             Clock clock,
-            AccountLinkService accounts) {
+            AccountLinkService accounts,
+            GroupCodeService groups) {
         this.validator = validator;
         this.matches = matches;
         this.members = members;
         this.mutations = mutations;
         this.views = views;
+        this.groups = groups;
         this.json = json;
         this.clock = clock;
         this.accounts = accounts;
@@ -52,6 +56,7 @@ public class IngestService {
     public IngestMatchAck ingestMatch(IngestMatchInput input, CollectorPrincipal actor) {
         NormalizedMatch normalized = validator.normalize(input);
         mutations.lock();
+        groups.requireCurrentGeneration(actor);
 
         Optional<MatchEntity> existing = matches.findById(normalized.matchKey());
 
