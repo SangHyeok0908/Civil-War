@@ -25,7 +25,7 @@
     "test:docs": "node --test scripts/docs.test.mjs",
     "package:collector": "node scripts/package-collector.mjs",
     "verify:collector-release": "node scripts/package-collector.mjs --verify",
-    "test:collector-release": "node --test scripts/collector-release.test.mjs scripts/nsis-integrity.test.mjs"
+    "test:collector-release": "node --test scripts/collector-release.test.mjs scripts/nsis-integrity.test.mjs scripts/repair-uninstaller.test.mjs"
   },
   "dependencies": {
     "react": "19.3.1",
