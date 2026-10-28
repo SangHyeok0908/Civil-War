@@ -626,3 +626,61 @@ it("failed membership verification leaves paused requests untouched after succes
   expect(x.box.listOutbox()[0].state).toBe("needs_attention");
   expect(x.api.ingest).not.toHaveBeenCalled();
 });
+
+it("a late revoked upload from the previous credential cannot revoke a new connection", async () => {
+  const x = setup();
+  await x.service.initialize();
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  x.api.ingest.mockImplementationOnce(async () => {
+    await gate;
+    throw new ClientError("AUTH_REVOKED", 401);
+  });
+  const query = x.service.queryPastMatches();
+  await vi.waitFor(() => expect(x.api.ingest).toHaveBeenCalledTimes(1));
+  x.api.enroll.mockResolvedValueOnce({ ...actor, credentialId: "fresh" });
+  const connecting = x.service.enroll("000007");
+  await vi.waitFor(async () =>
+    expect((await x.store.load()).credentialId).toBe("fresh"),
+  );
+  release();
+  await Promise.all([query, connecting]);
+  expect((await x.service.snapshot()).account.code).toBeNull();
+  await x.service.tick();
+  expect(x.box.listOutbox()[0].state).toBe("succeeded");
+});
+
+it.each(["members", "pending", "progress"] as const)(
+  "late %s failure from the previous credential cannot overwrite a new connection",
+  async (endpoint) => {
+    const x = setup();
+    await x.service.initialize();
+    await x.service.queryPastMatches();
+    if (endpoint === "progress")
+      await x.service.confirmRegistration(key, roles, true);
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    x.api[endpoint].mockImplementationOnce(async () => {
+      await gate;
+      throw new ClientError("AUTH_REVOKED", 401);
+    });
+    const before = x.api[endpoint].mock.calls.length;
+    const refreshing =
+      endpoint === "progress"
+        ? x.service.refreshProgress(true)
+        : x.service.refreshRemote();
+    await vi.waitFor(() =>
+      expect(x.api[endpoint].mock.calls.length).toBeGreaterThan(before),
+    );
+    x.api.enroll.mockResolvedValueOnce({ ...actor, credentialId: "fresh" });
+    await x.service.enroll("000007");
+    release();
+    await refreshing;
+    expect((await x.service.snapshot()).account.code).toBeNull();
+    expect((await x.service.snapshot()).serverError).not.toBe("AUTH_REVOKED");
+  },
+);

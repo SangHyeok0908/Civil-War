@@ -28,7 +28,7 @@ export class Uploader {
     private credential: () => Promise<Credential | null>,
     private now = Date.now,
     private random = Math.random,
-    private onRevoked: () => void = () => {},
+    private onRevoked: (actor: Credential) => void = () => {},
   ) {}
   drainOutbox(): Promise<void> {
     if (this.running) return this.running;
@@ -119,7 +119,7 @@ export class Uploader {
         } else {
           this.box.mark(item.id, "needs_attention", e.code);
           if (e.code === "AUTH_REVOKED") {
-            this.onRevoked();
+            this.onRevoked(actor);
             break;
           }
         }

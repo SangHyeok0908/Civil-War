@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | 사용자 확정 · 사용자 | 추가 요구와 자동 전송 안내 채택 후 구현 요청 | 기존 UX 작업에 이어 반영 |
 | 위임받은 선택 · 구현 담당자 | 기존 자료 경로·요청 ID·긴 공통 코드 호환 유지 | 별도 DB 구조 전환 없음 |
-| 조사 및 검증 · 구현 담당자 | 코드 검사 완료, 최종 배포·독립 검토 진행 중 | 아래 환경과 한계 확인 |
+| 조사 및 검증 · 구현 담당자 | 코드 검사 완료, 독립 검토 수정 완료, 최종 배포물 생성 중 | 아래 환경과 한계 확인 |
 
 ## 실행 환경과 결과
 
@@ -16,13 +16,13 @@ macOS arm64, 저장소의 고정 Node·Java 도구와 별도 PostgreSQL 프로�
 
 | 검사 환경·상황 | 확인 결과 | 실행 근거 |
 | --- | --- | --- |
-| TypeScript·SQLite 단위 검사 | 87개 사례 성공, 기존 요청/초안 보존·자동 재연결 포함 | [단위 로그](../../test-results/ux-followup/unit.log) |
-| Electron 앱·가상 롤/서버 | 18개 사례 성공. 코드 실패/재입력·팝업 닫기·페이지·직접 등록·재실행 확인 | [앱 로그](../../test-results/ux-followup/e2e.log) |
+| TypeScript·SQLite 단위 검사 | 91개 사례 성공, 기존 요청/초안 보존·자동 재연결 포함 | [단위 로그](../../test-results/ux-followup/unit.log) |
+| Electron 앱·가상 롤/서버 | 19개 사례 성공. 코드 실패/재입력·팝업 닫기·페이지·직접 등록·재실행 확인 | [앱 로그](../../test-results/ux-followup/e2e.log) |
 | Java·격리 PostgreSQL | 163개 사례, 실패 0·오류 0·건너뜀 0. Java 형식·실행 JAR 빌드 성공 | [서버 로그](../../test-results/ux-followup/server.log) |
 | 실제 로컬 Spring·브라우저 | 16개 사례 성공. 게스트 소급·기기 철회·응답 유실·계산 작업 복구 포함 | [웹 로그](../../test-results/ux-followup/web.log) |
 | 설치 전용 앱 빌드·설치 도구 회귀 | 12개 사례 성공. 운영 주소 고정·개발 설정 미포함·내부 CRC 검사 포함 | [배포 검사](../../test-results/ux-followup/release-green.log) |
 
-수는 실행한 시험 사례 수이며 실제 Windows 설치 횟수나 운영 경기 수가 아니다. 설치 실행 파일 생성과 최종 독립 검토는 이어서 기록한다. 자동 재개 검사는 [소유자·초안 보존 코드](../../apps/collector/src/main/history-sync.test.ts), 인증 검사는 [고정 로그인과 제거 경로](../../apps/server/src/test/java/cw/auth/AdminCodeFormatTest.java), [이전 공통 코드 호환](../../apps/server/src/test/java/cw/auth/GroupCodeIntegrationTest.java)에 있다. 실행 로그는 [이번 검사 폴더](../../test-results/ux-followup/)에서 구분한다.
+수는 실행한 시험 사례 수이며 실제 Windows 설치 횟수나 운영 경기 수가 아니다. 설치 실행 파일의 최종 소스 재생성은 이어서 기록한다. 자동 재개 검사는 [소유자·초안 보존 코드](../../apps/collector/src/main/history-sync.test.ts), 인증 검사는 [고정 로그인과 제거 경로](../../apps/server/src/test/java/cw/auth/AdminCodeFormatTest.java), [이전 공통 코드 호환](../../apps/server/src/test/java/cw/auth/GroupCodeIntegrationTest.java)에 있다. 실행 로그는 [이번 검사 폴더](../../test-results/ux-followup/)에서 구분한다.
 
 ## 화면 증거
 
@@ -38,3 +38,9 @@ macOS arm64, 저장소의 고정 Node·Java 도구와 별도 PostgreSQL 프로�
 참가자·경기·취소·원문·포지션·누적 집계의 저장 구조는 바꾸지 않는다. 로컬 요청 번호와 최초 소유자·제출 번호·초안도 보존하며 새 인증에는 서버의 최신 회원/계정 일치 확인 뒤 연결한다. 잘못된 역할·취소·다른 계정은 자동 전송하지 않는다. 이전 관리자 코드 DB 이력은 인증·조회 경로에서 제외하고 행 자체는 보존한다.
 
 새 설치판은 Windows x64용이며 코드 서명이 없다. 실제 Windows 설치 직후 실행·바탕화면 실행, 실제 운영 주소 접속과 운영 DB 적용은 이번 macOS 검사로 확인하지 않았다. 이전에 사용자 지시로 제외한 Windows 업데이트·인증 손상 실기는 새 필수 작업으로 추가하지 않는다.
+
+## 독립 검토와 수정
+
+별도 검토자는 첫 구현 커밋 `261bbf3`을 이전 UX 완료 커밋 `72fafce`와 비교해 중요한 오류 두 건을 지적했다. 이전 43자리 코드를 입력창이 막는 문제와, 예전 인증 요청의 늦은 실패가 새 인증 상태를 덮어쓰는 문제다. 전자는 Electron에서 입력이 여섯 글자로 잘리는 실패를, 후자는 업로드·회원·대기·계산 진행 네 경로의 지연 응답으로 실패를 재현했다. 입력 호환과 인증별 응답 반영을 수정한 뒤 단위 91개와 앱 19개 사례가 통과했다. 검토자가 제시한 추가 Critical·Minor는 없었으며 수정 후 별도의 재검토를 실행했다고 기록하지 않는다.
+
+고정 관리자 코드의 정책 위험, Windows 실기·운영 접속 미확인, 원래 권한의 롤 종료 중 저장 전송은 검토에서 구현 오류로 판단하지 않은 범위다. 사용자 선택과 기존 지원 동작을 유지하며 실제 Windows 실행을 자동 검사 성공으로 바꾸지 않는다. Electron 출력 경로는 다른 검사 로그를 정리하지 않도록 하위 폴더로 분리했다.

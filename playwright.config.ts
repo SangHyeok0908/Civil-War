@@ -5,5 +5,5 @@ export default defineConfig({
   timeout: 30000,
   reporter: "list",
   use: { trace: "retain-on-failure" },
-  outputDir: "test-results",
+  outputDir: "test-results/collector",
 });

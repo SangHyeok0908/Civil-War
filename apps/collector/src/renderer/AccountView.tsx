@@ -88,10 +88,10 @@ export function AccountView({
               모임 코드
               <input
                 type="password"
-                inputMode="numeric"
-                pattern="[0-9]{6}"
+                inputMode="text"
+                pattern="[0-9]{6}|[A-Za-z0-9_\-]{43}"
                 minLength={6}
-                maxLength={6}
+                maxLength={43}
                 autoComplete="off"
                 required
                 value={code}
@@ -114,7 +114,9 @@ export function AccountView({
               </button>
               <button
                 disabled={
-                  busy || !account.connected || !/^[0-9]{6}$/.test(code)
+                  busy ||
+                  !account.connected ||
+                  !/^(?:[0-9]{6}|[A-Za-z0-9_-]{43})$/.test(code)
                 }
               >
                 {busy ? "연결 중…" : "모임에 연결"}

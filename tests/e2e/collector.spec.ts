@@ -516,3 +516,23 @@ test("ease: revoked connection asks once and reconnects without a resume control
     page.getByRole("button", { name: "롤에서 경기 가져오기", exact: true }),
   ).toBeEnabled();
 });
+
+test("ease: an existing long group code reconnects without forcing other devices to rotate", async () => {
+  const page = await launch("connection");
+  const dialog = page.getByRole("dialog", { name: "모임에 연결" });
+  const legacy = "a".repeat(43);
+  await dialog.getByLabel("모임 코드", { exact: true }).fill(legacy);
+  await expect(dialog.getByLabel("모임 코드", { exact: true })).toHaveValue(
+    legacy,
+  );
+  await expect(
+    dialog.getByRole("button", { name: "모임에 연결", exact: true }),
+  ).toBeEnabled();
+  await dialog
+    .getByRole("button", { name: "모임에 연결", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  expect(
+    await app.evaluate(() => (globalThis as any).__collectorFixture.lastCode),
+  ).toBe(legacy);
+});

@@ -74,8 +74,9 @@ export class CollectorService {
           : null,
       Date.now,
       Math.random,
-      () => {
-        this.credentialError = "AUTH_REVOKED";
+      (failedActor) => {
+        if (this.credential?.credentialId === failedActor.credentialId)
+          this.credentialError = "AUTH_REVOKED";
       },
     );
   }
@@ -94,17 +95,20 @@ export class CollectorService {
     return this.snapshot();
   }
   async refreshRemote() {
-    if (this.credential) {
+    const actor = this.credential;
+    if (actor) {
       try {
         await this.refreshMembers();
         await this.loadPendingMatches();
       } catch (e) {
-        this.serverError = code(e);
-        if (
-          e instanceof ClientError &&
-          ["AUTH_REVOKED", "COLLECTOR_UPDATE_REQUIRED"].includes(e.code)
-        )
-          this.credentialError = e.code;
+        if (this.credential === actor) {
+          this.serverError = code(e);
+          if (
+            e instanceof ClientError &&
+            ["AUTH_REVOKED", "COLLECTOR_UPDATE_REQUIRED"].includes(e.code)
+          )
+            this.credentialError = e.code;
+        }
       }
       await this.resumeAutomatically();
       await this.uploader.drainOutbox();
@@ -165,15 +169,17 @@ export class CollectorService {
       if (!Array.isArray(members))
         throw new ClientError("INVALID_SERVER_RESPONSE");
       this.box.cache("members:" + actor.memberId, members);
-      this.serverError = null;
+      if (this.credential === actor) this.serverError = null;
       return members;
     } catch (e) {
-      this.serverError = code(e);
-      if (
-        e instanceof ClientError &&
-        ["AUTH_REVOKED", "COLLECTOR_UPDATE_REQUIRED"].includes(e.code)
-      )
-        this.credentialError = e.code;
+      if (this.credential === actor) {
+        this.serverError = code(e);
+        if (
+          e instanceof ClientError &&
+          ["AUTH_REVOKED", "COLLECTOR_UPDATE_REQUIRED"].includes(e.code)
+        )
+          this.credentialError = e.code;
+      }
       if (
         e instanceof ClientError &&
         e.status > 0 &&
@@ -275,6 +281,7 @@ export class CollectorService {
           this.credentialError = null;
         this.nextResumeAt = 0;
       } catch (e) {
+        if (this.credential !== actor) return;
         const failure = code(e);
         this.serverError = failure;
         if (
@@ -311,14 +318,16 @@ export class CollectorService {
           if (!(e instanceof ClientError && e.status === 404)) throw e;
         }
       }
-      this.serverError = null;
+      if (this.credential === actor) this.serverError = null;
     } catch (e) {
-      this.serverError = code(e);
-      if (
-        e instanceof ClientError &&
-        ["AUTH_REVOKED", "COLLECTOR_UPDATE_REQUIRED"].includes(e.code)
-      )
-        this.credentialError = e.code;
+      if (this.credential === actor) {
+        this.serverError = code(e);
+        if (
+          e instanceof ClientError &&
+          ["AUTH_REVOKED", "COLLECTOR_UPDATE_REQUIRED"].includes(e.code)
+        )
+          this.credentialError = e.code;
+      }
       if (
         e instanceof ClientError &&
         e.status > 0 &&
@@ -519,6 +528,7 @@ export class CollectorService {
           }
         }
       } catch (e) {
+        if (this.credential !== actor) return;
         this.nextProgressAt = Date.now() + 15000;
         for (const record of records) {
           const key = "progress:" + actor.memberId + ":" + record.matchKey;
