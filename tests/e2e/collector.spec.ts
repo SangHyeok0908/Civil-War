@@ -399,9 +399,15 @@ test("ease: three games per page and drafts survive page and filter changes", as
   const page = await launch("filters");
   await expect(page.locator("article.match")).toHaveCount(3);
   const pages = page.getByRole("navigation", { name: "경기 페이지" });
+  await expect(pages.locator('[aria-current="page"]')).toHaveText("1 페이지");
   await expect(
-    pages.getByRole("button", { name: "1페이지", exact: true }),
-  ).toHaveAttribute("aria-current", "page");
+    pages.getByRole("button", { name: "이전 페이지", exact: true }),
+  ).toBeDisabled();
+  const lastRecord = await page.locator("article.match").last().boundingBox();
+  const pagination = await pages.boundingBox();
+  expect(pagination!.y).toBeGreaterThanOrEqual(
+    lastRecord!.y + lastRecord!.height,
+  );
   await expect(page.locator("article.match > header").first()).toContainText(
     "2026. 1. 6.",
   );
@@ -410,7 +416,8 @@ test("ease: three games per page and drafts survive page and filter changes", as
     "KR:",
     "KR:",
   ]);
-  await pages.getByRole("button", { name: "2페이지", exact: true }).click();
+  await pages.getByRole("button", { name: "다음 페이지", exact: true }).click();
+  await expect(pages.locator('[aria-current="page"]')).toHaveText("2 페이지");
   const select = page
     .locator("article.match")
     .nth(1)
@@ -418,8 +425,8 @@ test("ease: three games per page and drafts survive page and filter changes", as
     .first();
   await select.selectOption("MIDDLE");
   await expect(select).toHaveValue("MIDDLE");
-  await pages.getByRole("button", { name: "1페이지", exact: true }).click();
-  await pages.getByRole("button", { name: "2페이지", exact: true }).click();
+  await pages.getByRole("button", { name: "이전 페이지", exact: true }).click();
+  await pages.getByRole("button", { name: "다음 페이지", exact: true }).click();
   await expect(
     page.locator("article.match").nth(1).getByRole("combobox").first(),
   ).toHaveValue("MIDDLE");
@@ -427,11 +434,37 @@ test("ease: three games per page and drafts survive page and filter changes", as
   await states.getByRole("button", { name: /확인 대기/ }).click();
   await expect(page.locator("article.match")).toHaveCount(1);
   await states.getByRole("button", { name: /전체/ }).click();
-  await expect(
-    pages.getByRole("button", { name: "1페이지", exact: true }),
-  ).toHaveAttribute("aria-current", "page");
+  await expect(pages.locator('[aria-current="page"]')).toHaveText("1 페이지");
   await page.screenshot({
     path: "test-results/collector-pagination.png",
+    fullPage: true,
+  });
+});
+
+test("light layout keeps blue left and red right without a trial label", async () => {
+  const page = await launch();
+  await page.setViewportSize({ width: 1000, height: 800 });
+  await expect(
+    page.getByText(/시험 버전|실기 검증 대기|provisional/),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "롤에서 경기 가져오기", exact: true })
+    .click();
+  for (const width of [1280, 1000, 800]) {
+    await page.setViewportSize({ width, height: 800 });
+    const teams = page.locator("article.match .teams > section");
+    const blue = await teams.nth(0).boundingBox();
+    const red = await teams.nth(1).boundingBox();
+    expect(blue!.x + blue!.width).toBeLessThanOrEqual(red!.x);
+    expect(Math.abs(blue!.y - red!.y)).toBeLessThan(2);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+  }
+  await page.screenshot({
+    path: "test-results/collector-light-800.png",
     fullPage: true,
   });
 });

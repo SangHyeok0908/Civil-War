@@ -57,7 +57,12 @@ export function MatchReview({
       {record.error && <p className="warning">{message(record.error)}</p>}
       <div className="teams">
         {([100, 200] as const).map((team) => (
-          <section key={team}>
+          <section
+            key={team}
+            tabIndex={0}
+            role="region"
+            aria-label={team === 100 ? "블루 팀 참가자" : "레드 팀 참가자"}
+          >
             <h3>
               {team === 100 ? "블루 팀" : "레드 팀"} ·{" "}
               {record.match.participants.find((p) => p.teamId === team)?.win

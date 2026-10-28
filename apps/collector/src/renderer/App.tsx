@@ -59,95 +59,107 @@ export function App() {
   if (!snapshot) return <main>수집기 시작 중…</main>;
   const a = snapshot.account;
   return (
-    <main>
-      <header className="title">
-        <div>
-          <small>CIVIL WAR · WINDOWS COLLECTOR</small>
-          <h1>내전 수집기</h1>
-          <p>내전한 경기를 등록해주세요</p>
+    <>
+      <header className="app-header">
+        <div className="app-header-inner">
+          <span className="brand-mark">CW</span>
+          <strong>Civil War</strong>
+          <span>수집기</span>
         </div>
-        <span className="provisional">실기 검증 대기 · provisional</span>
       </header>
-      <AccountView
-        account={a}
-        busy={busy}
-        enroll={(code) => run(() => window.collector.enroll(code))}
-        error={notice}
-      />
-      <div className="actions">
-        <button
-          disabled={
-            busy ||
-            !a.connected ||
-            !a.enrolled ||
-            [
-              "ACCOUNT_MISMATCH",
-              "AUTH_REVOKED",
-              "COLLECTOR_UPDATE_REQUIRED",
-            ].includes(a.code ?? "")
-          }
-          onClick={() =>
-            void run(async () => {
-              const r = await window.collector.queryPastMatches();
-              const codes = [
-                r.warningCode,
-                ...r.results.map((x) => x.code),
-              ].filter((code): code is string => !!code);
-              setNotice([...new Set(codes)].map(message).join(" / "));
-              return r.snapshot;
-            })
-          }
-        >
-          {busy ? "처리 중…" : "롤에서 경기 가져오기"}
-        </button>
-        <button
-          className="secondary"
-          disabled={busy || !a.enrolled}
-          onClick={() => void run(() => window.collector.loadPendingMatches())}
-        >
-          확인할 경기 불러오기
-        </button>
-      </div>
-      <p className="help">
-        「롤에서 경기 가져오기」는 현재 PC의 롤 기록을 조회하고, 「확인할 경기
-        불러오기」는 모임 서버에 저장된 경기를 확인합니다.
-      </p>
-      <p className="help">
-        조회는 임시 저장만 합니다. ‘내전 등록’을 누른 경기만 공개 전적에
-        반영됩니다.
-      </p>
-      {notice && (
-        <p role="alert" className="warning">
-          {notice}
+      <main id="collector-main">
+        <header className="title">
+          <div>
+            <p className="eyebrow">우리의 내전 기록</p>
+            <h1>내전 수집기</h1>
+            <p>내전한 경기를 등록해주세요</p>
+          </div>
+        </header>
+        <AccountView
+          account={a}
+          busy={busy}
+          enroll={(code) => run(() => window.collector.enroll(code))}
+          error={notice}
+        />
+        <div className="actions">
+          <button
+            disabled={
+              busy ||
+              !a.connected ||
+              !a.enrolled ||
+              [
+                "ACCOUNT_MISMATCH",
+                "AUTH_REVOKED",
+                "COLLECTOR_UPDATE_REQUIRED",
+              ].includes(a.code ?? "")
+            }
+            onClick={() =>
+              void run(async () => {
+                const r = await window.collector.queryPastMatches();
+                const codes = [
+                  r.warningCode,
+                  ...r.results.map((x) => x.code),
+                ].filter((code): code is string => !!code);
+                setNotice([...new Set(codes)].map(message).join(" / "));
+                return r.snapshot;
+              })
+            }
+          >
+            {busy ? "처리 중…" : "롤에서 경기 가져오기"}
+          </button>
+          <button
+            className="secondary"
+            disabled={busy || !a.enrolled}
+            onClick={() =>
+              void run(() => window.collector.loadPendingMatches())
+            }
+          >
+            확인할 경기 불러오기
+          </button>
+        </div>
+        <p className="help">
+          「롤에서 경기 가져오기」는 현재 PC의 롤 기록을 조회하고, 「확인할 경기
+          불러오기」는 모임 서버에 저장된 경기를 확인합니다.
         </p>
-      )}
-      {snapshot.serverError && snapshot.serverError !== a.code && (
-        <p className="warning">{message(snapshot.serverError)}</p>
-      )}
-      <OutboxView
-        matches={snapshot.matches}
-        selected={filter}
-        onSelect={(value) => {
-          setFilter(value);
-          setMoved("");
-        }}
-      />
-      {moved && <p role="status">{moved}</p>}
-      <MatchList
-        key={filter}
-        matches={selectMatches(snapshot.matches, filter)}
-        filter={filter}
-        busy={busy}
-        save={(key, roles) => {
-          void window.collector
-            .saveDraft(key, roles)
-            .then(setSnapshot)
-            .catch((e) => setNotice(message(e.message)));
-        }}
-        confirm={(key, roles) =>
-          void run(() => window.collector.confirmRegistration(key, roles, true))
-        }
-      />
-    </main>
+        <p className="help">
+          조회는 임시 저장만 합니다. ‘내전 등록’을 누른 경기만 공개 전적에
+          반영됩니다.
+        </p>
+        {notice && (
+          <p role="alert" className="warning">
+            {notice}
+          </p>
+        )}
+        {snapshot.serverError && snapshot.serverError !== a.code && (
+          <p className="warning">{message(snapshot.serverError)}</p>
+        )}
+        <OutboxView
+          matches={snapshot.matches}
+          selected={filter}
+          onSelect={(value) => {
+            setFilter(value);
+            setMoved("");
+          }}
+        />
+        {moved && <p role="status">{moved}</p>}
+        <MatchList
+          key={filter}
+          matches={selectMatches(snapshot.matches, filter)}
+          filter={filter}
+          busy={busy}
+          save={(key, roles) => {
+            void window.collector
+              .saveDraft(key, roles)
+              .then(setSnapshot)
+              .catch((e) => setNotice(message(e.message)));
+          }}
+          confirm={(key, roles) =>
+            void run(() =>
+              window.collector.confirmRegistration(key, roles, true),
+            )
+          }
+        />
+      </main>
+    </>
   );
 }
