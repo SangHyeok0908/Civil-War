@@ -266,6 +266,12 @@
       "role": "historical",
       "date": "2026-10-28",
       "current": "docs/status.md"
+    },
+    {
+      "path": "docs/validation/2026-10-28-ux-deployment-package-report.md",
+      "role": "historical",
+      "date": "2026-10-28",
+      "current": "docs/status.md"
     }
   ],
   "topics": [

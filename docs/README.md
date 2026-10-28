@@ -102,6 +102,7 @@
 - [docs/superpowers/decisions/2026-10-28-ux-requirements.md](superpowers/decisions/2026-10-28-ux-requirements.md) — 2026-10-28, 현재: [docs/spec.md](spec.md)
 - [docs/validation/2026-10-28-ux-planning-report.md](validation/2026-10-28-ux-planning-report.md) — 2026-10-28, 현재: [docs/status.md](status.md)
 - [docs/validation/2026-10-28-ux-implementation-report.md](validation/2026-10-28-ux-implementation-report.md) — 2026-10-28, 현재: [docs/status.md](status.md)
+- [docs/validation/2026-10-28-ux-deployment-package-report.md](validation/2026-10-28-ux-deployment-package-report.md) — 2026-10-28, 현재: [docs/status.md](status.md)
 
 ## 보존한 과거 기록 구간
 
