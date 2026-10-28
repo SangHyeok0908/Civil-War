@@ -33,12 +33,13 @@ class GroupCodeIntegrationTest extends DatabaseTestSupport {
                         return 7;
                     }
                 };
-        assertThat(new AdminCodeGenerator(fixed).generate()).isEqualTo("000007");
+        assertThat(new GroupCodeGenerator(fixed).generate()).isEqualTo("000007");
     }
 
     @Test
     void multipleDevicesUseSameGroupCodeAndKeepLongTokens() {
         GroupCodeService.IssuedGroupCode code = groups.issue();
+        assertThat(code.code()).matches("[0-9]{6}");
         AuthService.EnrollmentReply a = auth.enroll(code.code(), current(1));
         AuthService.EnrollmentReply b = auth.enroll(code.code(), current(2));
         assertThat(a.token()).hasSize(43).isNotEqualTo(b.token());
@@ -53,6 +54,7 @@ class GroupCodeIntegrationTest extends DatabaseTestSupport {
         AuthService.EnrollmentReply a = auth.enroll(old.code(), current(1));
         AuthService.EnrollmentReply b = auth.enroll(old.code(), current(2));
         GroupCodeService.IssuedGroupCode next = groups.rotate();
+        assertThat(next.code()).matches("[0-9]{6}").isNotEqualTo(old.code());
         assertThatThrownBy(() -> auth.requireCollector(a.token())).isInstanceOf(ApiException.class);
         assertThatThrownBy(() -> auth.requireCollector(b.token())).isInstanceOf(ApiException.class);
         assertThatThrownBy(() -> auth.enroll(old.code(), current(1)))
@@ -88,5 +90,23 @@ class GroupCodeIntegrationTest extends DatabaseTestSupport {
                 .isInstanceOf(ApiException.class)
                 .hasMessage("RATE_LIMITED");
         restarted.check("collector", "198.51.100.1");
+    }
+
+    @Test
+    void legacyLongGroupCodeAndExistingDeviceRemainValidUntilExplicitRotation() {
+        String legacy = "legacy-group-" + "x".repeat(30);
+        GroupCodeService.IssuedGroupCode issued = groups.issue();
+        AuthService.EnrollmentReply existing = auth.enroll(issued.code(), current(1));
+        jdbc.update(
+                "update group_collector_code set secret_hash=? where id=1",
+                AuthService.hash(legacy));
+        assertThat(auth.requireCollector(existing.token()).memberId()).isEqualTo("member-1");
+        assertThat(auth.enroll(legacy, current(2)).token()).hasSize(43);
+        assertThat(auth.login("2005").sessionId()).isNotBlank();
+        assertThat(auth.requireCollector(existing.token()).memberId()).isEqualTo("member-1");
+        groups.rotate();
+        assertThatThrownBy(() -> auth.requireCollector(existing.token()))
+                .isInstanceOf(ApiException.class);
+        assertThat(members.count()).isEqualTo(11);
     }
 }

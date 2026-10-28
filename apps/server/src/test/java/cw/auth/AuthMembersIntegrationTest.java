@@ -3,8 +3,8 @@ package cw.auth;
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 
-import cw.auth.AuthService.CodeReply;
 import cw.support.DatabaseTestSupport;
+import cw.support.DatabaseTestSupport.CodeReply;
 import jakarta.servlet.http.Cookie;
 import java.util.List;
 import java.util.Map;
@@ -23,15 +23,13 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
     record Login(Cookie cookie, String csrf) {}
 
     Login login() throws Exception {
-        CodeReply code = auth.issueCode("admin", null, "test");
+        String code = "2005";
         MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/admin/session")
                                         .header("Origin", "http://localhost:8080")
                                         .contentType("application/json")
-                                        .content(
-                                                json.writeValueAsString(
-                                                        Map.of("code", code.code()))))
+                                        .content(json.writeValueAsString(Map.of("code", code))))
                         .andReturn()
                         .getResponse();
         assertThat(response.getStatus()).isEqualTo(200);
@@ -131,9 +129,9 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
     }
 
     @Test
-    void adminCodeOneUseAtomic() throws Exception {
-        CodeReply code = auth.issueCode("admin", null, "test");
-        String body = json.writeValueAsString(Map.of("code", code.code()));
+    void fixedAdminCodeSupportsConcurrentSessions() throws Exception {
+        String code = "2005";
+        String body = json.writeValueAsString(Map.of("code", code));
         List<Integer> results =
                 concurrent(
                         () ->
@@ -154,9 +152,9 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                         .andReturn()
                                         .getResponse()
                                         .getStatus());
-        assertThat(results).containsExactlyInAnyOrder(200, 401);
+        assertThat(results).containsExactlyInAnyOrder(200, 200);
         assertThat(jdbc.queryForObject("select count(*) from admin_sessions", Integer.class))
-                .isEqualTo(1);
+                .isEqualTo(2);
     }
 
     @Test
@@ -247,7 +245,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                 .getStatus())
                 .isEqualTo(401);
 
-        CodeReply adminCode = auth.issueCode("admin", null, "test");
+        String adminCode = "2005";
         assertThat(
                         mvc.perform(
                                         post("/api/collector/enroll")
@@ -255,8 +253,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                                 .contentType("application/json")
                                                 .content(
                                                         json.writeValueAsString(
-                                                                enrollmentBody(
-                                                                        adminCode.code(), 1))))
+                                                                enrollmentBody(adminCode, 1))))
                                 .andReturn()
                                 .getResponse()
                                 .getStatus())
@@ -265,23 +262,6 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void expiredAndRevoked() throws Exception {
-        CodeReply code = auth.issueCode("admin", null, "test");
-        jdbc.update(
-                "update enrollment_codes set expires_at=now()-interval '1 second' where id=?",
-                code.id());
-        assertThat(
-                        mvc.perform(
-                                        post("/api/admin/session")
-                                                .header("Origin", "http://localhost:8080")
-                                                .contentType("application/json")
-                                                .content(
-                                                        json.writeValueAsString(
-                                                                Map.of("code", code.code()))))
-                                .andReturn()
-                                .getResponse()
-                                .getStatus())
-                .isEqualTo(401);
-
         String token = enroll(1);
         jdbc.update("update collector_credentials set revoked=true");
         assertThat(
@@ -308,10 +288,10 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
     @Test
     void csrfAndOrigin() throws Exception {
         Login login = login();
-        String body = "{\"scope\":\"admin\"}";
+        String body = "{}";
         assertThat(
                         mvc.perform(
-                                        post("/api/admin/codes")
+                                        post("/api/admin/collector-code")
                                                 .cookie(login.cookie())
                                                 .header("Origin", "http://evil.invalid")
                                                 .header("X-CSRF-Token", login.csrf())
@@ -323,7 +303,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                 .isEqualTo(403);
         assertThat(
                         mvc.perform(
-                                        post("/api/admin/codes")
+                                        post("/api/admin/collector-code")
                                                 .cookie(login.cookie())
                                                 .header("Origin", "http://localhost:8080")
                                                 .contentType("application/json")
@@ -334,7 +314,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                 .isEqualTo(403);
         assertThat(
                         mvc.perform(
-                                        post("/api/admin/codes")
+                                        post("/api/admin/collector-code")
                                                 .cookie(login.cookie())
                                                 .header("Origin", "http://localhost:8080")
                                                 .header("X-CSRF-Token", login.csrf())
@@ -347,10 +327,9 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
     }
 
     @Test
-    void localRecovery() throws Exception {
+    void revokedBrowserSessionDoesNotDisableFixedLogin() throws Exception {
         Login login = login();
-        CodeReply old = auth.issueCode("admin", null, "test");
-        auth.recoverAdmin(true);
+        jdbc.update("update admin_sessions set revoked=true");
         assertThat(
                         mvc.perform(get("/api/admin/members").cookie(login.cookie()))
                                 .andReturn()
@@ -362,18 +341,13 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                         post("/api/admin/session")
                                                 .header("Origin", "http://localhost:8080")
                                                 .contentType("application/json")
-                                                .content(
-                                                        json.writeValueAsString(
-                                                                Map.of("code", old.code()))))
+                                                .content("{\"code\":\"2005\"}"))
                                 .andReturn()
                                 .getResponse()
                                 .getStatus())
-                .isEqualTo(401);
-        assertThat(
-                        jdbc.queryForObject(
-                                "select count(*) from enrollment_codes where scope='admin' and not revoked and not consumed",
-                                Integer.class))
-                .isEqualTo(1);
+                .isEqualTo(200);
+        assertThat(jdbc.queryForObject("select count(*) from enrollment_codes", Integer.class))
+                .isZero();
     }
 
     @Test

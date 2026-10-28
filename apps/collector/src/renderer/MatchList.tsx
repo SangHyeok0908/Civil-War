@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { MatchView } from "../preload/collector-api";
 import type { Role } from "../../../../packages/contracts/src/index";
 import { MatchReview } from "./MatchReview";
@@ -14,10 +15,30 @@ export function MatchList({
   save: (key: string, roles: Record<string, Role | null>) => void;
   confirm: (key: string, roles: Record<string, Role>) => void;
 }) {
+  const [page, setPage] = useState(1);
+  const count = Math.max(1, Math.ceil(matches.length / 3));
+  const current = Math.min(page, count);
+  useEffect(() => setPage((previous) => Math.min(previous, count)), [count]);
+  const visible = matches.slice((current - 1) * 3, current * 3);
   return (
     <section aria-label="경기 목록">
+      {count > 1 && (
+        <nav aria-label="경기 페이지" className="pagination">
+          {Array.from({ length: count }, (_, i) => i + 1).map((number) => (
+            <button
+              key={number}
+              aria-label={`${number}페이지`}
+              aria-current={current === number ? "page" : undefined}
+              className="secondary"
+              onClick={() => setPage(number)}
+            >
+              {number}
+            </button>
+          ))}
+        </nav>
+      )}
       {matches.length ? (
-        matches.map((m) => (
+        visible.map((m) => (
           <MatchReview
             key={m.matchKey}
             record={m}

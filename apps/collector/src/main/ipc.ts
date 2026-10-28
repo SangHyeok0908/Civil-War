@@ -12,7 +12,6 @@ export type Command =
   | "query"
   | "pending"
   | "confirm"
-  | "resume"
   | "references"
   | "draft";
 export function validSender(
@@ -39,7 +38,6 @@ export function validateCommand(
       "query",
       "pending",
       "confirm",
-      "resume",
       "references",
       "draft",
     ].includes(command)

@@ -136,7 +136,7 @@ test("six members four guests promotion shared code rotation preserves queued re
       })
       .toBe(1);
     await page.screenshot({
-      path: "docs/validation/assets/2026-10-28-ux-member.png",
+      path: "docs/validation/assets/2026-10-28-ux-ease-member.png",
       fullPage: true,
     });
     const nextRaw = structuredClone(raw);

@@ -272,6 +272,18 @@
       "role": "historical",
       "date": "2026-10-28",
       "current": "docs/status.md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-28-collector-ease.md",
+      "role": "historical",
+      "date": "2026-10-28",
+      "current": "docs/spec.md"
+    },
+    {
+      "path": "docs/validation/2026-10-28-ux-followup-report.md",
+      "role": "historical",
+      "date": "2026-10-28",
+      "current": "docs/status.md"
     }
   ],
   "topics": [

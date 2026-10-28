@@ -30,6 +30,8 @@ export function fixtureService(box: Outbox, mode: string) {
   const control = {
     offline:
       mode === "offline" || mode === "history-stalled" || mode === "filters",
+    revoked: mode === "revoked",
+    lastCode: "",
     historyCalls: 0,
     confirmCalls: 0,
     sent: [] as string[],
@@ -90,6 +92,7 @@ export function fixtureService(box: Outbox, mode: string) {
   });
   const online = () => {
     if (control.offline) throw new ClientError("NETWORK_ERROR");
+    if (control.revoked) throw new ClientError("AUTH_REVOKED", 401);
   };
   const lcu = {
     getAccount: async () => {
@@ -137,7 +140,13 @@ export function fixtureService(box: Outbox, mode: string) {
         },
       })),
     observations: async () => {},
-    enroll: async () => actor,
+    enroll: async (code: string) => {
+      if (control.offline) throw new ClientError("NETWORK_ERROR");
+      control.lastCode = code;
+      control.revoked = false;
+      actor = { ...actor, credentialId: "reconnected" };
+      return actor;
+    },
     members: async () => {
       online();
       return mode === "unregistered"
@@ -177,7 +186,7 @@ export function fixtureService(box: Outbox, mode: string) {
     lcu,
     api,
     {
-      load: async () => actor,
+      load: async () => (mode === "connection" ? null : actor),
       save: async (c) => {
         actor = c;
       },

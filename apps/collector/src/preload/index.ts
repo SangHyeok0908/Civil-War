@@ -19,7 +19,6 @@ const api: CollectorApi = {
     invoke("draft", { matchKey, rolesByPuuid }),
   confirmRegistration: (matchKey, rolesByPuuid, inhouse) =>
     invoke("confirm", { matchKey, rolesByPuuid, inhouse }),
-  resumeOwnRequests: () => invoke("resume"),
   exportMemberReferences: (selection) => invoke("references", { selection }),
 };
 contextBridge.exposeInMainWorld("collector", Object.freeze(api));

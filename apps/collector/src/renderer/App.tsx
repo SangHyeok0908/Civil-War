@@ -48,8 +48,10 @@ export function App() {
     setNotice("");
     try {
       setSnapshot(await fn());
+      return true;
     } catch (e) {
       setNotice(message(e instanceof Error ? e.message : "LOCAL_ERROR"));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -62,15 +64,15 @@ export function App() {
         <div>
           <small>CIVIL WAR · WINDOWS COLLECTOR</small>
           <h1>내전 수집기</h1>
-          <p>조회한 경기를 확인하고 모임 내전으로 등록하세요.</p>
+          <p>내전한 경기를 등록해주세요</p>
         </div>
         <span className="provisional">실기 검증 대기 · provisional</span>
       </header>
       <AccountView
         account={a}
         busy={busy}
-        enroll={(code) => void run(() => window.collector.enroll(code))}
-        resume={() => void run(() => window.collector.resumeOwnRequests())}
+        enroll={(code) => run(() => window.collector.enroll(code))}
+        error={notice}
       />
       <div className="actions">
         <button
@@ -144,6 +146,7 @@ export function App() {
       />
       {moved && <p role="status">{moved}</p>}
       <MatchList
+        key={filter}
         matches={selectMatches(snapshot.matches, filter)}
         filter={filter}
         busy={busy}

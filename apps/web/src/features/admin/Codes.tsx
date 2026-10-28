@@ -40,25 +40,13 @@ export function Codes() {
   }
   return (
     <>
-      <h2>운영자 코드와 모임 코드</h2>
-      <section className="panel form-stack">
-        <h3>운영자 로그인 코드</h3>
-        <p>
-          6자리 숫자이며 30분 안에 한 번 사용할 수 있습니다. 새로 발급하면
-          사용하지 않은 이전 코드는 해제됩니다.
-        </p>
-        <button
-          onClick={() => change("/api/admin/codes", "POST", { scope: "admin" })}
-        >
-          운영자 코드 발급
-        </button>
-      </section>
+      <h2>모임 코드와 연결 관리</h2>
       <section className="panel form-stack">
         <h3>수집기 모임 코드</h3>
         <p>
-          등록된 참가자라면 같은 코드로 여러 수집기를 연결할 수 있습니다.
-          재발급하거나 삭제하면 모든 수집기가 해제되어 새 코드를 입력해야
-          합니다. 저장된 경기와 PC의 전송 대기 자료는 유지됩니다.
+          등록된 참가자라면 같은 6자리 숫자 코드로 여러 수집기를 연결할 수
+          있습니다. 재발급하거나 삭제하면 모든 수집기가 해제되어 새 코드를
+          입력해야 합니다. 저장된 경기와 PC의 전송 대기 자료는 유지됩니다.
         </p>
         {group.loading ? (
           <Loading />
@@ -101,7 +89,6 @@ export function Codes() {
       )}
       {error !== undefined && <ErrorBox error={error} />}
       <div key={refresh}>
-        <CredentialTable title="운영자 발급 코드" kind="codes" />
         <CredentialTable title="운영자 브라우저 인증" kind="sessions" />
         <CredentialTable
           title="수집자 기기 인증"

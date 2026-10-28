@@ -872,7 +872,8 @@
       "type": "object",
       "properties": {
         "code": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^[0-9]{4}$"
         }
       },
       "required": [
@@ -894,47 +895,6 @@
       "required": [
         "sessionId",
         "csrfToken"
-      ],
-      "additionalProperties": false
-    },
-    "IssueCodeInput": {
-      "type": "object",
-      "properties": {
-        "scope": {
-          "const": "admin"
-        },
-        "memberId": {
-          "type": "null"
-        }
-      },
-      "required": [
-        "scope"
-      ],
-      "additionalProperties": false
-    },
-    "CodeReply": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "code": {
-          "type": "string",
-          "pattern": "^[0-9]{6}$"
-        },
-        "scope": {
-          "const": "admin"
-        },
-        "expiresAt": {
-          "$ref": "#/$defs/Timestamp"
-        }
-      },
-      "required": [
-        "id",
-        "code",
-        "scope",
-        "expiresAt"
       ],
       "additionalProperties": false
     },
@@ -2006,7 +1966,7 @@
       "properties": {
         "code": {
           "type": "string",
-          "pattern": "^[A-Za-z0-9_-]{43}$"
+          "pattern": "^[0-9]{6}$"
         },
         "generation": {
           "type": "integer",

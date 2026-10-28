@@ -34,7 +34,7 @@ test("confirmedObjectiveRulesDescribePerMinuteMetrics", async ({
   await page.locator(".rule-note summary").click();
   await expect(page.locator(".rule-note caption")).toBeVisible();
   await page.locator(".rule-note").screenshot({
-    path: "docs/validation/assets/2026-10-28-ux-objective-rules.png",
+    path: "docs/validation/assets/2026-10-28-ux-ease-objective-rules.png",
   });
 });
 test("tenPlayerComparison and missingAssetFallback", async ({ page }) => {
@@ -52,7 +52,7 @@ test("tenPlayerComparison and missingAssetFallback", async ({ page }) => {
     page.getByTestId("player-row").first().getByText("사망 보정"),
   ).toBeVisible();
   await page.screenshot({
-    path: "docs/validation/assets/2026-10-28-ux-match-desktop.png",
+    path: "docs/validation/assets/2026-10-28-ux-ease-match-desktop.png",
     fullPage: true,
   });
 });
@@ -93,7 +93,7 @@ test("anonymousTeamChoices and keyboard selection", async ({ page }) => {
   await expect(page.locator(".candidate")).toHaveCount(3);
   await expect(page.locator(".team-seat")).toHaveCount(30);
   await page.screenshot({
-    path: "docs/validation/assets/2026-10-28-ux-teams.png",
+    path: "docs/validation/assets/2026-10-28-ux-ease-teams.png",
     fullPage: true,
   });
 });
@@ -134,7 +134,7 @@ test("mobileReadableTablesAndNavigation", async ({ page }) => {
       .evaluate((e) => e.scrollWidth > e.clientWidth),
   ).toBe(true);
   await page.screenshot({
-    path: "docs/validation/assets/2026-10-28-ux-mobile.png",
+    path: "docs/validation/assets/2026-10-28-ux-ease-mobile.png",
     fullPage: true,
   });
   await page.getByRole("link", { name: "팀 추천", exact: true }).click();

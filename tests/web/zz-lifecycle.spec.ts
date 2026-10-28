@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { state, sql, admin, origin } from "./helpers";
-test("activeWorkerCrash rollsBackPublication CLI neverClaims restartRecovers", async ({
+test("activeWorkerCrash rollsBackPublication nonWebStartup neverClaims restartRecovers", async ({
   page,
   request,
 }) => {
@@ -48,7 +48,7 @@ test("activeWorkerCrash rollsBackPublication CLI neverClaims restartRecovers", a
       "apps/server/build/libs/civil-war-server-0.1.0-provisional.jar",
       "--spring.profiles.active=dev",
       "--logging.level.root=WARN",
-      "admin:code",
+      "--spring.main.web-application-type=none",
     ],
     {
       env: {
@@ -62,7 +62,7 @@ test("activeWorkerCrash rollsBackPublication CLI neverClaims restartRecovers", a
       timeout: 30000,
     },
   );
-  expect(output).toContain("ADMIN_CODE=");
+  expect(output).not.toContain("ADMIN_CODE=");
   expect(
     sql(
       "select status from recalculation_jobs order by source_revision desc limit 1",

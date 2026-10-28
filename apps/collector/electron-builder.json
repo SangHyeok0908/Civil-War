@@ -28,7 +28,12 @@
   ],
   "npmRebuild": false,
   "win": {
-    "target": [{ "target": "nsis", "arch": ["x64"] }],
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
     "artifactName": "Civil-War-Collector-Setup-${version}-${arch}.${ext}",
     "executableName": "Civil War Collector",
     "signExecutable": false
@@ -39,8 +44,8 @@
     "allowElevation": false,
     "allowToChangeInstallationDirectory": false,
     "deleteAppDataOnUninstall": false,
-    "runAfterFinish": false,
-    "createDesktopShortcut": true,
+    "runAfterFinish": true,
+    "createDesktopShortcut": "always",
     "createStartMenuShortcut": true,
     "installerLanguages": ["ko_KR", "en_US"],
     "language": "1042"

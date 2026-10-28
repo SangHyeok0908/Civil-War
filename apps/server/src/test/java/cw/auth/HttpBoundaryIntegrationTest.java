@@ -3,8 +3,8 @@ package cw.auth;
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 
-import cw.auth.AuthService.CodeReply;
 import cw.support.DatabaseTestSupport;
+import cw.support.DatabaseTestSupport.CodeReply;
 import jakarta.servlet.http.Cookie;
 import java.math.BigInteger;
 import java.net.URI;
@@ -33,15 +33,13 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
     Login login() throws Exception {
         limiter.succeeded("collector", "127.0.0.1");
 
-        CodeReply code = auth.issueCode("admin", null, "test");
+        String code = "2005";
         MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/admin/session")
                                         .header("Origin", "http://localhost:8080")
                                         .contentType("application/json")
-                                        .content(
-                                                json.writeValueAsString(
-                                                        Map.of("code", code.code()))))
+                                        .content(json.writeValueAsString(Map.of("code", code))))
                         .andReturn()
                         .getResponse();
         assertThat(response.getStatus()).isEqualTo(200);
@@ -122,12 +120,12 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
         for (String value :
                 List.of(
                         "{}",
-                        "{\"scope\":null}",
-                        "{\"scope\":\"admin\",\"unexpected\":\"private-sentinel\"}",
-                        "{\"scope\":\"admin\",\"scope\":\"collector\"}")) {
+                        "{\"code\":null}",
+                        "{\"code\":\"2005\",\"unexpected\":\"private-sentinel\"}",
+                        "{\"code\":\"2005\",\"code\":\"collector\"}")) {
             MockHttpServletResponse response =
                     mvc.perform(
-                                    post("/api/admin/codes")
+                                    post("/api/admin/session")
                                             .cookie(login.cookie())
                                             .header("Origin", "http://localhost:8080")
                                             .header("X-CSRF-Token", login.csrf())

@@ -208,7 +208,7 @@ it("cached upload when LCU stopped, known account switch blocks ownership", asyn
   expect(x.api.ingest).toHaveBeenCalledTimes(2);
   expect(x.lcu.listPastMatches).toHaveBeenCalledTimes(1);
 });
-it("same member rotation requires explicit verified resume; other identity rejected", async () => {
+it("same member rotation automatically resumes after server verifies the account", async () => {
   const x = setup();
   await x.service.initialize();
   x.api.ingest.mockRejectedValueOnce(new ClientError("AUTH_REVOKED", 401));
@@ -216,9 +216,8 @@ it("same member rotation requires explicit verified resume; other identity rejec
   x.api.enroll.mockResolvedValueOnce({ ...actor, credentialId: "rotated" });
   await x.service.enroll("code");
   expect(x.box.listOutbox()[0].credentialId).toBe("c0");
-  expect(x.box.listOutbox()[0].state).toBe("needs_attention");
-  await x.service.resumeOwnRequests();
   expect(x.box.listOutbox()[0].state).toBe("succeeded");
+  expect(x.api.ingest).toHaveBeenCalledTimes(2);
 });
 it("duplicate query refreshes externally registered roles and later cancellation", async () => {
   const x = setup();
@@ -254,9 +253,8 @@ it("explicit saved confirmation works with LCU stopped but known mismatch remain
     displayName: "other",
   });
   await x.service.getAccount();
-  await expect(x.service.resumeOwnRequests()).rejects.toThrow(
-    "ACCOUNT_MISMATCH",
-  );
+  await x.service.tick();
+  expect((await x.service.snapshot()).account.code).toBe("ACCOUNT_MISMATCH");
 });
 it("local startup does not wait for an unresolved remote server", async () => {
   const x = setup();
@@ -545,4 +543,86 @@ it("server cancellation moves registered game and removes ready calculation labe
   const record = (await x.service.snapshot()).matches[0];
   expect(record.status).toBe("등록 취소");
   expect(record.evaluation).toBeUndefined();
+});
+
+it("restart tick automatically recovers same-owner paused jobs without changing submission IDs or drafts", async () => {
+  const x = setup();
+  await x.service.initialize();
+  await x.service.queryPastMatches();
+  await x.service.saveDraft(key, { [actor.puuid]: "TOP" });
+  const job = x.box.enqueueConfirmation(
+    key,
+    { rolesByPuuid: roles, clientSubmissionId: "saved-confirm" },
+    { ...actor, credentialId: "old-device" },
+  );
+  x.box.mark(job.id, "needs_attention", "CREDENTIAL_CHANGED");
+  const before = x.box.listOutbox();
+  await x.service.tick();
+  expect(x.box.listOutbox().map((j) => j.id)).toEqual(before.map((j) => j.id));
+  expect(
+    x.box.listOutbox().find((j) => j.id === job.id)?.payload.clientSubmissionId,
+  ).toBe("saved-confirm");
+  expect(x.box.listOutbox().find((j) => j.id === job.id)?.state).toBe(
+    "succeeded",
+  );
+  expect(x.api.confirm).toHaveBeenCalledTimes(1);
+  expect((await x.service.snapshot()).matches[0].manualRoles).toEqual({
+    [actor.puuid]: "TOP",
+  });
+});
+it("automatic recovery waits for the original account and then resumes on account return", async () => {
+  const x = setup();
+  await x.service.initialize();
+  const job = x.box.enqueueCollected(
+    { schemaVersion: 1, rawMatch: raw, clientSubmissionId: "original" },
+    actor,
+    match,
+  );
+  x.box.mark(job.id, "needs_attention", "ACCOUNT_MISMATCH");
+  x.lcu.getAccount.mockResolvedValue({
+    puuid: "other",
+    displayName: "다른 계정#KR1",
+  });
+  await x.service.tick();
+  expect(x.api.ingest).not.toHaveBeenCalled();
+  expect((await x.service.snapshot()).account.expectedDisplayName).toBe(
+    "회원0#KR1",
+  );
+  x.lcu.getAccount.mockResolvedValue({
+    puuid: actor.puuid,
+    displayName: "수집자",
+  });
+  await x.service.tick();
+  expect(x.box.listOutbox()[0].state).toBe("succeeded");
+});
+it("automatic recovery preserves permanent role errors and never confirms an unrequested match", async () => {
+  const x = setup();
+  await x.service.initialize();
+  const job = x.box.enqueueCollected(
+    { schemaVersion: 1, rawMatch: raw, clientSubmissionId: "invalid" },
+    actor,
+    match,
+  );
+  x.box.mark(job.id, "needs_attention", "INVALID_ROLES");
+  await x.service.tick();
+  await x.service.tick();
+  expect(x.box.listOutbox()[0].state).toBe("needs_attention");
+  expect(x.api.ingest).not.toHaveBeenCalled();
+  expect(x.api.confirm).not.toHaveBeenCalled();
+});
+it("failed membership verification leaves paused requests untouched after successful enrollment", async () => {
+  const x = setup();
+  await x.service.initialize();
+  const job = x.box.enqueueCollected(
+    { schemaVersion: 1, rawMatch: raw, clientSubmissionId: "saved" },
+    actor,
+    match,
+  );
+  x.box.mark(job.id, "needs_attention", "AUTH_REVOKED");
+  x.api.enroll.mockResolvedValueOnce({ ...actor, credentialId: "new" });
+  x.api.members.mockResolvedValue([]);
+  await x.service.enroll("000007");
+  await x.service.tick();
+  expect(x.box.listOutbox()[0].state).toBe("needs_attention");
+  expect(x.api.ingest).not.toHaveBeenCalled();
 });

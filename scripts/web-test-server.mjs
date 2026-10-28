@@ -59,23 +59,17 @@ const sql = (query, db = "cw_web_test") =>
   ).trim();
 if (!sql("select 1 from pg_database where datname='cw_web_test'", "postgres"))
   sql("CREATE DATABASE cw_web_test", "postgres");
-function code() {
-  const output = execFileSync(java, [...args, "admin:code"], {
-    env,
-    encoding: "utf8",
-    timeout: 30000,
-  });
-  const value = output.match(/ADMIN_CODE=([^\s]+)/)?.[1];
-  if (!value) throw Error("No fixture admin code");
-  return value;
-}
-code(); // Run real Flyway migration in the non-web command, then reset only this isolated fixture DB.
+execFileSync(java, [...args, "--spring.main.web-application-type=none"], {
+  env,
+  encoding: "utf8",
+  timeout: 30000,
+}); // Migrate only the dedicated fixture DB without a web listener or evaluation worker.
 if (sql("select current_database()") !== "cw_web_test")
   throw Error("Unsafe fixture database");
 sql(
   "TRUNCATE auth_attempts, solo_rank_snapshots, account_identity_evidence, player_accounts, role_reference_samples,member_reference_links,evaluation_generations,scoring_versions,audit_log,recalculation_jobs,match_participants,matches,collector_credentials,admin_sessions,enrollment_codes,members CASCADE; UPDATE service_state SET source_revision=0,desired_scoring_version=null,active_generation_id=null; UPDATE group_collector_code SET secret_hash=null,generation=1,issued_at=null",
 );
-const firstCode = code();
+const firstCode = "2005";
 let child;
 let log = createWriteStream("test-results/web-server.log", { flags: "a" });
 async function waitFor(check) {
@@ -242,8 +236,7 @@ for (let i = 0; i < 12; i++) {
 await waitFor(
   async () => (await fetch(origin + "/api/rankings")).status === 200,
 );
-const adminCode = (await call("/api/admin/codes", { scope: "admin" })).value
-  .code;
+const adminCode = "2005";
 const nextCollectorCode = collectorCode;
 writeFileSync(
   "test-results/web-state.json",

@@ -5,9 +5,9 @@ test("codeOnlyLogin csrf cookie restore and logout", async ({
   request,
 }) => {
   expect((await request.get("/api/admin/members")).status()).toBe(401);
-  const forged = await request.post("/api/admin/codes", {
+  const forged = await request.post("/api/admin/collector-code", {
     headers: { ...headers(), "X-CSRF-Token": "wrong" },
-    data: { scope: "admin" },
+    data: {},
   });
   expect(forged.status()).toBe(403);
   await login(page, request);
@@ -19,7 +19,7 @@ test("codeOnlyLogin csrf cookie restore and logout", async ({
   expect(cookie?.httpOnly).toBe(true);
   expect(cookie?.sameSite).toBe("Strict");
   await page.screenshot({
-    path: "docs/validation/assets/2026-10-28-ux-admin.png",
+    path: "docs/validation/assets/2026-10-28-ux-ease-admin.png",
     fullPage: true,
   });
   await page.getByRole("button", { name: "로그아웃" }).click();
@@ -102,7 +102,7 @@ test("referenceDoesNotOverwriteManual soloNeverEntersRanking explicitApply", asy
     .poll(async () => (await request.get("/api/rankings")).status())
     .toBe(200);
 });
-test("newBrowserCode and collectorDeviceRevocation", async ({
+test("fixedCodeNewBrowser and collectorDeviceRevocation", async ({
   page,
   request,
   browser,
@@ -148,18 +148,18 @@ test("newBrowserCode and collectorDeviceRevocation", async ({
       ).status(),
     )
     .toBe(401);
-  const newIssued = page.waitForResponse(
-    (r) =>
-      r.url().endsWith("/api/admin/codes") && r.request().method() === "POST",
-  );
-  await page
-    .getByRole("button", { name: "운영자 코드 발급", exact: true })
-    .click();
-  const next = await (await newIssued).json();
+  await expect(
+    page.getByRole("button", { name: "운영자 코드 발급", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "운영자 발급 코드", exact: true }),
+  ).toHaveCount(0);
+  const removed = await admin(request, "/sessions", undefined, "GET");
+  expect(removed.status()).toBe(200);
   const context = await browser.newContext();
   const newPage = await context.newPage();
   await newPage.goto("http://localhost:18080/admin");
-  await newPage.getByLabel("운영자 등록 코드").fill(next.code);
+  await newPage.getByLabel("운영자 로그인 코드").fill("2005");
   await newPage.getByRole("button", { name: "운영자 인증" }).click();
   await expect(
     newPage.getByRole("heading", { name: "운영 관리" }),

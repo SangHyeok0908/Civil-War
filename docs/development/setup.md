@@ -64,16 +64,9 @@ JAR(자바 실행 묶음)의 파일명에 넣을 버전은 서버 빌드 설정�
 
 ## 최초 관리자와 복구
 
-같은 DB 환경변수를 설정한 로컬 터미널에서:
+브라우저 `/admin`에서 고정 운영자 코드로 로그인한다. 값과 요청 형식의 원본은 [인증 서비스](../../apps/server/src/main/java/cw/auth/AuthService.java)와 [인증 계약](../contracts/api.md#인증과-권한)이다. 예전 `admin:code`·`--revoke-all` 발급 명령과 웹 발급 기능은 제거했다. 기존 브라우저 세션을 폐기해야 하면 인증된 관리자 화면에서 해당 세션을 개별 폐기한다.
 
-```sh
-java -jar apps/server/build/libs/civil-war-server-<빌드 버전>.jar admin:code
-java -jar apps/server/build/libs/civil-war-server-<빌드 버전>.jar admin:code --revoke-all
-```
-
-명령은 웹 서버를 열지 않고 종료한다. `ADMIN_CODE=`는 터미널에 한 번만 출력한다. 유효 기간·세션 규칙은 현재 계약을 따른다. `--revoke-all`은 기존 관리자 세션과 미소비 관리자 코드를 폐기한다. 수집기 인증은 별도 관리한다. 일반 로그로 출력하지 않으며 셸 리다이렉션/터미널 기록에 코드를 보관하지 않는다.
-
-브라우저 `/admin`에 관리자 코드를 입력한 뒤 Riot ID로 참가자를 추가하고 ‘코드·인증’에서 모임 코드를 발급한다. 수집기는 현재 롤 계정으로 모임에 연결한다. 수동 PUUID 입력은 받지 않는다. 요청·응답과 쿠키 갱신은 [현재 계약](../contracts/api.md)을 참고한다.
+로그인 뒤 Riot ID로 참가자를 추가하고 ‘코드·인증’에서 모임 공통 코드를 발급한다. 설치판의 사용자 실행은 [설치 안내](../runbooks/collector-install.md)를 따르며 위 개발용 환경 변수 설정을 요구하지 않는다.
 
 ## 웹과 전체 통합 검증
 

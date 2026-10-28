@@ -3,10 +3,10 @@ package cw.auth;
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 
-import cw.auth.AuthService.CodeReply;
 import cw.contracts.EvaluationContracts.GameScore;
 import cw.contracts.MatchContracts.NormalizedMatch;
 import cw.support.DatabaseTestSupport;
+import cw.support.DatabaseTestSupport.CodeReply;
 import jakarta.servlet.http.Cookie;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -37,15 +37,13 @@ class StrictJsonIntegrationTest extends DatabaseTestSupport {
     }
 
     private Login login() throws Exception {
-        CodeReply code = auth.issueCode("admin", null, "test");
+        String code = "2005";
         MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/admin/session")
                                         .header("Origin", "http://localhost:8080")
                                         .contentType("application/json")
-                                        .content(
-                                                json.writeValueAsString(
-                                                        Map.of("code", code.code()))))
+                                        .content(json.writeValueAsString(Map.of("code", code))))
                         .andReturn()
                         .getResponse();
         assertThat(response.getStatus()).isEqualTo(200);

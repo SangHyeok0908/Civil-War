@@ -35,6 +35,9 @@ export class CollectorService {
   private querying = false;
   private progressPoll: Promise<void> | null = null;
   private nextProgressAt = 0;
+  private nextResumeAt = 0;
+  private resuming: Promise<void> | null = null;
+  private ticking: Promise<void> | null = null;
   readonly uploader: Uploader;
   constructor(
     private lcu: Pick<
@@ -64,7 +67,9 @@ export class CollectorService {
       async () =>
         this.credential &&
         (!this.knownPuuid || this.knownPuuid === this.credential.puuid) &&
-        this.credentialError !== "AUTH_REVOKED"
+        !["AUTH_REVOKED", "COLLECTOR_UPDATE_REQUIRED"].includes(
+          this.credentialError ?? "",
+        )
           ? this.credential
           : null,
       Date.now,
@@ -101,6 +106,7 @@ export class CollectorService {
         )
           this.credentialError = e.code;
       }
+      await this.resumeAutomatically();
       await this.uploader.drainOutbox();
       await this.refreshProgress(true);
     }
@@ -125,6 +131,11 @@ export class CollectorService {
     return {
       connected: !!this.account,
       displayName: this.account?.displayName ?? null,
+      expectedDisplayName: this.credential
+        ? (this.box
+            .cached<Member[]>("members:" + this.credential.memberId)
+            ?.find((m) => m.id === this.credential!.memberId)?.riotId ?? null)
+        : null,
       enrolled: !!this.credential,
       code:
         this.credential &&
@@ -208,19 +219,77 @@ export class CollectorService {
     this.accountError = null;
     await this.refreshMembers();
     await this.loadPendingMatches();
-    return this.snapshot();
-  }
-  async resumeOwnRequests() {
-    await this.getAccount();
-    const actor = this.actor();
-    const members = await this.api.members(actor);
-    if (
-      !members.some((m) => m.id === actor.memberId && m.puuid === actor.puuid)
-    )
-      throw new ClientError("ACCOUNT_MISMATCH");
-    this.box.resumeVerified(actor);
+    await this.resumeAutomatically(true);
     await this.uploader.drainOutbox();
     return this.snapshot();
+  }
+  private async resumeAutomatically(force = false): Promise<void> {
+    if (this.resuming) return this.resuming;
+    if (
+      !this.credential ||
+      !this.account ||
+      this.account.puuid !== this.credential.puuid ||
+      ["AUTH_REVOKED", "COLLECTOR_UPDATE_REQUIRED"].includes(
+        this.credentialError ?? "",
+      )
+    )
+      return;
+    const actor = this.credential;
+    const recoverable = [
+      "AUTH_REVOKED",
+      "ACCOUNT_MISMATCH",
+      "CREDENTIAL_CHANGED",
+    ];
+    const paused = this.box
+      .listOutbox()
+      .some(
+        (item) =>
+          item.memberId === actor.memberId &&
+          item.puuid === actor.puuid &&
+          item.state !== "succeeded" &&
+          (item.credentialId !== actor.credentialId ||
+            recoverable.includes(item.error ?? "")),
+      );
+    if (!paused || (!force && Date.now() < this.nextResumeAt)) return;
+    this.nextResumeAt = Date.now() + 15000;
+    this.resuming = (async () => {
+      try {
+        const members = await this.api.members(actor);
+        if (
+          !members.some(
+            (m) => m.id === actor.memberId && m.puuid === actor.puuid,
+          )
+        )
+          throw new ClientError("ACCOUNT_MISMATCH");
+        // Recheck after the remote await: an account/code change must not release another owner's jobs.
+        if (
+          this.credential !== actor ||
+          !this.account ||
+          this.account.puuid !== actor.puuid
+        )
+          return;
+        this.box.cache("members:" + actor.memberId, members);
+        this.box.resumeVerified(actor);
+        this.serverError = null;
+        if (this.credentialError === "ACCOUNT_MISMATCH")
+          this.credentialError = null;
+        this.nextResumeAt = 0;
+      } catch (e) {
+        const failure = code(e);
+        this.serverError = failure;
+        if (
+          [
+            "AUTH_REVOKED",
+            "COLLECTOR_UPDATE_REQUIRED",
+            "ACCOUNT_MISMATCH",
+          ].includes(failure)
+        )
+          this.credentialError = failure;
+      }
+    })().finally(() => {
+      this.resuming = null;
+    });
+    return this.resuming;
   }
   async loadPendingMatches(): Promise<Snapshot> {
     const actor = this.actor();
@@ -400,10 +469,23 @@ export class CollectorService {
     await this.refreshProgress(true);
     return this.snapshot();
   }
-  async tick() {
-    await this.getAccount();
-    await this.uploader.drainOutbox();
-    await this.refreshProgress();
+  async tick(): Promise<void> {
+    if (this.ticking) return this.ticking;
+    this.ticking = (async () => {
+      await this.getAccount();
+      if (
+        this.credential &&
+        this.knownPuuid &&
+        this.credential.puuid !== this.knownPuuid
+      )
+        return;
+      await this.resumeAutomatically();
+      await this.uploader.drainOutbox();
+      await this.refreshProgress();
+    })().finally(() => {
+      this.ticking = null;
+    });
+    return this.ticking;
   }
   async refreshProgress(force = false): Promise<void> {
     if (this.progressPoll) return this.progressPoll;

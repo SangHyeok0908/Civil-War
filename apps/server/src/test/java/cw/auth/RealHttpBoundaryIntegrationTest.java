@@ -2,8 +2,8 @@ package cw.auth;
 
 import static org.assertj.core.api.Assertions.*;
 
-import cw.auth.AuthService.CodeReply;
 import cw.support.DatabaseTestSupport;
+import cw.support.DatabaseTestSupport.CodeReply;
 import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -145,7 +145,7 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void productionCookieHasHostProtection() throws Exception {
-        CodeReply code = auth.issueCode("admin", null, "test");
+        String code = "2005";
 
         try (HttpClient client = HttpClient.newHttpClient()) {
             HttpRequest req =
@@ -157,7 +157,7 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
                             .header("Content-Type", "application/json")
                             .POST(
                                     HttpRequest.BodyPublishers.ofString(
-                                            json.writeValueAsString(Map.of("code", code.code()))))
+                                            json.writeValueAsString(Map.of("code", code))))
                             .build();
             HttpResponse<String> response = client.send(req, HttpResponse.BodyHandlers.ofString());
             assertThat(response.statusCode()).isEqualTo(200);

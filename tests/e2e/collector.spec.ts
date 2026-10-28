@@ -54,15 +54,12 @@ test("buttonFetchesAndStages; noAutoRegistration; allRolesConfirmed 5+5", async 
     await selectors.nth(i).selectOption(roles[i % 5]);
   mkdirSync("docs/validation/assets", { recursive: true });
   await page.screenshot({
-    path: "docs/validation/assets/2026-10-28-ux-collector.png",
+    path: "docs/validation/assets/2026-10-28-ux-ease-collector.png",
     fullPage: true,
   });
   await expect(
     page.getByRole("button", { name: "내전 등록", exact: true }),
-  ).toBeDisabled();
-  await page
-    .getByLabel("모임 내전이며 양 팀의 실제 포지션을 확인했습니다")
-    .check();
+  ).toBeEnabled();
   await page.getByRole("button", { name: "내전 등록", exact: true }).click();
   await expect(
     page.getByText("등록 완료", { exact: true }).first(),
@@ -123,9 +120,6 @@ test("offlineThenResume preserves explicit confirmation through restart", async 
       .getByRole("combobox")
       .nth(i)
       .selectOption(["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"][i % 5]);
-  await page
-    .getByLabel("모임 내전이며 양 팀의 실제 포지션을 확인했습니다")
-    .check();
   await page.getByRole("button", { name: "내전 등록", exact: true }).click();
   await expect(
     page.getByText("등록 진행 중", { exact: true }).first(),
@@ -180,7 +174,7 @@ test("repeated history keeps an offline match visible with an incomplete-history
     ),
   ).toBe(0);
   await page.screenshot({
-    path: "docs/validation/assets/2026-10-28-ux-history-pagination.png",
+    path: "docs/validation/assets/2026-10-28-ux-ease-history.png",
     fullPage: true,
   });
 });
@@ -269,9 +263,6 @@ test("filters show only selected state and moved game notice", async () => {
       .getByRole("combobox")
       .nth(i)
       .selectOption(["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"][i % 5]);
-  await page
-    .getByLabel("모임 내전이며 양 팀의 실제 포지션을 확인했습니다")
-    .check();
   await page.getByRole("button", { name: "내전 등록", exact: true }).click();
   await expect(page.locator("article.match")).toHaveCount(0);
   await expect(
@@ -285,10 +276,12 @@ test("filters show only selected state and moved game notice", async () => {
 test("all seven filters have correct counts and time order", async () => {
   const page = await launch("filters");
   const nav = page.getByRole("navigation", { name: "경기 상태별 보기" });
-  await expect(page.locator("article.match")).toHaveCount(6);
-  expect(
-    await page.locator("article.match > header small").allTextContents(),
-  ).toEqual(["KR:815", "KR:814", "KR:813", "KR:812", "KR:811", "KR:810"]);
+  await expect(page.locator("article.match")).toHaveCount(3);
+  const dates = await page
+    .locator("article.match > header h2")
+    .allTextContents();
+  expect(dates[0]).toContain("2026. 1. 6.");
+  expect(dates[2]).toContain("2026. 1. 4.");
   for (const label of [
     "전송 대기",
     "확인 대기",
@@ -305,7 +298,7 @@ test("all seven filters have correct counts and time order", async () => {
     await expect(page.locator("article.match .badge")).toHaveText(label);
   }
   await nav.getByRole("button", { name: /전체/ }).click();
-  await expect(page.locator("article.match")).toHaveCount(6);
+  await expect(page.locator("article.match")).toHaveCount(3);
 });
 test("role hints guests and manual draft survive refresh and restart", async () => {
   const page = await launch("hints-guests");
@@ -346,9 +339,6 @@ test("observed server cancellation updates filter and never shows score ready", 
       .getByRole("combobox")
       .nth(i)
       .selectOption(["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"][i % 5]);
-  await page
-    .getByLabel("모임 내전이며 양 팀의 실제 포지션을 확인했습니다")
-    .check();
   await page.getByRole("button", { name: "내전 등록", exact: true }).click();
   await expect(page.locator("article.match .badge")).toHaveText("등록 완료");
   await expect(page.getByText("점수·랭킹 계산 대기 중")).toBeVisible();
@@ -368,4 +358,161 @@ test("observed server cancellation updates filter and never shows score ready", 
   await expect(nav.getByRole("button", { name: /등록 취소/ })).toContainText(
     "1",
   );
+});
+
+test("ease: registration click opens a position dialog without a checkbox", async () => {
+  test.setTimeout(10000);
+  const page = await launch();
+  await page
+    .getByRole("button", { name: "롤에서 경기 가져오기", exact: true })
+    .click();
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
+  const register = page.getByRole("button", { name: "내전 등록", exact: true });
+  await expect(register).toBeEnabled();
+  await register.click();
+  const dialog = page.getByRole("dialog", {
+    name: "실제 포지션을 확정해주세요",
+  });
+  await expect(dialog).toBeVisible();
+  expect(
+    await app.evaluate(
+      () => (globalThis as any).__collectorFixture.confirmCalls,
+    ),
+  ).toBe(0);
+  await dialog.getByRole("button", { name: "확인", exact: true }).click();
+  for (let i = 0; i < 10; i++)
+    await page.getByRole("combobox").nth(i).selectOption("TOP");
+  await register.click();
+  await expect(dialog).toContainText("중복");
+  await dialog.getByRole("button", { name: "확인", exact: true }).click();
+  for (let i = 0; i < 10; i++)
+    await page
+      .getByRole("combobox")
+      .nth(i)
+      .selectOption(["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"][i % 5]);
+  await register.click();
+  await expect(page.locator("article.match .badge")).toHaveText("등록 완료");
+});
+
+test("ease: three games per page and drafts survive page and filter changes", async () => {
+  test.setTimeout(10000);
+  const page = await launch("filters");
+  await expect(page.locator("article.match")).toHaveCount(3);
+  const pages = page.getByRole("navigation", { name: "경기 페이지" });
+  await expect(
+    pages.getByRole("button", { name: "1페이지", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
+  await expect(page.locator("article.match > header").first()).toContainText(
+    "2026. 1. 6.",
+  );
+  await expect(page.locator("article.match > header")).not.toContainText([
+    "KR:",
+    "KR:",
+    "KR:",
+  ]);
+  await pages.getByRole("button", { name: "2페이지", exact: true }).click();
+  const select = page
+    .locator("article.match")
+    .nth(1)
+    .getByRole("combobox")
+    .first();
+  await select.selectOption("MIDDLE");
+  await expect(select).toHaveValue("MIDDLE");
+  await pages.getByRole("button", { name: "1페이지", exact: true }).click();
+  await pages.getByRole("button", { name: "2페이지", exact: true }).click();
+  await expect(
+    page.locator("article.match").nth(1).getByRole("combobox").first(),
+  ).toHaveValue("MIDDLE");
+  const states = page.getByRole("navigation", { name: "경기 상태별 보기" });
+  await states.getByRole("button", { name: /확인 대기/ }).click();
+  await expect(page.locator("article.match")).toHaveCount(1);
+  await states.getByRole("button", { name: /전체/ }).click();
+  await expect(
+    pages.getByRole("button", { name: "1페이지", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
+  await page.screenshot({
+    path: "docs/validation/assets/2026-10-28-ux-ease-pagination.png",
+    fullPage: true,
+  });
+});
+
+test("ease: connection dialog closes on success and dismissal does not reopen on polling", async () => {
+  test.setTimeout(15000);
+  const page = await launch("connection");
+  const dialog = page.getByRole("dialog", { name: "모임에 연결" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "나중에", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await page.waitForTimeout(2400);
+  await expect(dialog).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "모임 코드 입력", exact: true })
+    .click();
+  await dialog.getByLabel("모임 코드", { exact: true }).fill("000007");
+  await page.screenshot({
+    path: "docs/validation/assets/2026-10-28-ux-ease-connection.png",
+    fullPage: true,
+  });
+  await dialog
+    .getByRole("button", { name: "모임에 연결", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText("모임에 연결됨", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "모임 코드 입력", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByText("수집자 계정", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("내전한 경기를 등록해주세요", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "멈춘 전송 이어 보내기", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("ease: failed connection keeps its dialog and leading zero code until recovery", async () => {
+  const page = await launch("connection");
+  const dialog = page.getByRole("dialog", { name: "모임에 연결" });
+  await expect(dialog).toBeVisible();
+  await app.evaluate(() => {
+    (globalThis as any).__collectorFixture.offline = true;
+  });
+  await dialog.getByLabel("모임 코드", { exact: true }).fill("000007");
+  await dialog
+    .getByRole("button", { name: "모임에 연결", exact: true })
+    .click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  await expect(dialog.getByLabel("모임 코드", { exact: true })).toHaveValue(
+    "000007",
+  );
+  await app.evaluate(() => {
+    (globalThis as any).__collectorFixture.offline = false;
+  });
+  await dialog
+    .getByRole("button", { name: "모임에 연결", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  expect(
+    await app.evaluate(() => (globalThis as any).__collectorFixture.lastCode),
+  ).toBe("000007");
+});
+
+test("ease: revoked connection asks once and reconnects without a resume control", async () => {
+  const page = await launch("revoked");
+  const dialog = page.getByRole("dialog", { name: "모임에 연결" });
+  await expect(dialog).toContainText("저장된 기록은 유지됩니다");
+  await dialog.getByRole("button", { name: "나중에", exact: true }).click();
+  await page.waitForTimeout(2400);
+  await expect(dialog).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "모임 코드 입력", exact: true })
+    .click();
+  await dialog.getByLabel("모임 코드", { exact: true }).fill("000007");
+  await dialog
+    .getByRole("button", { name: "모임에 연결", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "롤에서 경기 가져오기", exact: true }),
+  ).toBeEnabled();
 });

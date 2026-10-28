@@ -16,6 +16,7 @@ export type DisplayState = (typeof DISPLAY_STATES)[MatchCategory];
 export interface SafeAccount {
   connected: boolean;
   displayName: string | null;
+  expectedDisplayName?: string | null;
   enrolled: boolean;
   code: string | null;
 }
@@ -58,7 +59,6 @@ export interface CollectorApi {
     rolesByPuuid: Record<string, Role>,
     inhouse: boolean,
   ): Promise<Snapshot>;
-  resumeOwnRequests(): Promise<Snapshot>;
   exportMemberReferences(
     selection: string[],
   ): Promise<{ available: false; code: string; reason: string }>;

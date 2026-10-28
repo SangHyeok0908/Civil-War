@@ -68,7 +68,9 @@ if (!app.requestSingleInstanceLock()) {
                   "C:\\Riot Games\\League of Legends\\lockfile",
               ),
               new HttpServerApi(
-                process.env.CW_SERVER_ORIGIN ?? "http://127.0.0.1:8080",
+                __CW_COLLECTOR_RELEASE__
+                  ? "https://ensharp.cloud"
+                  : (process.env.CW_SERVER_ORIGIN ?? "http://127.0.0.1:8080"),
               ),
               new CredentialStore(join(data, "credential.bin"), safeStorage),
               box,
@@ -132,9 +134,7 @@ if (!app.requestSingleInstanceLock()) {
                         )
                       : c === "draft"
                         ? service.saveDraft(p.matchKey, p.rolesByPuuid)
-                        : c === "resume"
-                          ? service.resumeOwnRequests()
-                          : exportMemberReferences(p.selection));
+                        : exportMemberReferences(p.selection));
           return { ok: true, value };
         } catch (e) {
           return {

@@ -34,8 +34,6 @@ public class AuthController {
     public record EnrollmentInput(
             String code, IdentityObservation currentAccount, Integer protocolVersion) {}
 
-    public record IssueCodeInput(String scope, String memberId) {}
-
     @PostMapping("/api/admin/session")
     public ResponseEntity<?> login(@RequestBody CodeInput input, HttpServletRequest req) {
         limiter.attempt("admin", req.getRemoteAddr());
@@ -83,11 +81,6 @@ public class AuthController {
         }
     }
 
-    @PostMapping("/api/admin/codes")
-    public AuthService.CodeReply code(@RequestBody IssueCodeInput input) {
-        return auth.issueCode(input.scope(), input.memberId(), "owner");
-    }
-
     @GetMapping("/api/admin/sessions")
     public Object sessions() {
         return auth.sessions();
@@ -98,7 +91,7 @@ public class AuthController {
         return auth.credentials();
     }
 
-    @DeleteMapping("/api/admin/{kind:codes|sessions|collector-credentials}/{id}")
+    @DeleteMapping("/api/admin/{kind:sessions|collector-credentials}/{id}")
     public ResponseEntity<?> revoke(@PathVariable String kind, @PathVariable String id) {
         auth.revoke(kind, id);
         return ResponseEntity.noContent().build();

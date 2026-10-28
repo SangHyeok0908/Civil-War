@@ -2,7 +2,6 @@ package cw.support;
 
 import cw.accounts.PlayerAccountEntity;
 import cw.accounts.PlayerAccountRepository;
-import cw.auth.AuthService.CodeReply;
 import cw.auth.GroupCodeService;
 import cw.contracts.MatchContracts.CollectorPrincipal;
 import cw.contracts.MatchContracts.ConfirmationInput;
@@ -100,6 +99,8 @@ public abstract class DatabaseTestSupport {
     protected IngestMatchInput input() {
         return new IngestMatchInput(raw(), "submission-1", 1);
     }
+
+    public record CodeReply(String id, String code, String scope, Instant expiresAt) {}
 
     protected CodeReply collectorCode() {
         if (!groups.status().active()) {

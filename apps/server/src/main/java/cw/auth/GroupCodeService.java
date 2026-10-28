@@ -5,10 +5,8 @@ import cw.contracts.MatchContracts.CollectorPrincipal;
 import cw.db.MutationCoordinator;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Base64;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,11 +16,13 @@ public class GroupCodeService {
     @PersistenceContext private EntityManager em;
     private final MutationCoordinator mutations;
     private final Clock clock;
-    private final SecureRandom random = new SecureRandom();
+    private final GroupCodeGenerator generator;
 
-    public GroupCodeService(MutationCoordinator mutations, Clock clock) {
+    public GroupCodeService(
+            MutationCoordinator mutations, Clock clock, GroupCodeGenerator generator) {
         this.mutations = mutations;
         this.clock = clock;
+        this.generator = generator;
     }
 
     public record Status(boolean active, long generation, Instant issuedAt) {}
@@ -56,10 +56,18 @@ public class GroupCodeService {
     }
 
     private IssuedGroupCode replace() {
-        byte[] bytes = new byte[32];
-        random.nextBytes(bytes);
-        String secret = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         GroupCollectorCode code = current();
+        String secret = null;
+        for (int attempt = 0; attempt < 30; attempt++) {
+            String candidate = generator.generate();
+            if (code.secretHash == null || !AuthService.matchesHash(candidate, code.secretHash)) {
+                secret = candidate;
+                break;
+            }
+        }
+        if (secret == null) {
+            throw new ApiException(503, "CODE_GENERATION_FAILED");
+        }
         code.secretHash = AuthService.hash(secret);
         code.generation++;
         code.issuedAt = clock.instant();

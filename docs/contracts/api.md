@@ -48,7 +48,7 @@ HTTP(웹 요청·응답 규약)의 경로 표에서 `:id`, `:key`는 경로에 �
 
 Riot 비밀번호나 LCU 인증 토큰을 서버로 보내지 않는다. LCU에서 현재 계정을 찾았다는 사실은 서버 인증을 대신하지 않는다.
 
-관리자 입력 코드는 앞자리 0을 보존하는 임의 숫자 6자리이며 30분 동안 한 번 사용할 수 있다. 새 발급은 이전 미사용 관리자 코드를 해제한다. 모임 코드와 기기·브라우저 토큰은 기존 32바이트 난수의 43자 base64url 형식을 유지한다. 모임 코드는 재발급·삭제할 때까지 여러 기기에서 반복 사용한다. 서버에는 SHA-256(단방향 해시 함수)만 저장하며 평문 코드는 발급 응답에만 제공한다. 관리자 세션은 7일 미사용 또는 생성 후 30일에 만료한다. 짧은 관리자 코드는 DB 해시 유출 시 추측에 약하므로 DB 접근 보호와 코드 만료가 함께 필요하다.
+관리자는 서버에서 정한 고정 코드로 반복 로그인한다. 현재 값은 [인증 서비스](../../apps/server/src/main/java/cw/auth/AuthService.java)가 원본이며 이전 코드의 만료·단일 소비·발급 기능은 제거했다. 관리자 발급 코드 행과 감사 기록은 삭제하지 않지만 인증에 사용하지 않는다. 모임 코드의 새 발급값은 앞자리 0을 보존하는 임의 숫자 6자리다. 기존 긴 모임 코드와 기기 인증은 명시적으로 재발급·삭제하기 전까지 호환하며 새 코드는 이전 값과 달라야 한다. 기기·브라우저 토큰은 32바이트 난수의 43자 base64url 형식을 유지한다. 모임 비밀값은 해시만 저장하고 발급 응답에 한 번 제공한다. 관리자 세션은 7일 미사용 또는 생성 후 30일에 만료한다.
 
 | 메서드·경로 | 요청·권한 | 응답 |
 | --- | --- | --- |
@@ -56,9 +56,6 @@ Riot 비밀번호나 LCU 인증 토큰을 서버로 보내지 않는다. LCU에�
 | `GET /api/admin/session` | 관리자 쿠키 | 200 `{sessionId,csrfToken}`; 새로고침 후 CSRF 복구 |
 | `POST /api/admin/logout` | 관리자 쓰기 인증 | 204; 쿠키 제거·서버 세션 철회 |
 | `POST /api/collector/enroll` | `{code,currentAccount:IdentityObservation,protocolVersion:2}` | 200 `{token,memberId,credentialId,puuid,codeGeneration}` |
-| `POST /api/admin/codes` | 관리자 쓰기 인증. `{scope:"admin"}` | 200 `{id,code,scope,expiresAt}`; 평문 코드는 이때 한 번만 제공 |
-| `GET /api/admin/codes` | 관리자 쿠키 | 관리자 코드 최신 100개 `{id,scope,memberId,expiresAt,consumed,revoked}`; 평문·해시 제외 |
-| `DELETE /api/admin/codes/:id` | 관리자 쓰기 인증 | 204; 코드 철회 |
 | `GET /api/admin/sessions` | 관리자 쿠키 | `[{id,revoked,createdAt,lastSeenAt}]` |
 | `DELETE /api/admin/sessions/:id` | 관리자 쓰기 인증 | 204; 세션 철회 |
 | `GET /api/admin/collector-credentials` | 관리자 쿠키 | `[{id,memberId,revoked,createdAt}]` |
@@ -75,7 +72,7 @@ Riot 비밀번호나 LCU 인증 토큰을 서버로 보내지 않는다. LCU에�
 
 `POST /api/collector/accounts/observations`는 `{rawMatch,observations:IdentityObservation[]}`를 받는다. 자신의 적격 형식 경기 참가자에 해당하는 최대 10개의 `current_lookup` 관측만 받으며 현재 이름·계정 키의 충돌을 거절한다. LCU의 현재 PUUID 조회와 공식 Riot ID 조회는 별도 연결 근거다. LCU와 공식 PUUID를 서로 복사하지 않는다.
 
-모임 코드 세대 교체와 모든 기기 해제는 같은 저장 단위로 처리한다. 수집·등록은 상태 잠금을 잡은 뒤 세대를 다시 검사한다. 관리자 세션·경기 기록·PC 대기는 삭제하지 않는다. 기존 대기는 같은 참가자와 같은 계정으로 새 연결을 확인한 뒤 이어 보낼 수 있다.
+모임 코드 세대 교체와 모든 기기 해제는 같은 저장 단위로 처리한다. 수집·등록은 상태 잠금을 잡은 뒤 세대를 다시 검사한다. 관리자 세션·경기 기록·PC 대기는 삭제하지 않는다. 기존 대기는 같은 참가자·롤 계정과 서버의 최신 명단을 확인한 뒤 자동으로 이어 보낸다. 기존 발급 코드 관리 경로는 인증·요청 위조 검사 후 404를 반환한다.
 
 코드 시도는 인증 영역별로 분리한 영속 DB 제한을 사용한다. IP별 10분 5회, 관리자 전체 10분 50회를 동시 요청에도 적용하며 재시작 후 유지한다. 성공 시 해당 영역의 IP 제한을 초기화하고 관리자 성공만 관리자 전체 제한을 초기화한다. 공통 코드 사용은 관리자 실패를 지우지 않는다. 전달된 IP 헤더는 신뢰하지 않아 프록시 뒤 사용자가 한도를 공유할 수 있다.
 
@@ -234,7 +231,7 @@ ScoringRuleSet의 필드·숫자 상수는 [현재 스키마](stage3.schema.json
 
 작업자는 PostgreSQL의 세션 단위 협력 잠금 `731954801`을 점유 → 스냅샷 → 계산 → 게시 전체 동안 유지한다. 입력 스냅샷도 REPEATABLE READ로 읽고 실제 계산은 그 트랜잭션 밖에서 한다. 최종 게시 트랜잭션은 서비스 상태를 잠근 뒤 revision·desired 버전·running 상태·정확한 attempts(점유 시도 번호)를 확인한다. 일치할 때만 모든 gameScores·memberStats·roleSkills를 함께 저장하고 활성 포인터를 바꾼다. 오래된 입력은 게시하지 않고 stale로 처리한다.
 
-복구는 attempts를 올려 이전 작업자의 게시·실패 보고가 새 작업을 덮어쓰지 못하게 한다. 중단된 running 작업은 협력 잠금을 얻은 뒤 복구한다. 실패 작업은 웹 프로세스 재시작 또는 명시적인 retry로 재처리한다. `admin:code` 같은 비웹 프로세스는 스케줄러나 작업 복구를 시작하지 않는다. 상세 근거는 [작업 점유·실패 처리](../../apps/server/src/main/java/cw/evaluation/EvaluationRepository.java), [게시 검사](../../apps/server/src/main/java/cw/evaluation/GenerationPublisher.java)에 있다.
+복구는 attempts를 올려 이전 작업자의 게시·실패 보고가 새 작업을 덮어쓰지 못하게 한다. 중단된 running 작업은 협력 잠금을 얻은 뒤 복구한다. 실패 작업은 웹 프로세스 재시작 또는 명시적인 retry로 재처리한다. 웹 기능을 끈 유지보수 프로세스는 스케줄러나 작업 복구를 시작하지 않는다. 제거한 `admin:code` 명령은 서버·DB를 시작하기 전에 실패한다. 상세 근거는 [작업 점유·실패 처리](../../apps/server/src/main/java/cw/evaluation/EvaluationRepository.java), [게시 검사](../../apps/server/src/main/java/cw/evaluation/GenerationPublisher.java)에 있다.
 
 ## 공식 기록 참고 자료 가져오기
 

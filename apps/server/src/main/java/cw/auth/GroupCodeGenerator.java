@@ -6,15 +6,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class AdminCodeGenerator {
+public class GroupCodeGenerator {
     private final SecureRandom random;
 
     @Autowired
-    public AdminCodeGenerator() {
+    public GroupCodeGenerator() {
         this(new SecureRandom());
     }
 
-    AdminCodeGenerator(SecureRandom random) {
+    GroupCodeGenerator(SecureRandom random) {
         this.random = random;
     }
 
