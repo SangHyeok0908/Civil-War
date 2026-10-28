@@ -385,6 +385,32 @@
         "profileRevision": {
           "type": "integer",
           "minimum": 0
+        },
+        "teamSeed": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "rankStatus": {
+          "type": "string"
+        },
+        "rankTier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rankDivision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rankObservedAt": {
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "required": [
@@ -397,7 +423,12 @@
         "secondaryRole",
         "allowedRoles",
         "seedSkill",
-        "profileRevision"
+        "profileRevision",
+        "teamSeed",
+        "rankStatus",
+        "rankTier",
+        "rankDivision",
+        "rankObservedAt"
       ],
       "additionalProperties": false
     },

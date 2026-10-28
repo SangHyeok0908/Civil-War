@@ -21,7 +21,10 @@ public class RoleSkillCalculator {
                         new RoleSkill(
                                 m.id(),
                                 role,
-                                (5. * m.seedSkill()
+                                (5.
+                                                        * (m.teamSeed() == null
+                                                                ? RankSeedPolicy.neutral()
+                                                                : m.teamSeed())
                                                 + selected.stream()
                                                         .mapToDouble(GameScore::score)
                                                         .sum())

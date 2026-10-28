@@ -7,7 +7,7 @@ export function state(): {
   adminCode: string;
   cookie: string;
   csrf: string;
-  members: AdminMember[];
+  members: (AdminMember & { puuid: string })[];
   keys: string[];
   collectorCode: string;
 } {

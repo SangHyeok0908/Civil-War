@@ -8,6 +8,26 @@ import {
   ErrorBox,
   Empty,
 } from "../../components/Common";
+const tierNames: Record<string, string> = {
+  IRON: "아이언",
+  BRONZE: "브론즈",
+  SILVER: "실버",
+  GOLD: "골드",
+  PLATINUM: "플래티넘",
+  EMERALD: "에메랄드",
+  DIAMOND: "다이아몬드",
+  MASTER: "마스터",
+  GRANDMASTER: "그랜드마스터",
+  CHALLENGER: "챌린저",
+};
+function rankLabel(m: AdminMember) {
+  if (m.rankTier)
+    return `${tierNames[m.rankTier] ?? m.rankTier} ${m.rankDivision ?? ""}${m.rankStatus === "ranked" ? "" : " · 최근 조회값 사용"}`;
+  if (m.rankStatus === "unranked") return "솔로랭크 등급 없음";
+  if (m.rankStatus === "conflict" || m.rankStatus === "not_found")
+    return "Riot ID와 계정 연결 확인 필요";
+  return "솔로랭크 조회 대기 또는 연결 확인 필요";
+}
 const blank = {
   puuid: "",
   riotId: "",
@@ -62,6 +82,7 @@ export function MembersAdmin() {
                     {m.allowedRoles.map((r) => roleName[r]).join(" / ") ||
                       "포지션 미지정"}
                   </small>
+                  <small>{rankLabel(m)}</small>
                 </div>
                 <button
                   className="secondary"

@@ -1,0 +1,138 @@
+package cw.riot;
+
+import cw.accounts.PlayerAccountRepository;
+import cw.contracts.AccountContracts.RankSeedSnapshot;
+import cw.contracts.AccountContracts.SoloRankLookup;
+import cw.db.MutationCoordinator;
+import cw.domain.RankSeedPolicy;
+import cw.members.MemberRepository;
+import java.time.Clock;
+import java.util.Objects;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+@Service
+public class SoloRankService {
+    private final SoloRankRepository snapshots;
+    private final PlayerAccountRepository accounts;
+    private final MemberRepository members;
+    private final RiotGateway gateway;
+    private final MutationCoordinator mutations;
+    private final Clock clock;
+    private final TransactionTemplate tx;
+
+    public SoloRankService(
+            SoloRankRepository snapshots,
+            PlayerAccountRepository accounts,
+            MemberRepository members,
+            RiotGateway gateway,
+            MutationCoordinator mutations,
+            Clock clock,
+            PlatformTransactionManager manager) {
+        this.snapshots = snapshots;
+        this.accounts = accounts;
+        this.members = members;
+        this.gateway = gateway;
+        this.mutations = mutations;
+        this.clock = clock;
+        this.tx = new TransactionTemplate(manager);
+    }
+
+    public RankSeedSnapshot snapshot(String playerId) {
+        if (playerId == null) return empty();
+        return snapshots.findById(playerId).map(this::view).orElseGet(this::empty);
+    }
+
+    private RankSeedSnapshot empty() {
+        return new RankSeedSnapshot(RankSeedPolicy.neutral(), "unavailable", null, null, null);
+    }
+
+    private RankSeedSnapshot view(SoloRankSnapshot value) {
+        return new RankSeedSnapshot(
+                value.seedValue, value.status, value.tier, value.division, value.observedAt);
+    }
+
+    public RankSeedSnapshot refresh(String memberId) {
+        var member = members.findById(memberId).orElseThrow();
+        String playerId = member.accountId, riotId = member.riotId;
+        var official = gateway.resolveAccount(riotId);
+        SoloRankLookup result =
+                official != null && "verified".equals(official.status())
+                        ? gateway.getSoloRank(official.puuid())
+                        : new SoloRankLookup(
+                                official != null && "not_found".equals(official.status())
+                                        ? "not_found"
+                                        : "unavailable",
+                                null,
+                                null,
+                                0);
+        if (result == null) result = new SoloRankLookup("unavailable", null, null, 0);
+        SoloRankLookup lookup = result;
+        return tx.execute(
+                transaction -> {
+                    var state = mutations.lock();
+                    var current = members.findById(memberId).orElseThrow();
+                    if (!riotId.equals(current.riotId)
+                            || !Objects.equals(playerId, current.accountId))
+                        return snapshot(current.accountId);
+                    var account = accounts.findById(playerId).orElseThrow();
+                    SoloRankSnapshot saved =
+                            snapshots
+                                    .findById(playerId)
+                                    .orElseGet(
+                                            () -> {
+                                                var value = new SoloRankSnapshot();
+                                                value.playerId = playerId;
+                                                value.seedValue = RankSeedPolicy.neutral();
+                                                return value;
+                                            });
+                    double before = saved.seedValue;
+                    saved.attemptedAt = clock.instant();
+                    saved.status = lookup.status();
+                    if (official != null && "verified".equals(official.status())) {
+                        if (account.officialPuuid != null
+                                && !account.officialPuuid.equals(official.puuid()))
+                            saved.status = "conflict";
+                        else {
+                            account.officialPuuid = official.puuid();
+                            account.linkStatus =
+                                    account.lcuPuuid == null ? "official_linked" : "verified";
+                            accounts.save(account);
+                        }
+                    }
+                    if ("ranked".equals(saved.status) || "unranked".equals(saved.status)) {
+                        saved.seedValue =
+                                "ranked".equals(saved.status)
+                                        ? RankSeedPolicy.toSeed(lookup.tier(), lookup.division())
+                                        : RankSeedPolicy.neutral();
+                        saved.tier = lookup.tier();
+                        saved.division = lookup.division();
+                        saved.observedAt = clock.instant();
+                        saved.nextAttemptAt = clock.instant().plusSeconds(86400);
+                    } else
+                        saved.nextAttemptAt =
+                                clock.instant()
+                                        .plusMillis(Math.max(300000, lookup.retryAfterMillis()));
+                    snapshots.save(saved);
+                    if (Double.compare(before, saved.seedValue) != 0) {
+                        mutations.changed(state);
+                        mutations.audit("rank_seed_updated", "server", memberId, "{}");
+                    }
+                    return view(saved);
+                });
+    }
+
+    public void refreshNextDue() {
+        for (var member : members.findAll()) {
+            if (member.accountId == null) continue;
+            var snapshot = snapshots.findById(member.accountId).orElse(null);
+            if (snapshot == null
+                    || snapshot.nextAttemptAt == null
+                    || !snapshot.nextAttemptAt.isAfter(clock.instant())) {
+                refresh(member.id);
+                return;
+            }
+        }
+    }
+}

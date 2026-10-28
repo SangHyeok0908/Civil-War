@@ -8,6 +8,7 @@ import cw.contracts.MemberContracts.PublicMember;
 import cw.contracts.Role;
 import cw.db.MutationCoordinator;
 import cw.db.ServiceState;
+import cw.riot.SoloRankService;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -29,21 +30,25 @@ public class MemberService {
     private final JsonMapper json;
     private final AccountLinkService links;
     private final GuestPromotionService promotion;
+    private final SoloRankService ranks;
 
     public MemberService(
             MemberRepository members,
             MutationCoordinator mutations,
             JsonMapper json,
             AccountLinkService links,
-            GuestPromotionService promotion) {
+            GuestPromotionService promotion,
+            SoloRankService ranks) {
         this.members = members;
         this.mutations = mutations;
         this.json = json;
         this.links = links;
         this.promotion = promotion;
+        this.ranks = ranks;
     }
 
     public Member view(MemberEntity m) {
+        var rank = ranks.snapshot(m.accountId);
         return new Member(
                 m.id,
                 m.puuid,
@@ -54,7 +59,12 @@ public class MemberService {
                 m.secondaryRole,
                 roles(m.allowedRoles),
                 m.seedSkill,
-                m.profileRevision);
+                m.profileRevision,
+                rank.teamSeed(),
+                rank.status(),
+                rank.tier(),
+                rank.division(),
+                rank.observedAt());
     }
 
     public PublicMember publicView(MemberEntity m) {

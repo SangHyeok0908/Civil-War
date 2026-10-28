@@ -1,5 +1,6 @@
 package cw.contracts;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -18,7 +19,41 @@ public final class MemberContracts {
             Role secondaryRole,
             List<Role> allowedRoles,
             int seedSkill,
-            long profileRevision) {}
+            long profileRevision,
+            Double teamSeed,
+            String rankStatus,
+            String rankTier,
+            String rankDivision,
+            Instant rankObservedAt) {
+        public Member(
+                String id,
+                String puuid,
+                String riotId,
+                String displayName,
+                boolean active,
+                Role primaryRole,
+                Role secondaryRole,
+                List<Role> allowedRoles,
+                int seedSkill,
+                long profileRevision) {
+            this(
+                    id,
+                    puuid,
+                    riotId,
+                    displayName,
+                    active,
+                    primaryRole,
+                    secondaryRole,
+                    allowedRoles,
+                    seedSkill,
+                    profileRevision,
+                    null,
+                    "unavailable",
+                    null,
+                    null,
+                    null);
+        }
+    }
 
     public record PublicMember(
             String id,

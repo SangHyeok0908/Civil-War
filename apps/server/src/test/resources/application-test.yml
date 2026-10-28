@@ -10,6 +10,8 @@ spring:
   flyway:
     locations: classpath:db/migrations
 cw:
+  riot:
+    poll-enabled: false
   evaluation:
     enabled: false
   origin: http://localhost:8080

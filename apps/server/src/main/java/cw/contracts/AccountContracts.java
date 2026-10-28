@@ -8,6 +8,14 @@ public final class AccountContracts {
     public record IdentityObservation(
             String puuid, String riotId, String source, Instant observedAt) {}
 
+    public record AccountLookup(String status, String puuid, String riotId) {}
+
+    public record SoloRankLookup(
+            String status, String tier, String division, long retryAfterMillis) {}
+
+    public record RankSeedSnapshot(
+            double teamSeed, String status, String tier, String division, Instant observedAt) {}
+
     public static String riotId(String value) {
         if (value == null) throw new ApiException(422, "INVALID_RIOT_ID");
         String cleaned = value.strip();

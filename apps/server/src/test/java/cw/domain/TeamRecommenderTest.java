@@ -185,8 +185,13 @@ class TeamRecommenderTest {
                                 m.primaryRole(),
                                 null,
                                 List.of(m.primaryRole()),
-                                seeds[i],
-                                1));
+                                50,
+                                1,
+                                (double) seeds[i],
+                                "ranked",
+                                null,
+                                null,
+                                null));
             }
 
             TeamRecommendation result =

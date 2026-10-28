@@ -9,10 +9,15 @@ export interface PublicMember {
   allowedRoles: Role[];
 }
 export interface AdminMember extends PublicMember {
-  puuid: string;
+  puuid: string | null;
   riotId: string;
   seedSkill: number;
   profileRevision: number;
+  teamSeed: number;
+  rankStatus: string;
+  rankTier: string | null;
+  rankDivision: string | null;
+  rankObservedAt: string | null;
 }
 export interface PublicParticipant extends Omit<Participant, "puuid"> {
   playerId: string;
