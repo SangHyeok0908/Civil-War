@@ -8,7 +8,11 @@ public final class AccountContracts {
     public record IdentityObservation(
             String puuid, String riotId, String source, Instant observedAt) {}
 
-    public record AccountLookup(String status, String puuid, String riotId) {}
+    public record AccountLookup(String status, String puuid, String riotId, long retryAfterMillis) {
+        public AccountLookup(String status, String puuid, String riotId) {
+            this(status, puuid, riotId, 0);
+        }
+    }
 
     public record SoloRankLookup(
             String status, String tier, String division, long retryAfterMillis) {}

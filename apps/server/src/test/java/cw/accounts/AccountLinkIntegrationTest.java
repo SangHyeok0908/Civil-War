@@ -19,6 +19,36 @@ class AccountLinkIntegrationTest extends DatabaseTestSupport {
     }
 
     @Test
+    void cachedGuestAliasCannotClaimAnotherAccountsHistory() {
+        members.deleteById("member-7");
+        registered();
+        PlayerAccountEntity old = accounts.findById("member-7").orElseThrow();
+        old.updatedAt = java.time.Instant.now().minusSeconds(86400);
+        accounts.save(old);
+        cw.contracts.MemberContracts.Member newcomer =
+                profiles.create(json.readTree("{\"riotId\":\"Player7#test\"}"));
+        assertThat(newcomer.puuid()).isNull();
+        links.observe(observation("new-current-owner", "Player7#test", "current_lookup"));
+        assertThat(members.findById(newcomer.id()).orElseThrow().puuid)
+                .isEqualTo("new-current-owner");
+        assertThat(
+                        jdbc.queryForObject(
+                                "select member_id from match_participants where player_id='member-7'",
+                                String.class))
+                .isNull();
+    }
+
+    @Test
+    void editingCannotDuplicateAnotherMembersRiotId() {
+        assertThatThrownBy(
+                        () ->
+                                profiles.patch(
+                                        "member-1", json.readTree("{\"riotId\":\"player2#TEST\"}")))
+                .isInstanceOf(ApiException.class);
+        assertThat(members.findById("member-1").orElseThrow().riotId).isEqualTo("Player1#test");
+    }
+
+    @Test
     void riotIdAloneCreatesProfile() {
         cw.contracts.MemberContracts.Member created =
                 profiles.create(json.readTree("{\"riotId\":\"새친구#KR1\"}"));

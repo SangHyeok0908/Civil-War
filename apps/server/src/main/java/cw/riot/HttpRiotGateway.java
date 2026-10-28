@@ -21,6 +21,10 @@ public class HttpRiotGateway implements RiotGateway {
     private final String key;
     private final URI accountOrigin, platformOrigin;
     private final JsonMapper json;
+    private long retryNotBefore;
+
+    private record Response(int statusCode, String body, long retryAfterMillis) {}
+
     private final HttpClient client =
             HttpClient.newBuilder()
                     .connectTimeout(Duration.ofSeconds(3))
@@ -61,19 +65,47 @@ public class HttpRiotGateway implements RiotGateway {
         return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
-    private HttpResponse<String> get(URI origin, String path) {
+    private synchronized Response get(URI origin, String path) {
+        long now = System.currentTimeMillis();
+        if (retryNotBefore > now) {
+            return new Response(429, "", retryNotBefore - now);
+        }
         if (key.isBlank()) {
             return null;
         }
         try {
-            return client.send(
-                    HttpRequest.newBuilder(origin.resolve(path))
-                            .timeout(Duration.ofSeconds(5))
-                            .header("X-Riot-Token", key)
-                            .header("Accept", "application/json")
-                            .GET()
-                            .build(),
-                    HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response =
+                    client.send(
+                            HttpRequest.newBuilder(origin.resolve(path))
+                                    .timeout(Duration.ofSeconds(5))
+                                    .header("X-Riot-Token", key)
+                                    .header("Accept", "application/json")
+                                    .GET()
+                                    .build(),
+                            HttpResponse.BodyHandlers.ofString());
+            long retry = 0;
+            String header = response.headers().firstValue("Retry-After").orElse("0");
+            try {
+                retry = Math.multiplyExact(Long.parseLong(header), 1000);
+            } catch (RuntimeException ignored) {
+                try {
+                    retry =
+                            java.time.ZonedDateTime.parse(
+                                                    header,
+                                                    java.time.format.DateTimeFormatter
+                                                            .RFC_1123_DATE_TIME)
+                                            .toInstant()
+                                            .toEpochMilli()
+                                    - System.currentTimeMillis();
+                } catch (RuntimeException invalidDate) {
+                    retry = 0;
+                }
+            }
+            if (response.statusCode() == 429) {
+                retry = retry > 0 ? retry : cw.domain.RankSeedPolicy.failureBackoffMillis();
+                retryNotBefore = Math.addExact(System.currentTimeMillis(), retry);
+            }
+            return new Response(response.statusCode(), response.body(), Math.max(0, retry));
         } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
             return null;
@@ -86,7 +118,7 @@ public class HttpRiotGateway implements RiotGateway {
     public AccountLookup resolveAccount(String riotId) {
         String id = AccountContracts.riotId(riotId);
         int hash = id.lastIndexOf('#');
-        java.net.http.HttpResponse<String> response =
+        Response response =
                 get(
                         accountOrigin,
                         "/riot/account/v1/accounts/by-riot-id/"
@@ -97,7 +129,8 @@ public class HttpRiotGateway implements RiotGateway {
             return new AccountLookup("not_found", null, id);
         }
         if (response == null || response.statusCode() != 200) {
-            return new AccountLookup("unavailable", null, id);
+            return new AccountLookup(
+                    "unavailable", null, id, response == null ? 0 : response.retryAfterMillis());
         }
         try {
             JsonNode data = json.readTree(response.body());
@@ -121,24 +154,11 @@ public class HttpRiotGateway implements RiotGateway {
 
     @Override
     public SoloRankLookup getSoloRank(String officialPuuid) {
-        java.net.http.HttpResponse<String> response =
+        Response response =
                 get(platformOrigin, "/lol/league/v4/entries/by-puuid/" + encode(officialPuuid));
         if (response == null || response.statusCode() != 200) {
-            long retry = 0;
-            if (response != null) {
-                try {
-                    retry =
-                            Math.multiplyExact(
-                                    Long.parseLong(
-                                            response.headers()
-                                                    .firstValue("Retry-After")
-                                                    .orElse("0")),
-                                    1000);
-                } catch (RuntimeException ignored) {
-                    retry = 0;
-                }
-            }
-            return new SoloRankLookup("unavailable", null, null, Math.max(0, retry));
+            return new SoloRankLookup(
+                    "unavailable", null, null, response == null ? 0 : response.retryAfterMillis());
         }
         try {
             JsonNode values = json.readTree(response.body());

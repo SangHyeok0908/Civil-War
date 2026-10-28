@@ -123,10 +123,14 @@ export function fixtureService(box: Outbox, mode: string) {
     progress: async (keys: string[]) =>
       keys.map((matchKey) => ({
         matchKey,
-        registrationState: "registered" as const,
+        registrationState: control.state as
+          "pending" | "registered" | "canceled",
         registeredRevision: 1,
         evaluation: {
-          status: "queued" as const,
+          status:
+            control.state === "canceled"
+              ? ("ready" as const)
+              : ("queued" as const),
           targetRevision: 1,
           scoringVersion: null,
           observedAt: new Date().toISOString(),

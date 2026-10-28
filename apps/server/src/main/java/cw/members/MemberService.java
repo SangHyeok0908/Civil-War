@@ -162,7 +162,12 @@ public class MemberService {
 
     private void apply(MemberEntity m, JsonNode input, boolean create) {
         if (input.has("riotId")) {
-            m.riotId = AccountContracts.riotId(text(input, "riotId", 100));
+            String nextRiotId = AccountContracts.riotId(text(input, "riotId", 100));
+            if (members.findByRiotIdIgnoreCase(nextRiotId).stream()
+                    .anyMatch(other -> !other.id.equals(m.id))) {
+                throw new ApiException(409, "CONFLICT");
+            }
+            m.riotId = nextRiotId;
             m.displayName = m.riotId;
         }
 

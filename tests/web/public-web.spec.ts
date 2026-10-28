@@ -34,7 +34,7 @@ test("confirmedObjectiveRulesDescribePerMinuteMetrics", async ({
   await page.locator(".rule-note summary").click();
   await expect(page.locator(".rule-note caption")).toBeVisible();
   await page.locator(".rule-note").screenshot({
-    path: "docs/validation/assets/confirmed-objective-rules.png",
+    path: "docs/validation/assets/2026-10-28-ux-objective-rules.png",
   });
 });
 test("tenPlayerComparison and missingAssetFallback", async ({ page }) => {

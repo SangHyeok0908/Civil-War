@@ -96,9 +96,9 @@ Riot 비밀번호나 LCU 인증 토큰을 서버로 보내지 않는다. LCU에�
 | `PATCH /api/admin/members/:id` | 관리자 쓰기 인증. riotId·active·primaryRole·secondaryRole·allowedRoles 일부 변경, 변경된 Member 반환 |
 | `GET /api/members` | 공개 [PublicMember](stage3.schema.json#/$defs/PublicMember) 배열: `{id,displayName,active,primaryRole,secondaryRole,allowedRoles}` |
 
-계정 입력은 Riot ID만 받는다. 생성·편집의 공개 이름·PUUID·수동 실력 입력은 거절한다. `puuid`가 null인 프로필도 저장하며 현재 계정 관측 후 안정적인 계정 행에 연결한다. `displayName`은 Riot ID 전체를 따라가고 이름 변경은 회원·계정 키와 과거 기록을 유지한다. 기존 `seedSkill` 응답은 감사용 호환 필드이며 계산에 사용하지 않는다.
+계정 입력은 Riot ID만 받는다. 편집에서도 자기 자신을 제외한 같은 Riot ID를 대소문자 구분 없이 거절한다. 생성·편집의 공개 이름·PUUID·수동 실력 입력은 거절한다. 새 프로필은 `puuid:null`로 저장하고 생성 후 현재 계정 관측이 들어오면 안정적인 계정 행에 연결한다. 이름이 같은 옛 게스트 캐시만으로는 연결하지 않는다. 연결 대기는 다음 ‘롤에서 경기 가져오기’의 현재 이름 조회나 본인 기기 연결로 해소하며 그때 과거 기록을 소급한다. `displayName`은 Riot ID 전체를 따라가고 이름 변경은 회원·계정 키와 과거 기록을 유지한다. 기존 `seedSkill` 응답은 감사용 호환 필드이며 계산에 사용하지 않는다.
 
-`teamSeed`, `rankStatus`, `rankTier`, `rankDivision`, `rankObservedAt`은 자동 솔로랭크 참고 상태다. 등급 없음과 조회 실패를 구분하며 실패 시 최근 성공값을 유지한다. 수치·갱신 주기의 원본은 [등급 정책](../../apps/server/src/main/resources/policies/rank-seed-v1.json)이다. 이 참고값은 공개 누적 점수에 섞지 않는다. 공식 키는 서버의 `RIOT_API_KEY`에만 둔다.
+`teamSeed`, `rankStatus`, `rankTier`, `rankDivision`, `rankObservedAt`은 자동 솔로랭크 참고 상태다. 등급 없음과 조회 실패를 구분하며 실패 시 최근 성공값을 유지한다. 수치·갱신 주기의 원본은 [등급 정책](../../apps/server/src/main/resources/policies/rank-seed-v1.json)이다. 계정 행을 합칠 때도 최근 성공 등급을 보존한다. Riot 429의 대기 시간은 회원별 다음 조회 시각에 반영하고, 같은 서버 프로세스의 다른 계정 조회도 해당 대기 중에는 HTTP 요청을 보내지 않는다. 이 참고값은 공개 누적 점수에 섞지 않는다. 공식 키는 서버의 `RIOT_API_KEY`에만 둔다.
 
 주·부 포지션은 서로 달라야 하고 가능한 포지션에 포함되어야 한다. 가능한 역할이 없는 참가자는 팀 추천 전에 설정이 필요하다. `active`는 팀 추천 대상이며 비활성화가 기존 기록이나 내전 후보의 등록 인원에서 제외하는 뜻은 아니다. 실제 설정 변경·게스트 연결·실력 기준 변화는 계산 입력 변경 번호와 재계산을 만든다.
 

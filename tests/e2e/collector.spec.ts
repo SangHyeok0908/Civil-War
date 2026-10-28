@@ -180,7 +180,7 @@ test("repeated history keeps an offline match visible with an incomplete-history
     ),
   ).toBe(0);
   await page.screenshot({
-    path: "docs/validation/assets/2026-10-28-history-pagination.png",
+    path: "docs/validation/assets/2026-10-28-ux-history-pagination.png",
     fullPage: true,
   });
 });
@@ -334,4 +334,38 @@ test("role hints guests and manual draft survive refresh and restart", async () 
   await expect(reopened.getByRole("combobox").nth(0)).toHaveValue("MIDDLE");
   await reopened.getByRole("combobox").nth(0).selectOption("");
   await expect(reopened.getByRole("combobox").nth(0)).toHaveValue("");
+});
+
+test("observed server cancellation updates filter and never shows score ready", async () => {
+  const page = await launch();
+  await page
+    .getByRole("button", { name: "롤에서 경기 가져오기", exact: true })
+    .click();
+  for (let i = 0; i < 10; i++)
+    await page
+      .getByRole("combobox")
+      .nth(i)
+      .selectOption(["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"][i % 5]);
+  await page
+    .getByLabel("모임 내전이며 양 팀의 실제 포지션을 확인했습니다")
+    .check();
+  await page.getByRole("button", { name: "내전 등록", exact: true }).click();
+  await expect(page.locator("article.match .badge")).toHaveText("등록 완료");
+  await expect(page.getByText("점수·랭킹 계산 대기 중")).toBeVisible();
+  await app.evaluate(() => {
+    (globalThis as any).__collectorFixture.state = "canceled";
+  });
+  await expect(page.locator("article.match .badge")).toHaveText("등록 취소", {
+    timeout: 12000,
+  });
+  await expect(
+    page.getByText("점수·랭킹 반영 완료", { exact: true }),
+  ).toHaveCount(0);
+  const nav = page.getByRole("navigation", { name: "경기 상태별 보기" });
+  await expect(nav.getByRole("button", { name: /등록 완료/ })).toContainText(
+    "0",
+  );
+  await expect(nav.getByRole("button", { name: /등록 취소/ })).toContainText(
+    "1",
+  );
 });

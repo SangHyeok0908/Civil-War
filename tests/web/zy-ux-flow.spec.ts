@@ -113,7 +113,19 @@ test("six members four guests promotion shared code rotation preserves queued re
     const savedResponse = await saved;
     expect(savedResponse.status()).toBe(200);
     const promoted = await savedResponse.json();
-    expect(promoted.puuid).toBe("ux-guest-6");
+    expect(promoted.puuid).toBeNull();
+    await api.observations(
+      raw,
+      [
+        {
+          puuid: "ux-guest-6",
+          riotId: "미래참가자6#TEST",
+          source: "current_lookup",
+          observedAt: new Date().toISOString(),
+        },
+      ],
+      a,
+    );
     await expect
       .poll(async () => {
         const r = await request.get("/api/rankings");

@@ -39,9 +39,15 @@ function setup() {
         observedAt: new Date().toISOString(),
       },
     })),
-    getIdentity: vi.fn(async () => {
-      throw new ClientError("LCU_UNAVAILABLE");
-    }),
+    getIdentity: vi.fn(
+      async (
+        _puuid: string,
+      ): Promise<
+        import("../../../../packages/contracts/src/index").IdentityObservation
+      > => {
+        throw new ClientError("LCU_UNAVAILABLE");
+      },
+    ),
     listPastMatches: vi.fn(async (_puuid: string) => ({
       ids: [match.gameId],
       warningCode: null as string | null,
@@ -504,4 +510,39 @@ it("draft patches retain previous participants and explicit unselection", async 
   expect((await x.service.snapshot()).matches[0].roles).toEqual({
     [second]: "JUNGLE",
   });
+});
+
+it("fresh identities cannot prevent offline local capture with cached eligible roster", async () => {
+  const x = setup();
+  await x.service.initialize();
+  x.lcu.getIdentity.mockImplementation(async (puuid: string) => ({
+    puuid,
+    riotId: "Fresh#test",
+    source: "current_lookup" as const,
+    observedAt: new Date().toISOString(),
+  }));
+  x.api.observations.mockRejectedValue(new ClientError("NETWORK_ERROR"));
+  x.api.ingest.mockRejectedValue(new ClientError("NETWORK_ERROR"));
+  const result = await x.service.queryPastMatches();
+  expect(result.snapshot.matches).toHaveLength(1);
+  expect(x.box.listOutbox()[0].payload.rawJson).toBe(JSON.stringify(raw));
+  expect(x.box.listOutbox()[0].state).toBe("pending");
+});
+it("server cancellation moves registered game and removes ready calculation label", async () => {
+  const x = setup();
+  await x.service.initialize();
+  await x.service.queryPastMatches();
+  await x.service.confirmRegistration(key, roles, true);
+  const response = await x.api.progress([key]);
+  x.api.progress.mockResolvedValueOnce(
+    response.map((p) => ({
+      ...p,
+      registrationState: "canceled",
+      evaluation: { ...p.evaluation, status: "ready" },
+    })) as any,
+  );
+  await x.service.refreshProgress(true);
+  const record = (await x.service.snapshot()).matches[0];
+  expect(record.status).toBe("등록 취소");
+  expect(record.evaluation).toBeUndefined();
 });

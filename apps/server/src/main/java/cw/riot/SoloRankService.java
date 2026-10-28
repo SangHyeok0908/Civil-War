@@ -72,7 +72,7 @@ public class SoloRankService {
                                         : "unavailable",
                                 null,
                                 null,
-                                0);
+                                official == null ? 0 : official.retryAfterMillis());
         if (result == null) {
             result = new SoloRankLookup("unavailable", null, null, 0);
         }

@@ -1,6 +1,6 @@
 # 참가자 등록·게스트·수집기 사용성 개선 구현 계획
 
-> **구현 담당 에이전트:** 작업별 실행에는 `superpowers:executing-plans` 또는 사용자가 선택한 `superpowers:subagent-driven-development`를 적용한다. 아래 체크박스는 실행 때 갱신한다.
+> **구현 담당 에이전트:** 작업별 실행에는 `superpowers:executing-plans` 또는 사용자가 선택한 `superpowers:subagent-driven-development`를 적용한다. 아래 체크박스는 당시 작업 정의다. T01–T11의 코드 반영·자동 검사·독립 검토 수정 결과와 남은 실연동 한계는 [실행 보고서](../../validation/2026-10-28-ux-implementation-report.md)를 따른다.
 
 **목표:** 계정 입력과 모임 연결을 줄이고 게스트 이력을 이어 주며, 수집자가 경기 확인·등록·점수 반영 상태를 쉽게 이해하도록 한다.
 

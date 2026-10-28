@@ -281,6 +281,37 @@ export class CollectorService {
           if (match.gameId !== id) throw new ClientError("INVALID_MATCH");
           if (!match.participants.some((p) => p.puuid === actor.puuid))
             throw new ClientError("ACCOUNT_MISMATCH");
+          const cachedEligible =
+            new Set(
+              match.participants
+                .filter((p) => members.some((m) => m.puuid === p.puuid))
+                .map((p) => p.puuid),
+            ).size >= 6;
+          const stage = () => {
+            try {
+              this.box.enqueueCollected(
+                {
+                  schemaVersion: 1,
+                  ...capture,
+                  clientSubmissionId: randomUUID(),
+                },
+                actor,
+                match,
+              );
+            } catch {
+              throw new ClientError("LOCAL_SAVE_FAILED");
+            }
+          };
+          if (cachedEligible) {
+            const current = await this.currentActor();
+            if (
+              current.memberId !== actor.memberId ||
+              current.puuid !== actor.puuid
+            ) {
+              throw new ClientError("ACCOUNT_MISMATCH");
+            }
+            stage();
+          }
           const identities = [];
           for (const p of match.participants) {
             try {
@@ -305,19 +336,7 @@ export class CollectorService {
             current.puuid !== actor.puuid
           )
             throw new ClientError("ACCOUNT_MISMATCH");
-          try {
-            this.box.enqueueCollected(
-              {
-                schemaVersion: 1,
-                ...capture,
-                clientSubmissionId: randomUUID(),
-              },
-              actor,
-              match,
-            );
-          } catch {
-            throw new ClientError("LOCAL_SAVE_FAILED");
-          }
+          if (!cachedEligible) stage();
           results.push({ matchKey, code: null });
         } catch (e) {
           results.push({ matchKey, code: code(e) });
@@ -404,11 +423,18 @@ export class CollectorService {
             records.slice(start, start + 100).map((m) => m.matchKey),
             actor,
           );
-          for (const p of results)
+          for (const p of results) {
+            const local = this.box
+              .matches(actor)
+              .find((m) => m.matchKey === p.matchKey);
+            if (local && p.registrationState === "canceled") {
+              this.box.saveMatch(actor, { ...local, state: "canceled" });
+            }
             this.box.cache(
               "progress:" + actor.memberId + ":" + p.matchKey,
               p.evaluation,
             );
+          }
         }
       } catch (e) {
         this.nextProgressAt = Date.now() + 15000;

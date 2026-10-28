@@ -12,6 +12,33 @@ import tools.jackson.databind.json.JsonMapper;
 
 class HttpRiotGatewayTest {
     @Test
+    void accountRateLimitStopsOtherMemberRequests() throws Exception {
+        AtomicInteger calls = new AtomicInteger();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext(
+                "/",
+                exchange -> {
+                    calls.incrementAndGet();
+                    exchange.getResponseHeaders().add("Retry-After", "600");
+                    exchange.sendResponseHeaders(429, -1);
+                    exchange.close();
+                });
+        server.start();
+        try {
+            URI origin = URI.create("http://127.0.0.1:" + server.getAddress().getPort());
+            HttpRiotGateway gateway =
+                    new HttpRiotGateway("test-key", origin, origin, JsonMapper.builder().build());
+            assertThat(gateway.resolveAccount("First#test").retryAfterMillis()).isEqualTo(600000);
+            assertThat(gateway.resolveAccount("Second#test").retryAfterMillis())
+                    .isBetween(599000L, 600000L);
+            gateway.getSoloRank("other-player");
+            assertThat(calls.get()).isEqualTo(1);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void sendsKeyInHeaderAndSelectsSoloInsteadOfFlex() throws Exception {
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         AtomicInteger status = new AtomicInteger(200);

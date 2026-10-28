@@ -15,6 +15,43 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 class SoloRankIntegrationTest extends DatabaseTestSupport {
     @MockitoBean RiotGateway gateway;
     @Autowired SoloRankService ranks;
+    @Autowired MemberService profiles;
+    @Autowired cw.accounts.AccountLinkService links;
+
+    @Test
+    void accountRateLimitDelaysTheMembersNextAttempt() {
+        when(gateway.resolveAccount("Player1#test"))
+                .thenReturn(new AccountLookup("unavailable", null, "Player1#test", 600000));
+        ranks.refresh("member-1");
+        java.sql.Timestamp next =
+                jdbc.queryForObject(
+                        "select next_attempt_at from solo_rank_snapshots where player_id='member-1'",
+                        java.sql.Timestamp.class);
+        assertThat(next.toInstant()).isAfter(java.time.Instant.now().plusSeconds(599));
+    }
+
+    @Test
+    void accountMergeRetainsKnownRankWhenNextLookupFails() {
+        members.deleteById("member-7");
+        cw.contracts.MemberContracts.Member pending =
+                profiles.create(json.readTree("{\"riotId\":\"Future#test\"}"));
+        when(gateway.resolveAccount("Future#test"))
+                .thenReturn(new AccountLookup("verified", "official-future", "Future#test"));
+        when(gateway.getSoloRank("official-future"))
+                .thenReturn(new SoloRankLookup("ranked", "DIAMOND", "I", 0));
+        java.time.Instant observed = ranks.refresh(pending.id()).observedAt();
+        links.observe(
+                new cw.contracts.AccountContracts.IdentityObservation(
+                        "fixture-player-07",
+                        "Future#test",
+                        "current_lookup",
+                        java.time.Instant.now()));
+        assertThat(profiles.get(pending.id()).teamSeed()).isEqualTo(90.);
+        when(gateway.getSoloRank("official-future"))
+                .thenReturn(new SoloRankLookup("unavailable", null, null, 0));
+        assertThat(ranks.refresh(pending.id()).teamSeed()).isEqualTo(90.);
+        assertThat(profiles.get(pending.id()).rankObservedAt()).isEqualTo(observed);
+    }
 
     @Test
     void unrankedStartsAtMidpoint() {

@@ -31,8 +31,15 @@ class GuestPromotionIntegrationTest extends DatabaseTestSupport {
     void promotionRacingConfirmationCountsOnce() throws Exception {
         guests();
         ingest.ingestMatch(input(), actor(1));
+        profiles.create(json.readTree("{\"riotId\":\"Player7#test\"}"));
         concurrent(
-                () -> profiles.create(json.readTree("{\"riotId\":\"Player7#test\"}")),
+                () ->
+                        links.observe(
+                                new IdentityObservation(
+                                        "fixture-player-07",
+                                        "Player7#test",
+                                        "current_lookup",
+                                        Instant.now())),
                 () -> registration.registerMatch(confirmation(false), actor(1)));
         MemberEntity promoted = members.findByRiotIdIgnoreCase("Player7#test").getFirst();
         assertThat(promoted.accountId).isEqualTo("member-7");
@@ -68,6 +75,9 @@ class GuestPromotionIntegrationTest extends DatabaseTestSupport {
         admin.cancel(canceled);
         cw.contracts.MemberContracts.Member member =
                 profiles.create(json.readTree("{\"riotId\":\"Player7#test\"}"));
+        links.observe(
+                new IdentityObservation(
+                        "fixture-player-07", "Player7#test", "current_lookup", Instant.now()));
         worker.runOnce();
         assertThat(evaluations.current().memberStats())
                 .filteredOn(s -> s.memberId().equals(member.id()))

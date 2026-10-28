@@ -8,7 +8,7 @@ Riot ID로 참가자를 추가하고, 등록자 여섯 명 이상인 경기를 �
 | --- | --- | --- |
 | 사용자 확정 · 사용자 | 확정한 동작을 코드에 반영하도록 지시 | 재승인 없음 |
 | 위임받은 선택 · 개발 담당자 | 계정 분리·등급 정책·로컬 자산·인증 제한 채택 | 운영 자료에서 정확도·제약이 드러나면 연결한 결정의 조건으로 재검토 |
-| 조사 및 검증 · 개발 담당자 | 자동 검사 완료, 독립 검토 대기 | 독립 검토 결과를 최종 보완 |
+| 조사 및 검증 · 개발 담당자 | 자동 검사·독립 검토 및 지적 수정 완료 | 추가 제품 결정 없음. 외부 연결은 아래 미확인으로 유지 |
 
 ## 실행 환경과 자료 보존
 
@@ -35,13 +35,30 @@ macOS에서 저장소의 Node·Electron·Java 설정을 사용했다. 별도 관
 
 | 검사 | 결과 | 환경·한계 |
 | --- | --- | --- |
-| `pnpm typecheck`, `pnpm test`, `pnpm build` | 타입·빌드 성공, Node 81/81 | 파일 SQLite, LCU·HTTP 가상 응답 포함 |
-| `./apps/server/gradlew -p apps/server clean build` | 155/155, 빌드·형식 성공 | 실제 PostgreSQL·HTTP·JAR 복구·코드 형식 |
+| `pnpm typecheck`, `pnpm test`, `pnpm build` | 타입·빌드 성공, Node 83/83 | 파일 SQLite, LCU·HTTP 가상 응답 포함 |
+| `./apps/server/gradlew -p apps/server clean build` | 160/160, 빌드·형식 성공 | 실제 PostgreSQL·HTTP·JAR 복구·코드 형식 |
 | `pnpm test:web` | 16/16; 실제 서버 흐름 13, 상태 응답 주입 3 | 실제 JAR·Chromium·PostgreSQL. UI 상태 주입 검사는 별도 사례 |
-| `pnpm test:e2e` | 12/12 | 실제 main/preload/renderer·파일 SQLite, LCU·서버는 가상 응답 |
+| `pnpm test:e2e` | 13/13 | 실제 main/preload/renderer·파일 SQLite, LCU·서버는 가상 응답 |
 | `pnpm test:probe`, 형식 두 검사, `pnpm test:collector-release`, 문서 세 검사 | 조회 도구 45/45, 배포 12/12, 문서 단위 66/66. 형식·등록·링크·중복 성공 | 새 Windows 설치판 배포·실기 성공을 뜻하지 않음 |
 
 최종 로컬 로그는 생성 증거 `test-results/`, 서버 XML 결과는 `apps/server/build/test-results/test/`에 남는다. 실행 스크립트는 [개발 안내](../development/setup.md)에 연결한다. 중요한 회귀는 6자리 동시 추측 한도, 대기 없는 기기의 연결 해제 안내, 연속 포지션 수정의 초안 손실을 실패로 재현한 뒤 수정해 통과시켰다.
+
+## 독립 검토와 수정 근거
+
+독립 검토는 첫 구현 묶음 `da2635d`를 대상으로 한 번 수행했다. Critical(치명적 오류) 0건, Important(사용자 동작에 중요한 오류) 5건, Minor(경미한 개선) 0건이었다. 지적 뒤 재검토를 반복하는 대신 아래 실패 재현과 수정 후 전체 회귀 결과로 대조했다.
+
+| 중요한 지적·추가 확인 | 실패 재현 → 수정 결과 |
+| --- | --- |
+| 캐시된 옛 이름이 다른 계정 기록을 연결 | `cachedGuestAliasCannotClaimAnotherAccountsHistory`: 기존 구현은 즉시 옛 PUUID 연결. 수정 뒤 새 프로필은 대기하고 새 실제 계정 관측만 연결, 옛 게스트 참가 행은 미연결 유지 |
+| 현재 이름 업로드 장애가 로컬 원문 저장을 막음 | `fresh identities cannot prevent offline local capture with cached eligible roster`: 기존 0건 저장 → 수정 뒤 원문·제출 ID가 있는 전송 대기 보존 |
+| 서버 취소 응답을 버려 완료 표시 유지 | `server cancellation moves registered game and removes ready calculation label`: 등록 완료가 남던 실패 → 취소로 전환. 새 Electron 사례에서도 완료 건수 0·취소 건수 1, 반영 완료 안내 없음 |
+| 편집에서 중복 Riot ID 허용 | `editingCannotDuplicateAnotherMembersRiotId`: 저장되던 실패 → 다른 회원 이름은 대소문자 무시 거절, 기존 프로필 유지 |
+| 공식 계정 429의 대기 시간 유실 | `accountRateLimitStopsOtherMemberRequests`: 세 HTTP 호출 → 최초 한 번 뒤 후속 요청 차단. `accountRateLimitDelaysTheMembersNextAttempt`는 DB 다음 조회가 서버 지정 시간 이후임을 확인 |
+| 자체 추가 확인: 계정 병합 때 등급 캐시 유실 | `accountMergeRetainsKnownRankWhenNextLookupFails`: 90이 공통값으로 떨어지던 실패 → 병합·후속 조회 실패 뒤에도 최근 정상 값·시각 유지 |
+
+위 묶음 수정 뒤 서버 160건, Node 83건, 웹 16건, Electron 13건을 모두 다시 통과했다. 포지션 연속 변경의 기존 간헐 오류는 필터 이동 흐름을 추가로 열 번 실행해 모두 통과했다. 후속 시험 실패가 있었던 경로는 성공 전 결과로 숨기지 않고 로컬 로그에 구분했다.
+
+검토자가 판단을 유보한 실제 Riot 키 접근, 새 Windows LCU 경로, 등급 환산의 현실 정확도는 아래 미확인으로 남긴다. 코드의 대역 검사만으로 이 세 항목을 통과로 올리지 않았다. 경미한 개선 유보 항목은 없다.
 
 ## 화면 근거
 
@@ -49,7 +66,7 @@ macOS에서 저장소의 Node·Electron·Java 설정을 사용했다. 별도 관
 
 ![Riot ID 참가자 관리](assets/2026-10-28-ux-member.png)
 
-[운영자 화면](assets/2026-10-28-ux-admin.png), [웹 경기 상세](assets/2026-10-28-ux-match-desktop.png), [모바일](assets/2026-10-28-ux-mobile.png)은 이번 실행의 새 이미지다. 과거 보고서의 기존 이미지를 덮어쓰지 않았다.
+[운영자 화면](assets/2026-10-28-ux-admin.png), [웹 경기 상세](assets/2026-10-28-ux-match-desktop.png), [모바일](assets/2026-10-28-ux-mobile.png)은 이번 실행의 새 이미지다. 초기 검사에서 과거 이미지 경로를 재사용한 곳을 발견해 기준 커밋의 이미지로 복원했다. 경기 반복 조회와 평가 설명 캡처도 이번 변경 전용 이름으로 바꾸고 두 경로를 다시 실행했다. 이전 두 이미지의 Git 객체 해시가 기준 커밋과 같은지 대조했다.
 
 ## 외부 연결 근거와 미확인
 
@@ -69,3 +86,5 @@ macOS에서 저장소의 Node·Electron·Java 설정을 사용했다. 별도 관
 - 기존 수동 초기값을 쓰던 팀 추천 시험은 명시적 자동 시작값을 주도록 바꿨다. 임의 시험값의 후보 수 경계만 확인하며 실력 환산의 현실 정확도를 증명하지 않는다.
 
 전체 Java 일괄 변환은 자동 승인 검토에서 기존 코드까지 손상시킬 수 있다는 이유로 거절됐다. 이후 새 변수의 타입과 검사에서 지적된 변경 문장만 개별 교정했고 기존 작성 규칙을 완화하지 않았다.
+
+최종 판단 보완: 새 회원의 소급 연결을 현재 계정 확인 뒤로 미뤘다. 잘못 연결되면 타인의 기록이 섞이는 비용이 더 크다고 판단했으며, 대신 확인 전에는 누적 반영이 지연된다. 공식 키 접근·Windows 새 경로·등급 환산 정확도는 각각 확인 범위 밖으로 유지했다. 이 판단이 틀리면 실제 연결 불가 또는 팀 균형 오차가 남을 수 있어 실연동 성공으로 표시하지 않는다.
