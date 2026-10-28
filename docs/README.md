@@ -47,6 +47,7 @@
 | collector-navigation | [수집기 상태별 목록과 쉬운 용어](spec.md#수집기-목록과-용어) |
 | rank-seed-policy | [솔로랭크 팀 편성 시작값과 갱신 정책](../apps/server/src/main/resources/policies/rank-seed-v1.json) |
 | game-asset-catalog | [챔피언 한국어 이름과 고정 자산 버전](../packages/game-assets/catalog.json) |
+| ui-design-profile | [밝은 화면과 참가자 프로필 사진](spec.md#화면-디자인과-참가자-사진) |
 
 ## 기준 문서
 
@@ -71,6 +72,7 @@
 - [docs/superpowers/plans/2026-10-26-collector-acceptance.md](superpowers/plans/2026-10-26-collector-acceptance.md)
 - [docs/superpowers/plans/2026-10-28-ux-improvements.md](superpowers/plans/2026-10-28-ux-improvements.md)
 - [docs/superpowers/plans/2026-10-29-collector-solo-removal.md](superpowers/plans/2026-10-29-collector-solo-removal.md)
+- [docs/superpowers/plans/2026-10-29-light-ui-profile-icons.md](superpowers/plans/2026-10-29-light-ui-profile-icons.md)
 
 ## 이력 문서
 
@@ -107,6 +109,8 @@
 - [docs/superpowers/plans/2026-10-28-collector-ease.md](superpowers/plans/2026-10-28-collector-ease.md) — 2026-10-28, 현재: [docs/spec.md](spec.md)
 - [docs/validation/2026-10-28-ux-followup-report.md](validation/2026-10-28-ux-followup-report.md) — 2026-10-28, 현재: [docs/status.md](status.md)
 - [docs/validation/2026-10-29-team-solo-report.md](validation/2026-10-29-team-solo-report.md) — 2026-10-29, 현재: [docs/status.md](status.md)
+- [docs/superpowers/decisions/2026-10-29-light-ui.md](superpowers/decisions/2026-10-29-light-ui.md) — 2026-10-29, 현재: [docs/spec.md](spec.md)
+- [docs/validation/2026-10-29-light-ui-report.md](validation/2026-10-29-light-ui-report.md) — 2026-10-29, 현재: [docs/status.md](status.md)
 
 ## 보존한 과거 기록 구간
 

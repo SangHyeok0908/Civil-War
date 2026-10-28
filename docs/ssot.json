@@ -294,6 +294,22 @@
       "role": "historical",
       "date": "2026-10-29",
       "current": "docs/status.md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-29-light-ui-profile-icons.md",
+      "role": "reference"
+    },
+    {
+      "path": "docs/superpowers/decisions/2026-10-29-light-ui.md",
+      "role": "historical",
+      "date": "2026-10-29",
+      "current": "docs/spec.md"
+    },
+    {
+      "path": "docs/validation/2026-10-29-light-ui-report.md",
+      "role": "historical",
+      "date": "2026-10-29",
+      "current": "docs/status.md"
     }
   ],
   "topics": [
@@ -491,6 +507,11 @@
       "id": "game-asset-catalog",
       "title": "챔피언 한국어 이름과 고정 자산 버전",
       "source": "packages/game-assets/catalog.json"
+    },
+    {
+      "id": "ui-design-profile",
+      "title": "밝은 화면과 참가자 프로필 사진",
+      "source": "docs/spec.md#화면-디자인과-참가자-사진"
     }
   ],
   "conditionalEvidence": [
