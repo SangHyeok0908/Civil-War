@@ -1,0 +1,78 @@
+diff --git a/out/targets/nsis/nsisUtil.js b/out/targets/nsis/nsisUtil.js
+index df8b80213eb7dfe5ec6a4282d333e1e619e7fea2..98ed5862490a973e9f87a6730828271ac8342e55 100644
+--- a/out/targets/nsis/nsisUtil.js
++++ b/out/targets/nsis/nsisUtil.js
+@@ -216,7 +216,7 @@ class UninstallerReader {
+                 }
+             }
+         }
+-        const executable = buffer.subarray(0, nsisOffset);
++        const executable = Buffer.from(buffer.subarray(0, nsisOffset));
+         const nsisSize = buffer.length - nsisOffset;
+         const nsisReader = new BinaryReader(buffer.subarray(nsisOffset, nsisOffset + nsisSize));
+         const nsisSignature = [0xef, 0xbe, 0xad, 0xde, 0x4e, 0x75, 0x6c, 0x6c, 0x73, 0x6f, 0x66, 0x74, 0x49, 0x6e, 0x73, 0x74];
+@@ -229,6 +229,8 @@ class UninstallerReader {
+             throw new Error("Size mismatch.");
+         }
+         let innerBuffer = null;
++        let iconData = null;
++        let previousBlock = null;
+         while (true) {
+             let size = nsisReader.uint32();
+             const compressed = (size & 0x80000000) !== 0;
+@@ -241,20 +243,50 @@ class UninstallerReader {
+                 buffer = zlib.inflateRawSync(buffer);
+             }
+             const innerReader = new BinaryReader(buffer);
+-            innerReader.uint32(); // ?
+-            if (innerReader.match(nsisSignature)) {
++            const innerFlags = innerReader.uint32();
++            if ((innerFlags & 1) !== 0 && innerReader.match(nsisSignature)) {
+                 if (innerBuffer) {
+                     throw new Error("Multiple inner blocks.");
+                 }
+                 innerBuffer = buffer;
++                iconData = previousBlock;
+             }
++            previousBlock = buffer;
+         }
+-        if (!innerBuffer) {
++        if (!innerBuffer || !iconData) {
+             throw new Error("Inner block not found.");
+         }
+-        await fs.writeFile(uninstallerPath, executable);
+-        await fs.appendFile(uninstallerPath, innerBuffer);
++        // Backport electron-builder #10262: apply the icon records used by
++        // WriteUninstaller before checking the original, unchanged CRC.
++        let position = 0;
++        while (position < iconData.length && iconData[position] !== 0) {
++            if (position + 8 > iconData.length) throw new Error("Truncated uninstaller icon data.");
++            const size = iconData.readUInt32LE(position);
++            const offset = iconData.readUInt32LE(position + 4);
++            position += 8;
++            if (position + size > iconData.length || offset + size > executable.length) throw new Error("Invalid uninstaller icon data.");
++            iconData.copy(executable, offset, position, position + size);
++            position += size;
++        }
++        if (position >= iconData.length) throw new Error("Uninstaller icon data is not terminated.");
++        const uninstaller = Buffer.concat([executable, innerBuffer]);
++        verifyNsisIntegrity(uninstaller);
++        await fs.writeFile(uninstallerPath, uninstaller);
+     }
+ }
+ exports.UninstallerReader = UninstallerReader;
++function verifyNsisIntegrity(data) {
++    const signature = Buffer.from([0xef, 0xbe, 0xad, 0xde, 0x4e, 0x75, 0x6c, 0x6c, 0x73, 0x6f, 0x66, 0x74, 0x49, 0x6e, 0x73, 0x74]);
++    for (let offset = 0; offset + 28 <= data.length; offset += 512) {
++        const flags = data.readUInt32LE(offset);
++        if ((flags & ~15) !== 0 || !data.subarray(offset + 4, offset + 20).equals(signature)) continue;
++        if ((flags & 8) === 0 && (flags & 4) !== 0) return;
++        const length = data.readUInt32LE(offset + 24);
++        if (length < 32 || length > data.length - offset) throw new Error("NSIS integrity check failed: invalid data length.");
++        const crcOffset = offset + length - 4;
++        if (zlib.crc32(data.subarray(offset === 0 ? 0 : 512, crcOffset)) !== data.readUInt32LE(crcOffset)) throw new Error("NSIS integrity check failed: CRC32 mismatch.");
++        return;
++    }
++    throw new Error("NSIS integrity check failed: missing header.");
++}
+ //# sourceMappingURL=nsisUtil.js.map

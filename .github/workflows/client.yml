@@ -8,6 +8,11 @@ on:
         "packages/**",
         "tests/e2e/**",
         "scripts/build-collector.mjs",
+        "scripts/package-collector.mjs",
+        "scripts/collector-release*.mjs",
+        "scripts/nsis-integrity*.mjs",
+        "scripts/repair-uninstaller*.mjs",
+        "patches/**",
         "*config.ts",
         "tsconfig.json",
         "package.json",
@@ -25,6 +30,11 @@ on:
         "packages/**",
         "tests/e2e/**",
         "scripts/build-collector.mjs",
+        "scripts/package-collector.mjs",
+        "scripts/collector-release*.mjs",
+        "scripts/nsis-integrity*.mjs",
+        "scripts/repair-uninstaller*.mjs",
+        "patches/**",
         "*config.ts",
         "tsconfig.json",
         "package.json",
@@ -49,6 +59,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm test:collector-release
       - run: pnpm build
       - name: Hosted Windows Electron fixtures (no League or real LCU)
         run: pnpm test:e2e
+      - name: Build unsigned Windows installer (no publishing)
+        run: pnpm package:collector
+      - run: pnpm verify:collector-release

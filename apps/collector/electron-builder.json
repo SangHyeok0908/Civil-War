@@ -1,0 +1,49 @@
+{
+  "appId": "io.github.sanghyeok0908.civil-war.collector",
+  "productName": "Civil War Collector",
+  "directories": {
+    "app": "apps/collector",
+    "output": "dist/collector"
+  },
+  "files": [
+    {
+      "from": "build/release",
+      "to": "dist",
+      "filter": ["**/*", "!**/*.map"]
+    },
+    "package.json",
+    "!dist/**/*.map",
+    "!node_modules/**/*"
+  ],
+  "asar": true,
+  "extraResources": [
+    {
+      "from": "node_modules/react/LICENSE",
+      "to": "third-party-licenses/react.txt"
+    },
+    {
+      "from": "node_modules/react-dom/LICENSE",
+      "to": "third-party-licenses/react-dom.txt"
+    }
+  ],
+  "npmRebuild": false,
+  "win": {
+    "target": [{ "target": "nsis", "arch": ["x64"] }],
+    "artifactName": "Civil-War-Collector-Setup-${version}-${arch}.${ext}",
+    "executableName": "Civil War Collector",
+    "signExecutable": false
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowElevation": false,
+    "allowToChangeInstallationDirectory": false,
+    "deleteAppDataOnUninstall": false,
+    "runAfterFinish": false,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "installerLanguages": ["ko_KR", "en_US"],
+    "language": "1042"
+  },
+  "publish": null
+}

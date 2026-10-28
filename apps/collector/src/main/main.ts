@@ -17,10 +17,13 @@ import { Outbox } from "./outbox";
 import { CollectorService } from "./history-sync";
 import { validSender, validateCommand, CHANNEL } from "./ipc";
 import { exportMemberReferences } from "./reference-export";
-import { fixtureService } from "./fixture";
+declare const __CW_COLLECTOR_RELEASE__: boolean;
 let box: Outbox | undefined;
 let timer: NodeJS.Timeout | undefined;
-const fixture = !app.isPackaged && process.env.CW_COLLECTOR_FIXTURE === "1";
+const fixture =
+  !__CW_COLLECTOR_RELEASE__ &&
+  !app.isPackaged &&
+  process.env.CW_COLLECTOR_FIXTURE === "1";
 app.setName("Civil War Collector");
 app.setPath(
   "userData",
@@ -53,19 +56,23 @@ if (!app.requestSingleInstanceLock()) {
         : app.getPath("userData");
       await mkdir(data, { recursive: true });
       box = new Outbox(join(data, "collector.sqlite"));
-      const service = fixture
-        ? fixtureService(box, process.env.CW_FIXTURE_MODE ?? "normal")
-        : new CollectorService(
-            LcuClient.fromLockfile(
-              process.env.CW_LCU_LOCKFILE ??
-                "C:\\Riot Games\\League of Legends\\lockfile",
-            ),
-            new HttpServerApi(
-              process.env.CW_SERVER_ORIGIN ?? "http://127.0.0.1:8080",
-            ),
-            new CredentialStore(join(data, "credential.bin"), safeStorage),
-            box,
-          );
+      const service =
+        !__CW_COLLECTOR_RELEASE__ && fixture
+          ? (await import("./fixture")).fixtureService(
+              box,
+              process.env.CW_FIXTURE_MODE ?? "normal",
+            )
+          : new CollectorService(
+              LcuClient.fromLockfile(
+                process.env.CW_LCU_LOCKFILE ??
+                  "C:\\Riot Games\\League of Legends\\lockfile",
+              ),
+              new HttpServerApi(
+                process.env.CW_SERVER_ORIGIN ?? "http://127.0.0.1:8080",
+              ),
+              new CredentialStore(join(data, "credential.bin"), safeStorage),
+              box,
+            );
       await service.initializeLocal();
       const entry = pathToFileURL(join(__dirname, "renderer/index.html")).href;
       const window = new BrowserWindow({
