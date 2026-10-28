@@ -1,3 +1,4 @@
+import { rawRoleSuggestions } from "../../../../packages/lcu/src/role-hints";
 import { DatabaseSync } from "node:sqlite";
 import { migration, migration2 } from "./outbox-migrations";
 import {
@@ -137,6 +138,7 @@ export class Outbox {
           state: "pending",
           match,
           confirmedRoles: null,
+          roleSuggestions: rawRoleSuggestions(input.rawMatch),
         });
       return this.enqueue("ingest", key, input, actor, null);
     });

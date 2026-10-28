@@ -46,7 +46,14 @@ export interface NormalizedMatch {
   patch: string;
   participants: Participant[];
 }
+export interface RoleSuggestion {
+  puuid: string;
+  role: Role | null;
+  source: string;
+  reason: string;
+}
 export interface CollectorMatch {
+  roleSuggestions?: RoleSuggestion[];
   matchKey: string;
   state: MatchState;
   match: NormalizedMatch;

@@ -22,6 +22,8 @@ export interface MatchView {
   status: DisplayState;
   match: NormalizedMatch;
   roles: Record<string, Role>;
+  manualRoles?: Record<string, Role | null>;
+  roleSuggestions?: import("../../../../packages/contracts/src/index").RoleSuggestion[];
   names: Record<string, string>;
   error: string | null;
 }
@@ -43,7 +45,7 @@ export interface CollectorApi {
   loadPendingMatches(): Promise<Snapshot>;
   saveDraft(
     matchKey: string,
-    rolesByPuuid: Record<string, Role>,
+    rolesByPuuid: Record<string, Role | null>,
   ): Promise<Snapshot>;
   confirmRegistration(
     matchKey: string,

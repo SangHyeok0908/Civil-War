@@ -377,3 +377,45 @@ it("six registered players allow guests, five do not", async () => {
     "INSUFFICIENT_REGISTERED_PARTICIPANTS",
   );
 });
+
+it("manualDraftSurvivesRefreshAndRestart and overrides newer proposals", async () => {
+  const x = setup();
+  await x.service.initialize();
+  await x.service.queryPastMatches();
+  const record = x.box.matches(actor)[0];
+  x.box.saveMatch(actor, {
+    ...record,
+    roleSuggestions: [
+      {
+        puuid: actor.puuid,
+        role: "TOP",
+        source: "match",
+        reason: "explicit_match_evidence",
+      },
+    ],
+  });
+  expect((await x.service.snapshot()).matches[0].roles[actor.puuid]).toBe(
+    "TOP",
+  );
+  await x.service.saveDraft(key, { [actor.puuid]: "MIDDLE" });
+  x.box.saveMatch(actor, {
+    ...record,
+    roleSuggestions: [
+      {
+        puuid: actor.puuid,
+        role: "JUNGLE",
+        source: "match",
+        reason: "explicit_match_evidence",
+      },
+    ],
+  });
+  const restarted = new CollectorService(x.lcu, x.api, x.store, x.box);
+  await restarted.initializeLocal();
+  expect((await restarted.snapshot()).matches[0].roles[actor.puuid]).toBe(
+    "MIDDLE",
+  );
+  await restarted.saveDraft(key, { [actor.puuid]: null });
+  expect(
+    (await restarted.snapshot()).matches[0].roles[actor.puuid],
+  ).toBeUndefined();
+});

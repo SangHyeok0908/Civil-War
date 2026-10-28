@@ -9,7 +9,7 @@ export function MatchList({
 }: {
   matches: MatchView[];
   busy: boolean;
-  save: (key: string, roles: Record<string, Role>) => void;
+  save: (key: string, roles: Record<string, Role | null>) => void;
   confirm: (key: string, roles: Record<string, Role>) => void;
 }) {
   return (

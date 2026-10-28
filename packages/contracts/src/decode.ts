@@ -1,5 +1,7 @@
 import {
   ClientError,
+  ROLES,
+  type RoleSuggestion,
   object,
   text,
   validateRoles,
@@ -100,7 +102,32 @@ export function decodeCollectorMatch(input: unknown): CollectorMatch {
     }
     if (r.state === "registered" && confirmedRoles === null)
       throw new Error("roles");
-    return { matchKey: r.matchKey, state: r.state, match, confirmedRoles };
+    const roleSuggestions: RoleSuggestion[] = [];
+    if (r.roleSuggestions !== undefined) {
+      if (!Array.isArray(r.roleSuggestions) || r.roleSuggestions.length !== 10)
+        throw new Error("hints");
+      for (const hint of r.roleSuggestions) {
+        if (
+          !participants.some((p) => p.puuid === hint.puuid) ||
+          (hint.role !== null && !ROLES.includes(hint.role)) ||
+          roleSuggestions.some((p) => p.puuid === hint.puuid)
+        )
+          throw new Error("hint");
+        roleSuggestions.push({
+          puuid: hint.puuid,
+          role: hint.role,
+          source: text(hint.source),
+          reason: text(hint.reason),
+        });
+      }
+    }
+    return {
+      matchKey: r.matchKey,
+      state: r.state,
+      match,
+      confirmedRoles,
+      roleSuggestions,
+    };
   } catch {
     throw new ClientError("INVALID_SERVER_RESPONSE", 502);
   }

@@ -21,7 +21,7 @@ export function MatchReview({
 }: {
   record: MatchView;
   busy: boolean;
-  save: (roles: Record<string, Role>) => void;
+  save: (roles: Record<string, Role | null>) => void;
   confirm: (roles: Record<string, Role>) => void;
 }) {
   const [roles, setRoles] = useState(record.roles);
@@ -105,13 +105,17 @@ export function MatchReview({
                                 [p.puuid]: e.target.value as Role,
                               };
                               setRoles(next);
-                              save(next);
+                              if (!e.target.value) delete next[p.puuid];
+                              save({
+                                ...record.manualRoles,
+                                [p.puuid]: e.target.value
+                                  ? (e.target.value as Role)
+                                  : null,
+                              });
                             }}
                             disabled={busy}
                           >
-                            <option value="" disabled>
-                              선택
-                            </option>
+                            <option value="">직접 선택</option>
                             {ROLES.map((r) => (
                               <option key={r} value={r}>
                                 {labels[r]}
@@ -123,6 +127,14 @@ export function MatchReview({
                         ) : (
                           "미확정"
                         )}
+                        {editable &&
+                          record.roleSuggestions?.find(
+                            (s) => s.puuid === p.puuid && s.role,
+                          ) &&
+                          !Object.prototype.hasOwnProperty.call(
+                            record.manualRoles ?? {},
+                            p.puuid,
+                          ) && <small>경기 기록으로 추정 · 확인 필요</small>}
                       </td>
                     </tr>
                   ))}

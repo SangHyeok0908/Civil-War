@@ -302,7 +302,7 @@ export class CollectorService {
       this.querying = false;
     }
   }
-  async saveDraft(key: string, roles: Record<string, Role>) {
+  async saveDraft(key: string, roles: Record<string, Role | null>) {
     const actor = this.actor();
     const record = this.box.matches(actor).find((m) => m.matchKey === key);
     if (!record || record.state !== "pending")
@@ -313,7 +313,7 @@ export class CollectorService {
       Object.entries(values).some(
         ([puuid, role]) =>
           !record.match.participants.some((p) => p.puuid === puuid) ||
-          !ROLES.includes(role),
+          (role !== null && !ROLES.includes(role)),
       )
     )
       throw new ClientError("INVALID_ROLES");
@@ -378,25 +378,35 @@ export class CollectorService {
                 : ingest && ingest.state !== "succeeded"
                   ? "전송 대기"
                   : "확인 대기";
-      const roles =
+      const manualRoles =
+        this.box.cached<Record<string, Role | null>>(
+          "draft:" + actor.memberId + ":" + record.matchKey,
+        ) ?? {};
+      const suggested = Object.fromEntries(
+        (record.roleSuggestions ?? [])
+          .filter((s) => s.role !== null)
+          .map((s) => [s.puuid, s.role as Role]),
+      );
+      for (const [id, role] of Object.entries(manualRoles)) {
+        if (role === null) delete suggested[id];
+        else suggested[id] = role;
+      }
+      const roles: Record<string, Role> =
         record.state === "registered"
           ? (record.confirmedRoles ?? {})
-          : (confirmation?.payload.rolesByPuuid ??
-            this.box.cached<Record<string, Role>>(
-              "draft:" + actor.memberId + ":" + record.matchKey,
-            ) ??
-            {});
+          : (confirmation?.payload.rolesByPuuid ?? suggested);
       return {
         matchKey: record.matchKey,
         state: record.state,
         status,
         match: record.match,
         roles,
+        manualRoles,
+        roleSuggestions: record.roleSuggestions ?? [],
         names: Object.fromEntries(
           record.match.participants.map((p) => [
             p.puuid,
-            members.find((m) => m.puuid === p.puuid)?.displayName ??
-              "회원 정보 없음",
+            members.find((m) => m.puuid === p.puuid)?.displayName ?? "게스트",
           ]),
         ),
         error: failed?.error ?? null,
