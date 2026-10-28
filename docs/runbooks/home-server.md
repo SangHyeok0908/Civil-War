@@ -100,11 +100,68 @@ JAR 후보가 여러 개라면 현재 빌드 설정의 실행 JAR 하나를 명�
 
 ## 새 계정·코드 계약 적용 순서
 
-이 절차는 운영 적용을 요청받았을 때 사용한다. 이번 구현 검사는 격리 자료에서 수행했으며 운영 서버에 적용하지 않았다.
+이 절차는 기존 Windows·Docker 서버와 수집기를 교체할 때 사용한다. ZIP은 새 폴더에 풀어 실행 파일을 준비한다. 기존 서버의 Compose 프로젝트·DB·볼륨·환경 설정과 각 PC의 수집기 자료 경로를 유지한다. 새 서버 구축은 앞의 최초 환경 설정 절차를 따른다.
 
-1. 진행 중 수집·등록 쓰기를 멈추고 서버와 모든 수집기를 종료한다. 서버 PostgreSQL은 `pg_dump`로 백업하고, 각 수집기는 앱 종료 후 자료 폴더 전체를 복사한다. 서버 DB와 PC 대기는 서로 다른 백업이다.
-2. 서버 백업을 **새로운 격리 DB**에 복원해 이전 버전의 회원·경기 수, 원본 문자열, 취소 상태를 기록한 뒤 새 서버로 전환한다. 수집기 폴더도 복사본으로 열어 대기 원문·요청 식별자·초안을 대조한다. 실제 자료에 초기화·TRUNCATE를 실행하지 않는다.
-3. 새 서버를 먼저 올린다. Flyway 전환은 기존 회원·경기를 보존하고 기존 개인 코드·기기 자격을 해제한다. 관리자 세션은 유지한다. 필수 계정 연결이 누락되면 전환을 실패시켜 자료를 버리지 않는다.
-4. 운영자가 최초 모임 코드를 발급한다. 새 수집기를 기존 자료 경로로 실행하고 같은 롤 계정으로 연결한 뒤 저장된 요청만 이어 보낸다. 구형 수집기 요청은 426으로 차단된다.
-5. 등록 경기·취소 경기·대기 건수와 최신 계산 상태를 대조한 뒤 쓰기를 재개한다. 새 Riot 현재 계정 조회와 키 접근이 실패하면 미연결·조회 실패 상태를 확인하고 성공으로 기록하지 않는다.
-6. 되돌릴 때는 새 DB에 예전 프로그램을 역실행하지 않는다. 쓰기를 멈춘 상태에서 보관한 서버·수집기 백업과 그에 맞는 프로그램 버전을 함께 복원한다. 적용 후 새로 생긴 자료가 있다면 별도 보관해 잃지 않게 대조한다.
+### 1. 쓰기 중단과 백업
+
+모든 수집기를 종료한다. **기존 서버 배포 폴더**의 PowerShell에서 외부 연결과 서버를 멈추고 DB 컨테이너는 유지한다.
+
+```powershell
+docker compose stop cloudflared server
+$cwBackupRoot = Join-Path $env:USERPROFILE ('CivilWarBackups\' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+New-Item -ItemType Directory -Path $cwBackupRoot | Out-Null
+Copy-Item -LiteralPath @('.env', 'compose.yml', 'Dockerfile', '.dockerignore', 'server.jar') -Destination $cwBackupRoot
+if (Test-Path -LiteralPath 'secrets') { Copy-Item -LiteralPath 'secrets' -Destination $cwBackupRoot -Recurse }
+docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc -f /tmp/civil-war-before-ux.dump'
+if ($LASTEXITCODE -ne 0) { throw 'DB 백업 실패. 적용을 멈추세요.' }
+docker compose cp postgres:/tmp/civil-war-before-ux.dump (Join-Path $cwBackupRoot 'database.dump')
+if ($LASTEXITCODE -ne 0) { throw 'DB 백업 복사 실패. 적용을 멈추세요.' }
+```
+
+각 수집기 PC에서도 앱 종료 후 `%APPDATA%\Civil War Collector` 폴더 전체를 별도 백업한다. 서버 DB 백업과 수집기 대기는 서로 다른 자료다. 백업을 새 격리 DB·복사 폴더에 복원해 회원·등록/취소 경기·원문·대기 요청·초안을 대조하는 것이 적용 전 확인 기준이다.
+
+### 2. 기존 설정으로 서버 교체
+
+ZIP의 `home-server/server.jar`를 기존 배포 폴더의 `server.jar`에 복사한다. 기존 `.env`, `secrets`, `compose.yml`, `Dockerfile`, `.dockerignore`를 사용한다. ZIP의 설정 네 파일은 최초 구성과 대조할 때 쓰는 예제다. 사용자별 프로젝트명·DB·볼륨을 새 이름으로 바꾸지 않는다.
+
+자동 솔로랭크 참고를 사용할 때는 서버 `.env`에 `RIOT_API_KEY`를 넣고, 기존 `compose.yml`의 `server.environment`에 다음 항목을 추가한다. 실제 키는 배포 ZIP·수집기 설정에 넣지 않는다. 키가 없거나 조회가 실패하면 연결·조회 대기와 최근 성공값 또는 공통 시작값을 사용한다.
+
+```yaml
+RIOT_API_KEY: ${RIOT_API_KEY:-}
+```
+
+기존 서버 폴더에서 실행한다. Docker Desktop은 Linux 컨테이너 모드여야 한다.
+
+```powershell
+docker compose config --quiet
+docker compose up -d --build --wait postgres server
+docker compose ps
+```
+
+서버 시작 때 DB 전환을 수행한다. 회원·경기·취소 상태와 관리자 세션을 보존하며, 이전 개인 코드와 수집기 자격은 해제한다. 연결 누락으로 전환이 실패하면 자료를 버려 계속하지 않는다. **`docker compose down -v`와 볼륨 삭제는 실행하지 않는다.**
+
+### 3. 모임 코드와 새 수집기 연결
+
+서버가 `healthy`이면 `docker compose start cloudflared`로 기존 외부 연결을 시작한다. 기존 웹 주소에서 관리자 화면을 열고 모임 코드를 발급한다. 로그인이 필요하면 기존 서버 폴더에서 다음 명령으로 6자리 코드를 발급받는다. 앞자리 0까지 그대로 입력한다.
+
+```powershell
+docker compose run --rm --no-deps server admin:code --logging.level.root=ERROR
+```
+
+ZIP의 `collector` 폴더에 있는 새 설치 파일을 같은 Windows 사용자로 실행한다. 기존 수집기 자료 폴더와 참가자 프로필을 그대로 사용한다. 설치 후 외부 서버에 연결할 때는 PowerShell에서 기존 HTTPS 주소를 지정하고 앱을 실행한다. 기존에 다른 롤 설치 경로를 설정했다면 그 설정도 유지한다.
+
+```powershell
+$env:CW_SERVER_ORIGIN = (Read-Host '기존 서버 HTTPS 주소를 입력하세요. 끝 / 는 빼세요').Trim()
+$cwExe = Join-Path $env:LOCALAPPDATA 'Programs\Civil War Collector\Civil War Collector.exe'
+& $cwExe
+```
+
+이 환경 설정은 같은 PowerShell에서 실행한 앱에 적용된다. 이후 재실행도 같은 방식으로 한다. 롤에 로그인하고 새 모임 코드로 **모임에 연결**한 뒤 **멈춘 전송 이어 보내기**를 사용한다. 저장된 요청은 같은 참가자·같은 계정으로만 재개한다. 서버와 PC의 기존 기록·포지션·대기 건수와 계산 상태를 대조한다. 새 경기 수집이나 새 참가자 계정 확인에는 **롤에서 경기 가져오기**를 사용한다.
+
+구형 수집기의 요청은 새 서버에서 업데이트 필요 응답을 받는다. 새 모임 코드를 재발급·삭제하면 모든 수집기가 다시 연결해야 한다. 모임 코드는 발급 때 한 번만 보여 준다.
+
+### 4. 확인 범위와 되돌리기
+
+이 배포물은 macOS에서 빌드·무결성 검사한 Windows x64 설치판이며 코드 서명은 없다. 실제 Windows 설치 실행, 새 LCU 현재 이름 조회 경로와 Riot 키 실연동, 운영 서버 적용은 이 ZIP 생성으로 확인된 결과가 아니다.
+
+문제가 생기면 쓰기를 멈춘 상태를 유지하고 보관한 서버·수집기 백업과 그에 맞는 프로그램 버전을 함께 복원한다. 새 DB에 예전 프로그램을 역실행하지 않는다. 적용 후 새로 생긴 자료는 별도로 보관해 복원 시 잃지 않도록 대조한다.
