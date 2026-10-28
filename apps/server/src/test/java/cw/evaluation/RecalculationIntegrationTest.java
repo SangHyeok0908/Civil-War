@@ -182,18 +182,18 @@ class RecalculationIntegrationTest extends DatabaseTestSupport {
     }
 
     @Test
-    void seedDoesNotAlterPublicScoresAndNamesAreLive() {
+    void teamSettingDoesNotAlterPublicScoresAndNamesAreLive() {
         registered();
         worker.runOnce();
 
         List<GameScore> scores = evaluations.current().gameScores();
-        memberService.patch("member-1", json.readTree("{\"seedSkill\":99}"));
+        memberService.patch("member-1", json.readTree("{\"active\":false}"));
         assertThat(evaluations.current()).isNull();
         worker.runOnce();
         assertThat(evaluations.current().gameScores()).isEqualTo(scores);
 
         long rev = revision();
-        memberService.patch("member-1", json.readTree("{\"displayName\":\"새 이름\"}"));
+        memberService.patch("member-1", json.readTree("{\"riotId\":\"새 이름#KR1\"}"));
         assertThat(revision()).isEqualTo(rev);
         assertThat(evaluations.rankings().toString()).contains("새 이름");
     }

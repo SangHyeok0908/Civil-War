@@ -213,3 +213,31 @@ it("IPC rejects subframes, wrong sender, extra properties, malformed roles", () 
     validateCommand("query", { url: "https://evil.test" }),
   ).toThrow();
 });
+it("freshPuuidLookupProvidesCurrentAliasInsteadOfHistoricalName", async () => {
+  const client = new LcuClient(
+    async () => ({ port: 1, password: "private", protocol: "https" }),
+    async (_connection, path) => ({
+      status: 200,
+      body: JSON.stringify({
+        puuid: "lcu-player",
+        gameName: "현재이름",
+        tagLine: "KR1",
+      }),
+    }),
+  );
+  const identity = await client.getIdentity("lcu-player");
+  expect(identity.riotId).toBe("현재이름#KR1");
+  expect(identity.source).toBe("current_lookup");
+});
+it("freshIdentityRejectsMismatchedAccountAndMissingTag", async () => {
+  const client = new LcuClient(
+    async () => ({ port: 1, password: "private", protocol: "https" }),
+    async () => ({
+      status: 200,
+      body: JSON.stringify({ puuid: "another", gameName: "Name" }),
+    }),
+  );
+  await expect(client.getIdentity("lcu-player")).rejects.toThrow(
+    "ACCOUNT_EVIDENCE_REQUIRED",
+  );
+});

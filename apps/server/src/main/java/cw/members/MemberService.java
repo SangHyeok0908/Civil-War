@@ -1,5 +1,7 @@
 package cw.members;
 
+import cw.accounts.AccountLinkService;
+import cw.contracts.AccountContracts;
 import cw.contracts.ApiException;
 import cw.contracts.MemberContracts.Member;
 import cw.contracts.MemberContracts.PublicMember;
@@ -25,11 +27,17 @@ public class MemberService {
     private final MemberRepository members;
     private final MutationCoordinator mutations;
     private final JsonMapper json;
+    private final AccountLinkService links;
 
-    public MemberService(MemberRepository members, MutationCoordinator mutations, JsonMapper json) {
+    public MemberService(
+            MemberRepository members,
+            MutationCoordinator mutations,
+            JsonMapper json,
+            AccountLinkService links) {
         this.members = members;
         this.mutations = mutations;
         this.json = json;
+        this.links = links;
     }
 
     public Member view(MemberEntity m) {
@@ -75,16 +83,20 @@ public class MemberService {
 
         MemberEntity m = new MemberEntity();
         m.id = UUID.randomUUID().toString();
-        m.puuid = text(input, "puuid", 255);
-        m.riotId = text(input, "riotId", 255);
-        m.displayName = text(input, "displayName", 100);
+        m.riotId = AccountContracts.riotId(text(input, "riotId", 100));
+        if (!members.findByRiotIdIgnoreCase(m.riotId).isEmpty())
+            throw new ApiException(409, "CONFLICT");
+        var account = links.prepareMember(m.riotId);
+        m.accountId = account.id;
+        m.puuid = account.lcuPuuid;
+        m.displayName = m.riotId;
         m.active = true;
         m.allowedRoles = "";
-        m.seedSkill = seed(input.get("seedSkill"));
+        m.seedSkill = 50;
 
         apply(m, input, true);
 
-        if (members.findByPuuid(m.puuid).isPresent()) {
+        if (m.puuid != null && members.findByPuuid(m.puuid).isPresent()) {
             throw new ApiException(409, "CONFLICT");
         }
 
@@ -133,11 +145,8 @@ public class MemberService {
 
     private void apply(MemberEntity m, JsonNode input, boolean create) {
         if (input.has("riotId")) {
-            m.riotId = text(input, "riotId", 255);
-        }
-
-        if (input.has("displayName")) {
-            m.displayName = text(input, "displayName", 100);
+            m.riotId = AccountContracts.riotId(text(input, "riotId", 100));
+            m.displayName = m.riotId;
         }
 
         if (input.has("active")) {
@@ -146,10 +155,6 @@ public class MemberService {
             }
 
             m.active = input.get("active").asBoolean();
-        }
-
-        if (input.has("seedSkill")) {
-            m.seedSkill = seed(input.get("seedSkill"));
         }
 
         if (input.has("primaryRole")) {
@@ -211,18 +216,7 @@ public class MemberService {
 
         Set<String> allowed =
                 new HashSet<>(
-                        Set.of(
-                                "riotId",
-                                "displayName",
-                                "active",
-                                "primaryRole",
-                                "secondaryRole",
-                                "allowedRoles",
-                                "seedSkill"));
-
-        if (create) {
-            allowed.add("puuid");
-        }
+                        Set.of("riotId", "active", "primaryRole", "secondaryRole", "allowedRoles"));
 
         for (String name : input.propertyNames()) {
             if (!allowed.contains(name)) {

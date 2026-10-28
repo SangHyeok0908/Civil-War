@@ -28,8 +28,8 @@ export function MembersAdmin() {
         <button onClick={() => setEditing("new")}>참가자 추가</button>
       </div>
       <p className="caption">
-        초기 실력은 팀 편성에만 반영됩니다. 현재 포지션을 바꾸어도 과거 경기의
-        확정 역할은 유지됩니다.
+        Riot ID로 참가자를 추가하고 게임 계정 정보를 자동으로 연결합니다. 현재
+        포지션을 바꾸어도 과거 경기의 확정 역할은 유지됩니다.
       </p>
       {editing === "new" && (
         <MemberEditor
@@ -58,7 +58,7 @@ export function MembersAdmin() {
                     </span>
                   </h3>
                   <small>
-                    {m.riotId} · 초기 실력 {m.seedSkill} ·{" "}
+                    {m.riotId} · {!m.puuid && "게임 계정 연결 확인 중 · "}{" "}
                     {m.allowedRoles.map((r) => roleName[r]).join(" / ") ||
                       "포지션 미지정"}
                   </small>
@@ -123,14 +123,11 @@ function MemberEditor({
           setError(undefined);
           try {
             const body = {
-              displayName: form.displayName,
               riotId: form.riotId,
               active: form.active,
               primaryRole: form.primaryRole,
               secondaryRole: form.secondaryRole,
               allowedRoles: form.allowedRoles,
-              seedSkill: form.seedSkill,
-              ...(!member ? { puuid: form.puuid } : {}),
             };
             await api(
               "/api/admin/members" + (member ? "/" + member.id : ""),
@@ -147,40 +144,11 @@ function MemberEditor({
       >
         <div className="form-grid">
           <label>
-            공개 이름
-            <input
-              required
-              value={form.displayName}
-              onChange={(e) => change("displayName", e.target.value)}
-            />
-          </label>
-          <label>
             Riot ID
             <input
               required
               value={form.riotId}
               onChange={(e) => change("riotId", e.target.value)}
-            />
-          </label>
-          {!member && (
-            <label>
-              LCU PUUID
-              <input
-                required
-                value={form.puuid}
-                onChange={(e) => change("puuid", e.target.value)}
-              />
-            </label>
-          )}
-          <label>
-            초기 실력 (0–100)
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="1"
-              value={form.seedSkill}
-              onChange={(e) => change("seedSkill", Number(e.target.value))}
             />
           </label>
           {(["primaryRole", "secondaryRole"] as const).map((k) => (
@@ -220,16 +188,17 @@ function MemberEditor({
                 {roleName[r]}
               </label>
             ))}
-            <label>
-              <input
-                type="checkbox"
-                checked={form.active}
-                onChange={(e) => change("active", e.target.checked)}
-              />
-              활성 참가자
-            </label>
           </div>
         </fieldset>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={form.active}
+            onChange={(e) => change("active", e.target.checked)}
+          />
+          팀 추천 대상
+        </label>
+        <small>해제해도 과거 경기 기록은 유지됩니다.</small>
         <div className="action-row">
           <button disabled={busy}>{busy ? "저장 중…" : "참가자 저장"}</button>
           <button type="button" className="secondary" onClick={done}>

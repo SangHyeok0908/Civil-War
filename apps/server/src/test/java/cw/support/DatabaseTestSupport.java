@@ -1,5 +1,7 @@
 package cw.support;
 
+import cw.accounts.PlayerAccountEntity;
+import cw.accounts.PlayerAccountRepository;
 import cw.contracts.MatchContracts.CollectorPrincipal;
 import cw.contracts.MatchContracts.ConfirmationInput;
 import cw.contracts.MatchContracts.IngestMatchInput;
@@ -12,6 +14,7 @@ import cw.members.MemberEntity;
 import cw.members.MemberRepository;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +38,7 @@ public abstract class DatabaseTestSupport {
     @Autowired protected JdbcTemplate jdbc;
     @Autowired protected JsonMapper json;
     @Autowired protected MemberRepository members;
+    @Autowired protected PlayerAccountRepository accounts;
     @Autowired protected MatchRepository matches;
     @Autowired protected IngestService ingest;
     @Autowired protected RegistrationService registration;
@@ -63,6 +67,14 @@ public abstract class DatabaseTestSupport {
             m.allowedRoles = "TOP,JUNGLE,MIDDLE,BOTTOM,UTILITY";
             m.seedSkill = 50;
 
+            PlayerAccountEntity account = new PlayerAccountEntity();
+            account.id = m.id;
+            account.lcuPuuid = m.puuid;
+            account.riotId = m.riotId;
+            account.linkStatus = "lcu_linked";
+            account.updatedAt = Instant.now();
+            accounts.save(account);
+            m.accountId = account.id;
             members.save(m);
         }
     }

@@ -349,8 +349,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                         .header("Origin", "http://localhost:8080")
                                         .header("X-CSRF-Token", login.csrf())
                                         .contentType("application/json")
-                                        .content(
-                                                "{\"displayName\":\"New Name\",\"riotId\":\"Renamed#KR\"}"))
+                                        .content("{\"riotId\":\"Renamed#KR\"}"))
                         .andReturn()
                         .getResponse();
         assertThat(response.getStatus()).isEqualTo(200);

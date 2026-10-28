@@ -111,3 +111,10 @@ export function validateRoles(
       throw new ClientError("INVALID_ROLES");
   }
 }
+
+export interface IdentityObservation {
+  puuid: string;
+  riotId: string;
+  source: "current_summoner" | "current_lookup";
+  observedAt: string;
+}

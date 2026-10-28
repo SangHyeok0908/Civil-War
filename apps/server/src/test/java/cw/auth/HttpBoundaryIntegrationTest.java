@@ -240,7 +240,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
     }
 
     @Test
-    void seedMutationOnlyCreatesWorkOnceAndIdentityCannotChange() throws Exception {
+    void teamSettingMutationOnlyCreatesWorkOnceAndIdentityCannotChange() throws Exception {
         Login login = login();
 
         for (int i = 0; i < 2; i++) {
@@ -251,7 +251,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
                                                     .header("Origin", "http://localhost:8080")
                                                     .header("X-CSRF-Token", login.csrf())
                                                     .contentType("application/json")
-                                                    .content("{\"seedSkill\":0}"))
+                                                    .content("{\"active\":false}"))
                                     .andReturn()
                                     .getResponse()
                                     .getStatus())
