@@ -26,6 +26,8 @@ export interface MatchView {
   roleSuggestions?: import("../../../../packages/contracts/src/index").RoleSuggestion[];
   names: Record<string, string>;
   error: string | null;
+  transfer?: import("../../../../packages/contracts/src/index").TransferProgress;
+  evaluation?: import("../../../../packages/contracts/src/index").EvaluationProgress;
 }
 export interface Snapshot {
   account: SafeAccount;

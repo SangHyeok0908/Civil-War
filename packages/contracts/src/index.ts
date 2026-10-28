@@ -126,3 +126,31 @@ export interface IdentityObservation {
   source: "current_summoner" | "current_lookup";
   observedAt: string;
 }
+
+export interface EvaluationProgress {
+  status: "queued" | "running" | "ready" | "failed" | "unknown";
+  targetRevision: number;
+  scoringVersion: string | null;
+  observedAt: string;
+  unavailable?: boolean;
+  lastKnownStatus?: string;
+}
+export interface CollectorProgress {
+  matchKey: string;
+  registrationState: MatchState;
+  evaluation: EvaluationProgress;
+  registeredRevision: number | null;
+}
+export interface TransferProgress {
+  phase:
+    | "queued"
+    | "sending"
+    | "checking"
+    | "retry_wait"
+    | "action_required"
+    | "done";
+  attempt: number;
+  lastAttemptAt?: number;
+  nextRetryAt?: number;
+  errorCode?: string;
+}

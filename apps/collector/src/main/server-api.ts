@@ -4,6 +4,7 @@ import {
   text,
   type Credential,
   type IdentityObservation,
+  type CollectorProgress,
   type CollectorMatch,
   type IngestMatchInput,
   type ConfirmationInput,
@@ -110,6 +111,49 @@ export class HttpServerApi implements ServerApi {
       c,
       JSON.stringify({ rawMatch, observations }),
     );
+  }
+  async progress(
+    matchKeys: string[],
+    c: Credential,
+  ): Promise<CollectorProgress[]> {
+    const values = await this.request(
+      "/api/collector/progress",
+      c,
+      JSON.stringify({ matchKeys }),
+    );
+    if (!Array.isArray(values) || values.length !== matchKeys.length)
+      throw new ClientError("INVALID_SERVER_RESPONSE", 502);
+    const seen = new Set<string>();
+    return values.map((v) => {
+      if (
+        !matchKeys.includes(v?.matchKey) ||
+        seen.has(v.matchKey) ||
+        !["pending", "registered", "canceled"].includes(v.registrationState) ||
+        !["queued", "running", "ready", "failed", "unknown"].includes(
+          v.evaluation?.status,
+        ) ||
+        !Number.isSafeInteger(v.evaluation.targetRevision) ||
+        !Number.isFinite(Date.parse(v.evaluation.observedAt))
+      )
+        throw new ClientError("INVALID_SERVER_RESPONSE", 502);
+      seen.add(v.matchKey);
+      return {
+        matchKey: v.matchKey,
+        registrationState: v.registrationState,
+        registeredRevision: Number.isSafeInteger(v.registeredRevision)
+          ? v.registeredRevision
+          : null,
+        evaluation: {
+          status: v.evaluation.status,
+          targetRevision: v.evaluation.targetRevision,
+          scoringVersion:
+            typeof v.evaluation.scoringVersion === "string"
+              ? v.evaluation.scoringVersion
+              : null,
+          observedAt: v.evaluation.observedAt,
+        },
+      };
+    });
   }
   async members(c: Credential): Promise<Member[]> {
     return decodeMembers(await this.request("/api/collector/members", c));

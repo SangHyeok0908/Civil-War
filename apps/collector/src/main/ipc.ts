@@ -74,7 +74,9 @@ export function validateCommand(
         ? Object.keys(roles).length !== 10
         : Object.keys(roles).length > 10) ||
       Object.entries(roles).some(
-        ([k, v]) => k.length > 255 || !ROLES.includes(v),
+        ([k, v]) =>
+          k.length > 255 ||
+          (!(command === "draft" && v === null) && !ROLES.includes(v)),
       )
     )
       throw new ClientError("INVALID_ROLES");

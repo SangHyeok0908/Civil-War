@@ -6,6 +6,7 @@ import {
 } from "../../../../packages/contracts/src/index";
 import type { MatchView } from "../preload/collector-api";
 import { ChampionPortrait, getChampionLabel } from "./ChampionPortrait";
+import { MatchProgress } from "./MatchProgress";
 import { message } from "./messages";
 const labels = {
   TOP: "탑",
@@ -53,6 +54,7 @@ export function MatchReview({
           {record.status}
         </span>
       </header>
+      <MatchProgress record={record} />
       {record.error && <p className="warning">{message(record.error)}</p>}
       <div className="teams">
         {([100, 200] as const).map((team) => (

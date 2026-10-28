@@ -76,6 +76,18 @@ export function fixtureService(box: Outbox, mode: string) {
     getMatch: async () => ({ rawMatch: raw, rawJson: JSON.stringify(raw) }),
   };
   const api = {
+    progress: async (keys: string[]) =>
+      keys.map((matchKey) => ({
+        matchKey,
+        registrationState: "registered" as const,
+        registeredRevision: 1,
+        evaluation: {
+          status: "queued" as const,
+          targetRevision: 1,
+          scoringVersion: null,
+          observedAt: new Date().toISOString(),
+        },
+      })),
     observations: async () => {},
     enroll: async () => actor,
     members: async () => {

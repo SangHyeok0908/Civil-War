@@ -60,6 +60,19 @@ function setup() {
     active: true,
   }));
   const api = {
+    progress: vi.fn(async (keys: string[]) =>
+      keys.map((matchKey) => ({
+        matchKey,
+        registrationState: "registered" as const,
+        registeredRevision: 1,
+        evaluation: {
+          status: "queued" as const,
+          targetRevision: 1,
+          scoringVersion: null,
+          observedAt: new Date().toISOString(),
+        },
+      })),
+    ),
     observations: vi.fn(async () => {}),
     enroll: vi.fn(async () => actor),
     members: vi.fn(async () => roster),
@@ -428,4 +441,43 @@ it("compactUiKeepsFullIngestPayload", async () => {
   expect(payload.rawMatch.participants[0].stats).toEqual(
     raw.participants[0].stats,
   );
+});
+
+it("offlineIsUnknownNotFailed and calculation failure keeps registration", async () => {
+  const x = setup();
+  await x.service.initialize();
+  await x.service.queryPastMatches();
+  await x.service.confirmRegistration(key, roles, true);
+  expect((await x.service.snapshot()).matches[0].evaluation?.status).toBe(
+    "queued",
+  );
+  x.api.progress.mockRejectedValueOnce(new ClientError("NETWORK_ERROR"));
+  await x.service.refreshProgress(true);
+  const after = (await x.service.snapshot()).matches[0];
+  expect(after.state).toBe("registered");
+  expect(after.evaluation?.status).toBe("unknown");
+  expect(after.evaluation?.lastKnownStatus).toBe("queued");
+});
+it("actual transfer phase is observable while confirmation awaits response", async () => {
+  const x = setup();
+  await x.service.initialize();
+  await x.service.queryPastMatches();
+  let done!: () => void;
+  x.api.confirm.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        done = () => resolve({ disposition: "created" });
+      }),
+  );
+  const sending = x.service.confirmRegistration(key, roles, true);
+  await vi.waitFor(() =>
+    expect(x.box.listOutbox().find((j) => j.kind === "confirm")?.phase).toBe(
+      "sending",
+    ),
+  );
+  expect((await x.service.snapshot()).matches[0].transfer?.phase).toBe(
+    "sending",
+  );
+  done();
+  await sending;
 });

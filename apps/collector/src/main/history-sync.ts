@@ -6,6 +6,8 @@ import {
   ROLES,
   validateRoles,
   type Credential,
+  type EvaluationProgress,
+  type TransferProgress,
   type CollectorMatch,
   type Member,
   type Role,
@@ -29,6 +31,8 @@ export class CollectorService {
   private credentialError: string | null = null;
   private serverError: string | null = null;
   private querying = false;
+  private progressPoll: Promise<void> | null = null;
+  private nextProgressAt = 0;
   readonly uploader: Uploader;
   constructor(
     private lcu: Pick<
@@ -44,6 +48,7 @@ export class CollectorService {
       | "ingest"
       | "confirm"
       | "observations"
+      | "progress"
     >,
     private store: {
       load(): Promise<Credential | null>;
@@ -51,11 +56,20 @@ export class CollectorService {
     },
     readonly box: Outbox,
   ) {
-    this.uploader = new Uploader(box, api, async () =>
-      this.credential &&
-      (!this.knownPuuid || this.knownPuuid === this.credential.puuid)
-        ? this.credential
-        : null,
+    this.uploader = new Uploader(
+      box,
+      api,
+      async () =>
+        this.credential &&
+        (!this.knownPuuid || this.knownPuuid === this.credential.puuid) &&
+        this.credentialError !== "AUTH_REVOKED"
+          ? this.credential
+          : null,
+      Date.now,
+      Math.random,
+      () => {
+        this.credentialError = "AUTH_REVOKED";
+      },
     );
   }
   async initialize() {
@@ -81,6 +95,7 @@ export class CollectorService {
         this.serverError = code(e);
       }
       await this.uploader.drainOutbox();
+      await this.refreshProgress(true);
     }
     return this.snapshot();
   }
@@ -342,11 +357,59 @@ export class CollectorService {
       throw new ClientError("LOCAL_SAVE_FAILED");
     }
     await this.uploader.drainOutbox();
+    await this.refreshProgress(true);
     return this.snapshot();
   }
   async tick() {
     await this.getAccount();
     await this.uploader.drainOutbox();
+    await this.refreshProgress();
+  }
+  async refreshProgress(force = false): Promise<void> {
+    if (this.progressPoll) return this.progressPoll;
+    if (
+      !this.credential ||
+      this.credentialError === "AUTH_REVOKED" ||
+      (!force && Date.now() < this.nextProgressAt)
+    )
+      return;
+    const actor = this.credential,
+      records = this.box.matches(actor).filter((m) => m.state === "registered");
+    this.nextProgressAt = Date.now() + 5000;
+    this.progressPoll = (async () => {
+      try {
+        for (let start = 0; start < records.length; start += 100) {
+          const results = await this.api.progress(
+            records.slice(start, start + 100).map((m) => m.matchKey),
+            actor,
+          );
+          for (const p of results)
+            this.box.cache(
+              "progress:" + actor.memberId + ":" + p.matchKey,
+              p.evaluation,
+            );
+        }
+      } catch (e) {
+        this.nextProgressAt = Date.now() + 15000;
+        for (const record of records) {
+          const key = "progress:" + actor.memberId + ":" + record.matchKey;
+          const old = this.box.cached<EvaluationProgress>(key);
+          if (old)
+            this.box.cache(key, {
+              ...old,
+              lastKnownStatus:
+                old.status === "unknown" ? old.lastKnownStatus : old.status,
+              status: "unknown",
+              unavailable: true,
+            });
+        }
+        if (e instanceof ClientError && e.code === "AUTH_REVOKED")
+          this.credentialError = e.code;
+      }
+    })().finally(() => {
+      this.progressPoll = null;
+    });
+    return this.progressPoll;
   }
   async snapshot(): Promise<Snapshot> {
     const actor = this.credential;
@@ -395,12 +458,55 @@ export class CollectorService {
         record.state === "registered"
           ? (record.confirmedRoles ?? {})
           : (confirmation?.payload.rolesByPuuid ?? suggested);
+      const job =
+        confirmation && confirmation.state !== "succeeded"
+          ? confirmation
+          : ingest;
+      const transfer: TransferProgress | undefined = job
+        ? {
+            phase:
+              job.state === "succeeded"
+                ? "done"
+                : job.state === "needs_attention"
+                  ? "action_required"
+                  : job.state === "sending"
+                    ? job.phase === "checking"
+                      ? "checking"
+                      : "sending"
+                    : job.nextAt > Date.now()
+                      ? "retry_wait"
+                      : "queued",
+            attempt: job.attempts,
+            lastAttemptAt: job.lastAttemptAt,
+            nextRetryAt: job.nextAt || undefined,
+            errorCode: job.error ?? undefined,
+          }
+        : undefined;
+      const observed = this.box.cached<EvaluationProgress>(
+        "progress:" + actor.memberId + ":" + record.matchKey,
+      );
+      const evaluation =
+        record.state === "registered"
+          ? observed
+            ? Date.now() - Date.parse(observed.observedAt) > 15000
+              ? { ...observed, status: "unknown" as const, unavailable: true }
+              : observed
+            : {
+                status: "unknown" as const,
+                targetRevision: 0,
+                scoringVersion: null,
+                observedAt: "",
+                unavailable: true,
+              }
+          : undefined;
       return {
         matchKey: record.matchKey,
         state: record.state,
         status,
         match: record.match,
         roles,
+        transfer,
+        evaluation,
         manualRoles,
         roleSuggestions: record.roleSuggestions ?? [],
         names: Object.fromEntries(
