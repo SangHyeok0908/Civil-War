@@ -1,0 +1,30 @@
+{
+  "recordedOn": "2026-10-28",
+  "node": "v24.22.1",
+  "host": "macOS arm64",
+  "release": {
+    "version": "0.2.3-provisional",
+    "electronVersion": "45.0.0",
+    "platform": "win32",
+    "arch": "x64",
+    "files": [
+      {
+        "name": "Civil-War-Collector-Setup-0.2.3-provisional-x64.exe",
+        "bytes": 121263351,
+        "sha256": "3d48462702be019d81bc3bb4fd8b899f79bfbb89c8b70b2cc395e3e9754c73fa"
+      }
+    ]
+  },
+  "embeddedUninstaller": {
+    "bytes": 136123,
+    "sha256": "8f9ff1d074442dcd0dd9c60126a60d8568dd7f9cbd8d1084f0c8721bd232e128",
+    "headerOffset": 53760,
+    "crcOffset": 136119,
+    "crc32": "78a2d675"
+  },
+  "productMainAndPreloadMatch022": {
+    "dist/main.cjs": true,
+    "dist/preload.cjs": true
+  },
+  "actualWindowsInstallTested": false
+}

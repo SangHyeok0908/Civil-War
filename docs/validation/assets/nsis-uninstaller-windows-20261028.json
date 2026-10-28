@@ -1,0 +1,18 @@
+{
+  "source": "user-provided Windows PowerShell and NSIS dialog results in chat",
+  "receivedOnKst": "2026-10-28",
+  "installedVersion": "0.2.0-provisional",
+  "requestedInstallerVersion": "0.2.2-provisional",
+  "collectorProcessQueryReturnedNoMatches": true,
+  "installDirectoryProcessQueryReturnedNoMatches": true,
+  "uninstallerCount": 1,
+  "uninstallerName": "Uninstall Civil War Collector.exe",
+  "uninstallerBytes": 136123,
+  "visibleUninstallerError": "Installer integrity check has failed",
+  "uninstallExitCode": 2,
+  "backupCopyCompletedWithoutReportedError": true,
+  "dataFolderExistsAfterFailure": true,
+  "credentialExistsAfterFailure": true,
+  "userUninstallerSha256": null,
+  "actualRecoveryTested": false
+}

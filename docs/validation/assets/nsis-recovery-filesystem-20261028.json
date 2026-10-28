@@ -1,0 +1,12 @@
+{
+  "host": "macOS arm64",
+  "actualWindowsRun": false,
+  "usedActualPublishedUninstaller": true,
+  "repairStatus": "repaired",
+  "originalDataAndBackupEqual": true,
+  "repairedIntegrity": {
+    "headerOffset": 53760,
+    "crcOffset": 136119,
+    "crc32": "12b43385"
+  }
+}

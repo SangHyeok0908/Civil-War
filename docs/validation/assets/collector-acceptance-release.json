@@ -1,0 +1,28 @@
+{
+  "recordedAt": "2026-10-26",
+  "host": "macOS arm64",
+  "node": "v24.22.1",
+  "release": {
+    "version": "0.2.1-provisional",
+    "electronVersion": "45.0.0",
+    "platform": "win32",
+    "arch": "x64",
+    "files": [
+      {
+        "name": "Civil-War-Collector-Setup-0.2.1-provisional-x64.exe",
+        "bytes": 121263149,
+        "sha256": "b849732af322c34ef9267720e05b589097404ac5f105bc75ea98f06a03d9d0a8"
+      }
+    ]
+  },
+  "asarPackageVersion": "0.2.1-provisional",
+  "windowsExecutableMachine": "x86-64",
+  "matchesPreviousReleaseBuild": {
+    "main": true,
+    "preload": true
+  },
+  "embeddedFixtureMarkers": [],
+  "serverJarSha256": "60ee1d5bb139e9955a3e68fccb5d381f559236709447d03da03ca5ea5970123c",
+  "actualWindowsUpdateTested": false,
+  "cloudflareConnected": false
+}

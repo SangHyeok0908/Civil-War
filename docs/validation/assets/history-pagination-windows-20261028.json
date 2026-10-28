@@ -1,0 +1,39 @@
+{
+  "source": "user-provided diagnostic output in chat",
+  "receivedOnKst": "2026-10-28",
+  "diagnostic": "civil-war-history-pages-v1",
+  "recordedAt": "2026-10-27T16:51:34.423Z",
+  "node": "v24.22.1",
+  "platform": "win32",
+  "pages": [
+    {
+      "requestRange": { "begIndex": 0, "endIndex": 19 },
+      "httpStatus": 200,
+      "responseRange": { "gameIndexBegin": 0, "gameIndexEnd": 19, "gameCount": 20 },
+      "rowCount": 20,
+      "uniqueIdCount": 20,
+      "invalidIdCount": 0,
+      "newIdCount": 20,
+      "overlapWithPrevious": null,
+      "sameIdSetAsPrevious": null,
+      "sameIdOrderAsPrevious": null,
+      "collectorWouldRequestThisPage": true,
+      "collectorCondition": "CONTINUE"
+    },
+    {
+      "requestRange": { "begIndex": 20, "endIndex": 39 },
+      "httpStatus": 200,
+      "responseRange": { "gameIndexBegin": 0, "gameIndexEnd": 19, "gameCount": 20 },
+      "rowCount": 20,
+      "uniqueIdCount": 20,
+      "invalidIdCount": 0,
+      "newIdCount": 0,
+      "overlapWithPrevious": 20,
+      "sameIdSetAsPrevious": true,
+      "sameIdOrderAsPrevious": true,
+      "collectorWouldRequestThisPage": true,
+      "collectorCondition": "HISTORY_PAGINATION_STALLED"
+    }
+  ],
+  "accountUnchanged": true
+}
