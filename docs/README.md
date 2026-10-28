@@ -70,6 +70,7 @@
 - [docs/superpowers/plans/2026-10-26-windows-installer.md](superpowers/plans/2026-10-26-windows-installer.md)
 - [docs/superpowers/plans/2026-10-26-collector-acceptance.md](superpowers/plans/2026-10-26-collector-acceptance.md)
 - [docs/superpowers/plans/2026-10-28-ux-improvements.md](superpowers/plans/2026-10-28-ux-improvements.md)
+- [docs/superpowers/plans/2026-10-29-collector-solo-removal.md](superpowers/plans/2026-10-29-collector-solo-removal.md)
 
 ## 이력 문서
 
@@ -105,6 +106,7 @@
 - [docs/validation/2026-10-28-ux-deployment-package-report.md](validation/2026-10-28-ux-deployment-package-report.md) — 2026-10-28, 현재: [docs/status.md](status.md)
 - [docs/superpowers/plans/2026-10-28-collector-ease.md](superpowers/plans/2026-10-28-collector-ease.md) — 2026-10-28, 현재: [docs/spec.md](spec.md)
 - [docs/validation/2026-10-28-ux-followup-report.md](validation/2026-10-28-ux-followup-report.md) — 2026-10-28, 현재: [docs/status.md](status.md)
+- [docs/validation/2026-10-29-team-solo-report.md](validation/2026-10-29-team-solo-report.md) — 2026-10-29, 현재: [docs/status.md](status.md)
 
 ## 보존한 과거 기록 구간
 

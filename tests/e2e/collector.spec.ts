@@ -54,7 +54,7 @@ test("buttonFetchesAndStages; noAutoRegistration; allRolesConfirmed 5+5", async 
     await selectors.nth(i).selectOption(roles[i % 5]);
   mkdirSync("docs/validation/assets", { recursive: true });
   await page.screenshot({
-    path: "docs/validation/assets/2026-10-28-ux-ease-collector.png",
+    path: "docs/validation/assets/2026-10-29-collector-without-solo.png",
     fullPage: true,
   });
   await expect(
@@ -174,7 +174,7 @@ test("repeated history keeps an offline match visible with an incomplete-history
     ),
   ).toBe(0);
   await page.screenshot({
-    path: "docs/validation/assets/2026-10-28-ux-ease-history.png",
+    path: "test-results/collector-history.png",
     fullPage: true,
   });
 });
@@ -431,7 +431,7 @@ test("ease: three games per page and drafts survive page and filter changes", as
     pages.getByRole("button", { name: "1페이지", exact: true }),
   ).toHaveAttribute("aria-current", "page");
   await page.screenshot({
-    path: "docs/validation/assets/2026-10-28-ux-ease-pagination.png",
+    path: "test-results/collector-pagination.png",
     fullPage: true,
   });
 });
@@ -450,7 +450,7 @@ test("ease: connection dialog closes on success and dismissal does not reopen on
     .click();
   await dialog.getByLabel("모임 코드", { exact: true }).fill("000007");
   await page.screenshot({
-    path: "docs/validation/assets/2026-10-28-ux-ease-connection.png",
+    path: "test-results/collector-connection.png",
     fullPage: true,
   });
   await dialog

@@ -107,18 +107,6 @@ export function App() {
         >
           확인할 경기 불러오기
         </button>
-        <button
-          className="secondary"
-          disabled={busy}
-          onClick={() => {
-            void window.collector
-              .exportMemberReferences([])
-              .then((r) => setNotice(r.reason))
-              .catch(() => setNotice("참고 자료를 내보낼 수 없습니다."));
-          }}
-        >
-          솔로랭크 참고 자료
-        </button>
       </div>
       <p className="help">
         「롤에서 경기 가져오기」는 현재 PC의 롤 기록을 조회하고, 「확인할 경기

@@ -284,6 +284,16 @@
       "role": "historical",
       "date": "2026-10-28",
       "current": "docs/status.md"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-29-collector-solo-removal.md",
+      "role": "reference"
+    },
+    {
+      "path": "docs/validation/2026-10-29-team-solo-report.md",
+      "role": "historical",
+      "date": "2026-10-29",
+      "current": "docs/status.md"
     }
   ],
   "topics": [

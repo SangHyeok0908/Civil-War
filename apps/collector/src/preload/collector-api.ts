@@ -59,9 +59,6 @@ export interface CollectorApi {
     rolesByPuuid: Record<string, Role>,
     inhouse: boolean,
   ): Promise<Snapshot>;
-  exportMemberReferences(
-    selection: string[],
-  ): Promise<{ available: false; code: string; reason: string }>;
 }
 declare global {
   interface Window {

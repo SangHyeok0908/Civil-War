@@ -16,7 +16,6 @@ import { HttpServerApi } from "./server-api";
 import { Outbox } from "./outbox";
 import { CollectorService } from "./history-sync";
 import { validSender, validateCommand, CHANNEL } from "./ipc";
-import { exportMemberReferences } from "./reference-export";
 declare const __CW_COLLECTOR_RELEASE__: boolean;
 let box: Outbox | undefined;
 let timer: NodeJS.Timeout | undefined;
@@ -132,9 +131,7 @@ if (!app.requestSingleInstanceLock()) {
                           p.rolesByPuuid,
                           p.inhouse,
                         )
-                      : c === "draft"
-                        ? service.saveDraft(p.matchKey, p.rolesByPuuid)
-                        : exportMemberReferences(p.selection));
+                      : service.saveDraft(p.matchKey, p.rolesByPuuid));
           return { ok: true, value };
         } catch (e) {
           return {

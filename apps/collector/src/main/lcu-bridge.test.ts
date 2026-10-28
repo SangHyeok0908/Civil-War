@@ -212,6 +212,9 @@ it("IPC rejects subframes, wrong sender, extra properties, malformed roles", () 
   expect(() =>
     validateCommand("query", { url: "https://evil.test" }),
   ).toThrow();
+  expect(() => validateCommand("references", { selection: [] })).toThrow(
+    "INVALID_IPC",
+  );
 });
 it("freshPuuidLookupProvidesCurrentAliasInsteadOfHistoricalName", async () => {
   const client = new LcuClient(
