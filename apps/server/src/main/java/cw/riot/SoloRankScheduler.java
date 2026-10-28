@@ -12,13 +12,16 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(name = "cw.riot.poll-enabled", havingValue = "true", matchIfMissing = true)
 public class SoloRankScheduler {
     private final SoloRankService ranks;
+    private final MemberProfileService profiles;
 
-    public SoloRankScheduler(SoloRankService ranks) {
+    public SoloRankScheduler(SoloRankService ranks, MemberProfileService profiles) {
         this.ranks = ranks;
+        this.profiles = profiles;
     }
 
     @Scheduled(fixedDelayString = "${cw.riot.poll-ms:1000}")
     public void tick() {
         ranks.refreshNextDue();
+        profiles.refreshNextDue();
     }
 }

@@ -24,7 +24,8 @@ public final class MemberContracts {
             String rankStatus,
             String rankTier,
             String rankDivision,
-            Instant rankObservedAt) {
+            Instant rankObservedAt,
+            Integer profileIconId) {
         public Member(
                 String id,
                 String puuid,
@@ -51,6 +52,7 @@ public final class MemberContracts {
                     "unavailable",
                     null,
                     null,
+                    null,
                     null);
         }
     }
@@ -61,5 +63,6 @@ public final class MemberContracts {
             boolean active,
             Role primaryRole,
             Role secondaryRole,
-            List<Role> allowedRoles) {}
+            List<Role> allowedRoles,
+            Integer profileIconId) {}
 }

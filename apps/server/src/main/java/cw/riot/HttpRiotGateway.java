@@ -2,6 +2,7 @@ package cw.riot;
 
 import cw.contracts.AccountContracts;
 import cw.contracts.AccountContracts.AccountLookup;
+import cw.contracts.AccountContracts.ProfileIconLookup;
 import cw.contracts.AccountContracts.SoloRankLookup;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -149,6 +150,25 @@ public class HttpRiotGateway implements RiotGateway {
             return new AccountLookup("verified", data.get("puuid").asString(), canonical);
         } catch (Exception error) {
             return new AccountLookup("unavailable", null, id);
+        }
+    }
+
+    @Override
+    public ProfileIconLookup getProfileIcon(String officialPuuid) {
+        Response response =
+                get(platformOrigin, "/lol/summoner/v4/summoners/by-puuid/" + encode(officialPuuid));
+        if (response == null || response.statusCode() != 200) {
+            return new ProfileIconLookup(
+                    "unavailable", null, response == null ? 0 : response.retryAfterMillis());
+        }
+        try {
+            JsonNode icon = json.readTree(response.body()).path("profileIconId");
+            if (!icon.isIntegralNumber() || !icon.canConvertToInt() || icon.asInt() < 0) {
+                throw new IllegalArgumentException();
+            }
+            return new ProfileIconLookup("available", icon.asInt(), 0);
+        } catch (Exception error) {
+            return new ProfileIconLookup("unavailable", null, 0);
         }
     }
 

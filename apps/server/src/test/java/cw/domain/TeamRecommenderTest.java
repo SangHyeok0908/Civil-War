@@ -191,6 +191,7 @@ class TeamRecommenderTest {
                                 "ranked",
                                 null,
                                 null,
+                                null,
                                 null));
             }
 

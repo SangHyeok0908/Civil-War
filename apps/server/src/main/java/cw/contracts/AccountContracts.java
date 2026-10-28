@@ -17,6 +17,8 @@ public final class AccountContracts {
     public record SoloRankLookup(
             String status, String tier, String division, long retryAfterMillis) {}
 
+    public record ProfileIconLookup(String status, Integer profileIconId, long retryAfterMillis) {}
+
     public record RankSeedSnapshot(
             double teamSeed, String status, String tier, String division, Instant observedAt) {}
 

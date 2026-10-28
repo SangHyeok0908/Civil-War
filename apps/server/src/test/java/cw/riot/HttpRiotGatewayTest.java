@@ -13,6 +13,50 @@ import tools.jackson.databind.json.JsonMapper;
 
 class HttpRiotGatewayTest {
     @Test
+    void profileUsesSummonerEndpointAndValidatesTheIconNumber() throws Exception {
+        AtomicInteger variant = new AtomicInteger();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext(
+                "/",
+                exchange -> {
+                    assertThat(exchange.getRequestURI().getRawPath())
+                            .isEqualTo("/lol/summoner/v4/summoners/by-puuid/official%2Fprofile");
+                    assertThat(exchange.getRequestHeaders().getFirst("X-Riot-Token"))
+                            .isEqualTo("test-secret");
+                    assertThat(exchange.getRequestURI().getRawQuery()).isNull();
+                    String body =
+                            switch (variant.get()) {
+                                case 0 -> "{\"profileIconId\":685}";
+                                case 1 -> "{\"profileIconId\":0}";
+                                case 2 -> "{\"profileIconId\":-1}";
+                                default -> "{\"profileIconId\":\"685\"}";
+                            };
+                    byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(200, bytes.length);
+                    exchange.getResponseBody().write(bytes);
+                    exchange.close();
+                });
+        server.start();
+        try {
+            URI origin = URI.create("http://127.0.0.1:" + server.getAddress().getPort());
+            HttpRiotGateway gateway =
+                    new HttpRiotGateway(
+                            "test-secret", origin, origin, JsonMapper.builder().build());
+            assertThat(gateway.getProfileIcon("official/profile").profileIconId()).isEqualTo(685);
+            variant.set(1);
+            assertThat(gateway.getProfileIcon("official/profile").profileIconId()).isZero();
+            variant.set(2);
+            assertThat(gateway.getProfileIcon("official/profile").status())
+                    .isEqualTo("unavailable");
+            variant.set(3);
+            assertThat(gateway.getProfileIcon("official/profile").status())
+                    .isEqualTo("unavailable");
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void accountRateLimitStopsOtherMemberRequests() throws Exception {
         AtomicInteger calls = new AtomicInteger();
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
