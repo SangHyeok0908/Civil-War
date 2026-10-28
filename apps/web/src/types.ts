@@ -15,13 +15,15 @@ export interface AdminMember extends PublicMember {
   profileRevision: number;
 }
 export interface PublicParticipant extends Omit<Participant, "puuid"> {
-  memberId: string;
+  playerId: string;
+  memberId: string | null;
   displayName: string;
   role: Role;
 }
 export interface Score {
   matchKey: string;
-  memberId: string;
+  playerId: string;
+  memberId: string | null;
   role: Role;
   scoringVersion: string;
   score: number;

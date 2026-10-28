@@ -45,6 +45,7 @@ public class PublicMatchQuery {
     }
 
     public record PublicParticipant(
+            String playerId,
             String memberId,
             String displayName,
             int teamId,
@@ -151,10 +152,12 @@ public class PublicMatchQuery {
 
     private PublicParticipant participantView(
             ParticipantRecord record, MatchParticipantEntity stored) {
-        MemberEntity member = members.findById(stored.memberId).orElseThrow();
+        MemberEntity member =
+                stored.memberId == null ? null : members.findById(stored.memberId).orElseThrow();
         return new PublicParticipant(
-                member.id,
-                member.displayName,
+                stored.playerId,
+                member == null ? null : member.id,
+                member == null ? "게스트" : member.displayName,
                 record.teamId(),
                 record.win(),
                 record.championId(),

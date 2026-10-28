@@ -327,8 +327,15 @@
           "minLength": 1
         },
         "puuid": {
-          "type": "string",
-          "minLength": 1
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "riotId": {
           "type": "string",
@@ -451,18 +458,9 @@
     "MemberCreate": {
       "type": "object",
       "properties": {
-        "puuid": {
-          "type": "string",
-          "minLength": 1
-        },
         "riotId": {
           "type": "string",
           "minLength": 1
-        },
-        "displayName": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 100
         },
         "active": {
           "type": "boolean"
@@ -494,18 +492,10 @@
           },
           "uniqueItems": true,
           "maxItems": 5
-        },
-        "seedSkill": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100
         }
       },
       "required": [
-        "puuid",
-        "riotId",
-        "displayName",
-        "seedSkill"
+        "riotId"
       ],
       "additionalProperties": false
     },
@@ -516,11 +506,6 @@
           "type": "string",
           "minLength": 1
         },
-        "displayName": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 100
-        },
         "active": {
           "type": "boolean"
         },
@@ -551,11 +536,6 @@
           },
           "uniqueItems": true,
           "maxItems": 5
-        },
-        "seedSkill": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100
         }
       },
       "required": [],
@@ -644,8 +624,15 @@
           "maxItems": 7
         },
         "memberId": {
-          "type": "string",
-          "minLength": 1
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "displayName": {
           "type": "string",
@@ -653,9 +640,14 @@
         },
         "role": {
           "$ref": "#/$defs/Role"
+        },
+        "playerId": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
+        "playerId",
         "teamId",
         "win",
         "championId",
@@ -972,7 +964,15 @@
           "$ref": "#/$defs/MatchKey"
         },
         "memberId": {
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "role": {
           "$ref": "#/$defs/Role"
@@ -1039,9 +1039,14 @@
             "win"
           ],
           "additionalProperties": false
+        },
+        "playerId": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
+        "playerId",
         "matchKey",
         "memberId",
         "role",

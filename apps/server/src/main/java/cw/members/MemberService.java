@@ -28,16 +28,19 @@ public class MemberService {
     private final MutationCoordinator mutations;
     private final JsonMapper json;
     private final AccountLinkService links;
+    private final GuestPromotionService promotion;
 
     public MemberService(
             MemberRepository members,
             MutationCoordinator mutations,
             JsonMapper json,
-            AccountLinkService links) {
+            AccountLinkService links,
+            GuestPromotionService promotion) {
         this.members = members;
         this.mutations = mutations;
         this.json = json;
         this.links = links;
+        this.promotion = promotion;
     }
 
     public Member view(MemberEntity m) {
@@ -102,7 +105,8 @@ public class MemberService {
 
         m.profileRevision = 1;
 
-        members.save(m);
+        members.saveAndFlush(m);
+        promotion.linkHistory(m.accountId, m.id);
         mutations.changed(state);
         mutations.audit("member_created", "owner", m.id, "{}");
 

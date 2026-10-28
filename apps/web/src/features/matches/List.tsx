@@ -163,8 +163,10 @@ export function MatchList({
                       .filter((p) => p.teamId === team)
                       .map((p) => (
                         <a
-                          key={p.memberId}
-                          href={"/members/" + p.memberId}
+                          key={p.playerId}
+                          href={
+                            p.memberId ? "/members/" + p.memberId : undefined
+                          }
                           title={p.displayName}
                         >
                           <ChampionItemIcon id={p.championId} />

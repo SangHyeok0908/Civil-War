@@ -17,12 +17,17 @@ import java.util.TreeMap;
 
 public class MemberAggregator {
     public List<MemberStats> aggregate(EvaluationInput input, List<GameScore> scores) {
-        double groupMean = scores.stream().mapToDouble(GameScore::score).average().orElse(0);
+        double groupMean =
+                scores.stream()
+                        .filter(s -> s.memberId() != null)
+                        .mapToDouble(GameScore::score)
+                        .average()
+                        .orElse(0);
 
         Map<String, Double> adjusted = new HashMap<>(), ranked = new HashMap<>();
 
         for (Member m : input.members()) {
-            List<GameScore> ms = scores.stream().filter(s -> s.memberId().equals(m.id())).toList();
+            List<GameScore> ms = scores.stream().filter(s -> m.id().equals(s.memberId())).toList();
 
             if (!ms.isEmpty()) {
                 double value =
@@ -45,7 +50,7 @@ public class MemberAggregator {
             List<EvaluableParticipant> ps =
                     input.matches().stream()
                             .flatMap(g -> g.participants().stream())
-                            .filter(p -> p.memberId().equals(m.id()))
+                            .filter(p -> m.id().equals(p.memberId()))
                             .toList();
             RecordStats total = stats(ps);
 

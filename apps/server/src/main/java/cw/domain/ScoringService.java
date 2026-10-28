@@ -36,8 +36,8 @@ public class ScoringService {
                                             q.matchKey().equals(row.matchKey())
                                                     && q.participant().role() == p.role()
                                                     && !q.participant()
-                                                            .memberId()
-                                                            .equals(p.memberId()))
+                                                            .playerId()
+                                                            .equals(p.playerId()))
                             .findFirst()
                             .orElseThrow();
             List<Row> history =
@@ -92,6 +92,7 @@ public class ScoringService {
             result.add(
                     new GameScore(
                             row.matchKey(),
+                            p.playerId(),
                             p.memberId(),
                             p.role(),
                             input.scoringVersion(),
@@ -107,7 +108,7 @@ public class ScoringService {
 
             for (GameScore s : result) {
                 if (s.matchKey().equals(game.match().matchKey())) {
-                    values.put(s.memberId(), s.score());
+                    values.put(s.playerId(), s.score());
                 }
             }
 
@@ -119,16 +120,17 @@ public class ScoringService {
                         s ->
                                 new GameScore(
                                         s.matchKey(),
+                                        s.playerId(),
                                         s.memberId(),
                                         s.role(),
                                         s.scoringVersion(),
                                         s.score(),
-                                        ranks.get(s.matchKey()).get(s.memberId()),
+                                        ranks.get(s.matchKey()).get(s.playerId()),
                                         s.breakdown()))
                 .sorted(
                         Comparator.comparing(GameScore::matchKey)
                                 .thenComparingInt(GameScore::rank)
-                                .thenComparing(GameScore::memberId))
+                                .thenComparing(GameScore::playerId))
                 .toList();
     }
 

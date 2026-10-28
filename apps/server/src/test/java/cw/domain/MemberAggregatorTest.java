@@ -3,8 +3,11 @@ package cw.domain;
 import static org.assertj.core.api.Assertions.*;
 
 import cw.contracts.EvaluationContracts.EvaluationInput;
+import cw.contracts.EvaluationContracts.GameScore;
 import cw.contracts.EvaluationContracts.MemberStats;
+import cw.contracts.Role;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class MemberAggregatorTest {
@@ -71,5 +74,25 @@ class MemberAggregatorTest {
                             assertThat(s.kda()).isNull();
                             assertThat(s.perfect()).isTrue();
                         });
+    }
+
+    @Test
+    void guestDoesNotEnterCumulativeMean() {
+        var input = ScoringServiceTest.input(List.of(ScoringServiceTest.game("1", false)));
+        var scores =
+                List.of(
+                        new GameScore("1", "m0", Role.TOP, input.scoringVersion(), 0., 1, Map.of()),
+                        new GameScore(
+                                "guest",
+                                null,
+                                Role.TOP,
+                                input.scoringVersion(),
+                                100.,
+                                1,
+                                Map.of()));
+        assertThat(new MemberAggregator().aggregate(input, scores))
+                .filteredOn(s -> s.memberId().equals("m0"))
+                .singleElement()
+                .satisfies(s -> assertThat(s.adjustedScore()).isZero());
     }
 }

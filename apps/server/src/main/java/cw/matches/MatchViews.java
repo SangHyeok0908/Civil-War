@@ -27,7 +27,7 @@ public class MatchViews {
                 || entity.participants.stream()
                         .noneMatch(
                                 p ->
-                                        p.memberId.equals(actor.memberId())
+                                        actor.memberId().equals(p.memberId)
                                                 && p.puuid.equals(actor.puuid()))) {
             throw new ApiException(403, "FORBIDDEN");
         }

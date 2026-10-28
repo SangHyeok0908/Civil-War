@@ -126,7 +126,7 @@ function TeamReport({ teamId, match }: { teamId: 100 | 200; match: Match }) {
           <tbody>
             {participants.map((participant) => (
               <PlayerRow
-                key={participant.memberId}
+                key={participant.playerId}
                 participant={participant}
                 match={match}
               />
@@ -146,14 +146,18 @@ function PlayerRow({
   match: Match;
 }) {
   const playerScore = match.scores.find(
-    (gameScore) => gameScore.memberId === participant.memberId,
+    (gameScore) => gameScore.playerId === participant.playerId,
   );
   return (
     <tr data-testid="player-row">
       <td>
-        <a className="player-name" href={"/members/" + participant.memberId}>
-          {participant.displayName}
-        </a>
+        {participant.memberId ? (
+          <a className="player-name" href={"/members/" + participant.memberId}>
+            {participant.displayName}
+          </a>
+        ) : (
+          <span className="player-name">{participant.displayName}</span>
+        )}
         <ChampionItemIcon id={participant.championId} />
       </td>
       <td>

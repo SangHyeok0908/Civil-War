@@ -111,13 +111,10 @@ class RegistrationIntegrationTest extends DatabaseTestSupport {
     }
 
     @Test
-    void allTenMustBeMembers() {
+    void oneGuestMayBeIncluded() {
         members.deleteById("member-10");
-        assertThatThrownBy(() -> ingest.ingestMatch(input(), actor(1)))
-                .isInstanceOfSatisfying(
-                        ApiException.class,
-                        e -> assertThat(e.code).isEqualTo("UNREGISTERED_PARTICIPANT"));
-        assertThat(matches.count()).isZero();
+        assertThat(ingest.ingestMatch(input(), actor(1)).state()).isEqualTo("pending");
+        assertThat(matches.count()).isEqualTo(1);
         assertThat(jobs()).isZero();
     }
 
