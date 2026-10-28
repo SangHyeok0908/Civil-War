@@ -24,7 +24,7 @@ $env:CW_LCU_LOCKFILE = "C:\Riot Games\League of Legends\lockfile"
 pnpm dev:collector
 ```
 
-서버 기본값은 개발용 `http://127.0.0.1:8080`이다. 외부 서버는 HTTPS만 허용하며 임의 리다이렉트를 따르지 않는다. 설치 경로가 다르면 `CW_LCU_LOCKFILE`을 해당 lockfile 경로로 설정한다. 연결할 때마다 현재 파일을 다시 읽는다. `dev:collector`는 main/preload/화면을 빌드하고 실행하며, 설치 파일 생성·서명은 T13에서 진행한다.
+서버 기본값은 개발용 `http://127.0.0.1:8080`이다. 외부 서버는 HTTPS만 허용하며 임의 리다이렉트를 따르지 않는다. 설치 경로가 다르면 `CW_LCU_LOCKFILE`을 해당 lockfile 경로로 설정한다. 연결할 때마다 현재 파일을 다시 읽는다. `dev:collector`는 main/preload/화면을 빌드하고 실행한다. 별도 설치용 빌드·Windows 설치판 생성은 [설치 안내](../runbooks/collector-install.md#파일-확인과-재생성)를 따른다.
 
 Windows `%APPDATA%\Civil War Collector`에 로컬 자료를 보관한다. 비공개 경기·회원·인증 자료이므로 공개 저장소에 복사하지 않는다. 등록·대기열·계정 전환·보존 규칙은 [현재 명세](../spec.md), 실시간 솔로 참고 연동 상태는 [현재 상태](../status.md)를 따른다.
 

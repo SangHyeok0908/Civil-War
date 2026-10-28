@@ -34,6 +34,13 @@
 | wire-schema | [현재 요청·응답 자료 구조](contracts/stage3.schema.json) |
 | ssot-registry | [정본 목록과 문서 역할](ssot.json) |
 | documentation-checker | [문서 검사·안내표 생성 동작](../scripts/docs.mjs) |
+| collector-installation | [Windows 수집기 설치·수동 업데이트](runbooks/collector-install.md) |
+| collector-installer-build | [Windows 설치판 식별·포장 설정](../apps/collector/electron-builder.json) |
+| collector-nsis-integrity | [Windows 설치·제거 프로그램 내부 무결성 검사](../scripts/nsis-integrity.mjs) |
+| home-server-deployment | [집 Windows·Docker Desktop·Cloudflare 시험 서버 배포](runbooks/home-server.md) |
+| collector-acceptance | [Windows 기기 등록·대기 자료 보존·인증 복구 실기 절차](runbooks/collector-acceptance.md) |
+| home-server-compose | [시험 서버 서비스·DB·볼륨·Tunnel 설정](../infra/home-server/compose.yml) |
+| home-server-runtime | [서버 컨테이너 Java 실행 환경](../infra/home-server/Dockerfile) |
 
 ## 기준 문서
 
@@ -45,12 +52,17 @@
 - [docs/contracts/api.md](contracts/api.md)
 - [tools/lcu-probe/README.md](../tools/lcu-probe/README.md)
 - [fixtures/contracts/v1/README.md](../fixtures/contracts/v1/README.md)
+- [docs/runbooks/collector-install.md](runbooks/collector-install.md)
+- [docs/runbooks/home-server.md](runbooks/home-server.md)
+- [docs/runbooks/collector-acceptance.md](runbooks/collector-acceptance.md)
 
 ## 안내·근거 문서
 
 - [README.md](../README.md)
 - [docs/README.md](README.md)
 - [docs/superpowers/plans/2026-10-26-confirmed-objective.md](superpowers/plans/2026-10-26-confirmed-objective.md)
+- [docs/superpowers/plans/2026-10-26-windows-installer.md](superpowers/plans/2026-10-26-windows-installer.md)
+- [docs/superpowers/plans/2026-10-26-collector-acceptance.md](superpowers/plans/2026-10-26-collector-acceptance.md)
 
 ## 이력 문서
 
@@ -76,6 +88,10 @@
 - [docs/validation/2026-10-24-ssot-report.md](validation/2026-10-24-ssot-report.md) — 2026-10-24, 현재: [docs/development/setup.md](development/setup.md)
 - [docs/validation/2026-10-25-historical-ssot-report.md](validation/2026-10-25-historical-ssot-report.md) — 2026-10-25, 현재: [AGENTS.md](../AGENTS.md)
 - [docs/validation/2026-10-26-confirmed-objective-report.md](validation/2026-10-26-confirmed-objective-report.md) — 2026-10-26, 현재: [docs/status.md](status.md)
+- [docs/validation/2026-10-26-windows-installer-report.md](validation/2026-10-26-windows-installer-report.md) — 2026-10-26, 현재: [docs/status.md](status.md)
+- [docs/validation/2026-10-26-collector-acceptance-preparation.md](validation/2026-10-26-collector-acceptance-preparation.md) — 2026-10-26, 현재: [docs/status.md](status.md)
+- [docs/validation/2026-10-28-history-pagination-report.md](validation/2026-10-28-history-pagination-report.md) — 2026-10-28, 현재: [docs/status.md](status.md)
+- [docs/validation/2026-10-28-uninstaller-integrity-report.md](validation/2026-10-28-uninstaller-integrity-report.md) — 2026-10-28, 현재: [docs/status.md](status.md)
 
 ## 보존한 과거 기록 구간
 

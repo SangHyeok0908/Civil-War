@@ -1,0 +1,58 @@
+{
+  "recordedAt": "2026-10-26",
+  "host": "macOS arm64",
+  "node": "v24.22.1",
+  "release": {
+    "version": "0.2.0-provisional",
+    "electronVersion": "45.0.0",
+    "platform": "win32",
+    "arch": "x64",
+    "files": [
+      {
+        "name": "Civil-War-Collector-Setup-0.2.0-provisional-x64.exe",
+        "bytes": 121263113,
+        "sha256": "ed272335a87ac3d932990f68d831689acdcfe14b89b981728fd55e74d834d2b9"
+      }
+    ]
+  },
+  "appPackage": {
+    "name": "@cw/collector",
+    "description": "Civil War 내전 기록 Windows 수집기",
+    "author": "Civil War",
+    "private": true,
+    "version": "0.2.0-provisional",
+    "main": "dist/main.cjs",
+    "type": "module"
+  },
+  "appExecutable": {
+    "machine": "0x8664 (x86-64)",
+    "versionStrings": {
+      "CompanyName": "Civil War",
+      "FileDescription": "Civil War Collector",
+      "FileVersion": "0.2.0-provisional",
+      "InternalName": "Civil War Collector",
+      "LegalCopyright": "Copyright © 2026 Civil War",
+      "OriginalFilename": "",
+      "ProductName": "Civil War Collector",
+      "ProductVersion": "0.2.0.0",
+      "SquirrelAwareVersion": "1"
+    }
+  },
+  "asarEntries": [
+    "/package.json",
+    "/dist",
+    "/dist/main.cjs",
+    "/dist/preload.cjs",
+    "/dist/renderer",
+    "/dist/renderer/assets",
+    "/dist/renderer/assets/index-DnVrjiQI.js",
+    "/dist/renderer/assets/index-RLH3l5iS.css",
+    "/dist/renderer/index.html"
+  ],
+  "embeddedFixtureMarkers": [],
+  "externalLicenseNotices": [
+    "react",
+    "react-dom"
+  ],
+  "actualWindowsInstallationTested": false
+}

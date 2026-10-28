@@ -1,0 +1,77 @@
+{
+  "recordedAt": "2026-10-26",
+  "environment": "macOS arm64 / Docker Linux containers / actual Spring JAR and PostgreSQL",
+  "requestTransport": "local HTTP on test-only loopback override, production cookie settings and explicit HTTPS Origin",
+  "cloudflareConnected": false,
+  "windowsExecuted": false,
+  "checks": [
+    {
+      "name": "public API ready with no-store",
+      "passed": true
+    },
+    {
+      "name": "documented CLI issues administrator code in same database",
+      "passed": true
+    },
+    {
+      "name": "administrator code exchange succeeds",
+      "passed": true
+    },
+    {
+      "name": "non-development profile sets secure admin cookie",
+      "passed": true
+    },
+    {
+      "name": "administrator code cannot be reused",
+      "passed": true
+    },
+    {
+      "name": "administrator creates synthetic member",
+      "passed": true
+    },
+    {
+      "name": "personal collector code issued",
+      "passed": true
+    },
+    {
+      "name": "wrong account rejected before code consumption",
+      "passed": true
+    },
+    {
+      "name": "same code enrolls matching account",
+      "passed": true
+    },
+    {
+      "name": "collector code cannot be reused",
+      "passed": true
+    },
+    {
+      "name": "collector can fetch roster",
+      "passed": true
+    },
+    {
+      "name": "same-member registration creates a distinct device credential",
+      "passed": true
+    },
+    {
+      "name": "new registration does not implicitly revoke old credential",
+      "passed": true
+    },
+    {
+      "name": "administrator revokes only the old device",
+      "passed": true
+    },
+    {
+      "name": "old credential rejected after explicit revocation",
+      "passed": true
+    },
+    {
+      "name": "replacement credential remains usable",
+      "passed": true
+    },
+    {
+      "name": "member and replacement credential survive container recreation",
+      "passed": true
+    }
+  ]
+}

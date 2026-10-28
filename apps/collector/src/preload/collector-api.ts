@@ -32,6 +32,7 @@ export interface Snapshot {
 }
 export interface HistorySyncResult {
   results: { matchKey: string | null; code: string | null }[];
+  warningCode: string | null;
   snapshot: Snapshot;
 }
 export interface CollectorApi {

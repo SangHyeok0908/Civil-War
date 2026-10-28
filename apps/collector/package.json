@@ -1,7 +1,9 @@
 {
   "name": "@cw/collector",
+  "description": "Civil War 내전 기록 Windows 수집기",
+  "author": "Civil War",
   "private": true,
-  "version": "0.2.0-provisional",
+  "version": "0.2.3-provisional",
   "main": "dist/main.cjs",
   "type": "module"
 }

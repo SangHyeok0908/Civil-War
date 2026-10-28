@@ -1,5 +1,11 @@
 import { build } from "esbuild";
 import { build as viteBuild } from "vite";
+import { rm } from "node:fs/promises";
+import { resolve } from "node:path";
+
+const release = process.argv.includes("--release");
+const output = release ? "apps/collector/build/release" : "apps/collector/dist";
+await rm(output, { recursive: true, force: true });
 await build({
   entryPoints: ["apps/collector/src/main/main.ts"],
   bundle: true,
@@ -7,7 +13,9 @@ await build({
   format: "cjs",
   target: "node24",
   external: ["electron"],
-  outfile: "apps/collector/dist/main.cjs",
+  define: { __CW_COLLECTOR_RELEASE__: release ? "true" : "false" },
+  minifySyntax: release,
+  outfile: `${output}/main.cjs`,
 });
 await build({
   entryPoints: ["apps/collector/src/preload/index.ts"],
@@ -16,6 +24,6 @@ await build({
   format: "cjs",
   target: "node24",
   external: ["electron"],
-  outfile: "apps/collector/dist/preload.cjs",
+  outfile: `${output}/preload.cjs`,
 });
-await viteBuild();
+await viteBuild({ build: { outDir: resolve(output, "renderer") } });

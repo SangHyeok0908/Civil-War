@@ -1,0 +1,17 @@
+{
+  "source": "user-provided Windows PowerShell recovery output in chat",
+  "receivedOnKst": "2026-10-28",
+  "command": "node .\\repair-uninstaller.mjs --repair",
+  "status": "repaired",
+  "backupDirectoryReported": true,
+  "originalAndReplacementHashesVerifiedByTool": true,
+  "newInstallerRunReported": true,
+  "followUpInstallationReport": {
+    "source": "user statement in chat",
+    "receivedOnKst": "2026-10-28",
+    "version": "0.2.3-provisional",
+    "installerCompleted": true,
+    "fileVersionOutputReceived": false
+  },
+  "dataPreservationAfterUpgradeReported": null
+}

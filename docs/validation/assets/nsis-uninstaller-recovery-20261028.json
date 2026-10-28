@@ -1,0 +1,15 @@
+{
+  "recordedOn": "2026-10-28",
+  "originalVersion": "0.2.0-provisional",
+  "originalSha256": "b701ccbf919acf8691d6bbb870a3ce553e0c79204193f222825b50c9ab9dd5e2",
+  "repairedSha256": "52d94129f6da370451c42c17968f0948d0605b1fd3df3e6f7d9da55a858c7052",
+  "bytes": 136123,
+  "originalStoredCrc32": "12b43385",
+  "repairedCalculatedCrc32": "12b43385",
+  "originalCalculatedCrc32": "5b4c31ab",
+  "iconPatchRecords": 8,
+  "changedBytes": 7960,
+  "payloadAndStoredCrcUnchanged": true,
+  "actualWindowsRecoveryTested": false,
+  "upstream": "https://github.com/electron-userland/electron-builder/pull/10262"
+}

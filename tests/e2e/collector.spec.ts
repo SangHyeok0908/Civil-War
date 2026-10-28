@@ -161,6 +161,29 @@ test("queryFailureIsNotPending", async () => {
   await expect(page.getByRole("alert")).toContainText("조회");
   await expect(page.getByRole("combobox")).toHaveCount(0);
 });
+test("repeated history keeps an offline match visible with an incomplete-history warning", async () => {
+  const page = await launch("history-stalled");
+  await page
+    .getByRole("button", { name: "과거 경기 조회", exact: true })
+    .click();
+
+  await expect(page.getByRole("alert")).toContainText(
+    "더 오래된 기록은 확인하지 못했습니다",
+  );
+  await expect(
+    page.getByText("전송 대기", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(page.getByRole("combobox")).toHaveCount(10);
+  expect(
+    await app.evaluate(
+      () => (globalThis as any).__collectorFixture.confirmCalls,
+    ),
+  ).toBe(0);
+  await page.screenshot({
+    path: "docs/validation/assets/2026-10-28-history-pagination.png",
+    fullPage: true,
+  });
+});
 test("pending survives absent LCU history; duplicateShowsExistingState", async () => {
   const page = await launch("pending");
   await expect(

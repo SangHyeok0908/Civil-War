@@ -12,6 +12,10 @@ export interface Account {
   puuid: string;
   displayName: string;
 }
+export interface HistoryListing {
+  ids: string[];
+  warningCode: string | null;
+}
 type Connection = { port: number; password: string; protocol: string };
 export class LcuClient {
   constructor(
@@ -56,7 +60,7 @@ export class LcuClient {
           : text(value.displayName ?? value.internalName),
     };
   }
-  async listPastMatches(puuid: string): Promise<string[]> {
+  async listPastMatches(puuid: string): Promise<HistoryListing> {
     if (!/^[A-Za-z0-9_-]{1,128}$/.test(puuid))
       throw new ClientError("INVALID_ACCOUNT");
     const found = new Set<string>();
@@ -77,9 +81,12 @@ export class LcuClient {
         if (!found.has(id)) added++;
         found.add(id);
       }
-      if (rows.length < 20) return [...found];
-      if (start > 0 && added === 0)
-        throw new ClientError("HISTORY_PAGINATION_STALLED");
+      if (rows.length < 20) return { ids: [...found], warningCode: null };
+      if (start > 0 && added === 0) {
+        // Some clients return an earlier full page even for a later range.
+        // Preserve readable matches without claiming the history is complete.
+        return { ids: [...found], warningCode: "HISTORY_PAGINATION_STALLED" };
+      }
     }
     throw new ClientError("HISTORY_LIMIT");
   }

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { Outbox } from "./outbox";
 import { CollectorService } from "./history-sync";
 import { normalizeMatch } from "../../../../packages/lcu/src/normalize-match";
+import { LcuClient } from "./lcu-client";
 import { ClientError, ROLES } from "../../../../packages/contracts/src/index";
 const raw = JSON.parse(
   readFileSync("fixtures/lcu/candidates/h2-20261021/G1.json", "utf8"),
@@ -32,8 +33,11 @@ function setup() {
       puuid: actor.puuid,
       displayName: "수집자",
     })),
-    listPastMatches: vi.fn(async () => [match.gameId]),
-    getMatch: vi.fn(async () => ({
+    listPastMatches: vi.fn(async (_puuid: string) => ({
+      ids: [match.gameId],
+      warningCode: null as string | null,
+    })),
+    getMatch: vi.fn(async (_id: string) => ({
       rawMatch: raw,
       rawJson: JSON.stringify(raw),
     })),
@@ -149,7 +153,7 @@ it("server pending remains visible when LCU history expires", async () => {
   x.api.pending.mockResolvedValue([
     { matchKey: key, state: "pending", match, confirmedRoles: null },
   ]);
-  x.lcu.listPastMatches.mockResolvedValue([]);
+  x.lcu.listPastMatches.mockResolvedValue({ ids: [], warningCode: null });
   await x.service.initialize();
   expect((await x.service.queryPastMatches()).snapshot.matches).toHaveLength(1);
 });
@@ -255,6 +259,43 @@ it("cached roster collection persists before delayed server requests finish", as
   expect((await x.service.snapshot()).matches[0].status).toBe("전송 대기");
   release();
   await Promise.all([refresh, query]);
+});
+it("repeated LCU pages still save eligible matches offline and return a separate warning", async () => {
+  const x = setup();
+  await x.service.initialize();
+  const ids = [
+    match.gameId,
+    ...Array.from({ length: 19 }, (_, index) => String(index + 1)),
+  ];
+  const client = new LcuClient(
+    async () => ({ port: 1, password: "private", protocol: "https" }),
+    async () => ({
+      status: 200,
+      body: JSON.stringify({
+        games: { games: ids.map((gameId) => ({ gameId })) },
+      }),
+    }),
+  );
+  x.lcu.listPastMatches.mockImplementation((puuid) =>
+    client.listPastMatches(puuid),
+  );
+  x.lcu.getMatch.mockImplementation(async (id) => {
+    if (id !== match.gameId) throw new ClientError("UNSUPPORTED_SCHEMA");
+    return { rawMatch: raw, rawJson: JSON.stringify(raw) };
+  });
+  x.api.ingest.mockRejectedValue(new ClientError("NETWORK_ERROR"));
+
+  const result = await x.service.queryPastMatches();
+
+  expect(result.warningCode).toBe("HISTORY_PAGINATION_STALLED");
+  expect(result.results.filter((entry) => entry.code === null)).toHaveLength(1);
+  expect(
+    result.results.filter((entry) => entry.code === "UNSUPPORTED_SCHEMA"),
+  ).toHaveLength(19);
+  expect(result.snapshot.matches).toHaveLength(1);
+  expect(result.snapshot.matches[0].status).toBe("전송 대기");
+  expect(x.box.listOutbox()).toHaveLength(1);
+  expect(x.api.confirm).not.toHaveBeenCalled();
 });
 it("local disk failure is not reported as saved", async () => {
   const x = setup();
