@@ -419,3 +419,13 @@ it("manualDraftSurvivesRefreshAndRestart and overrides newer proposals", async (
     (await restarted.snapshot()).matches[0].roles[actor.puuid],
   ).toBeUndefined();
 });
+it("compactUiKeepsFullIngestPayload", async () => {
+  const x = setup();
+  await x.service.initialize();
+  await x.service.queryPastMatches();
+  const payload = x.box.listOutbox().find((j) => j.kind === "ingest")!.payload;
+  expect(payload.rawJson).toBe(JSON.stringify(raw));
+  expect(payload.rawMatch.participants[0].stats).toEqual(
+    raw.participants[0].stats,
+  );
+});

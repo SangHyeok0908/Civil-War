@@ -222,3 +222,24 @@ details p {
     padding: 16px;
   }
 }
+
+.participant-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 140px;
+}
+.champion-portrait,
+.champion-placeholder {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #243345;
+}
+.champion-placeholder {
+  display: grid;
+  place-items: center;
+  color: #c4d3e2;
+}

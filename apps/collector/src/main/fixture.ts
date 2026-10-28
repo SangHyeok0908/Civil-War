@@ -4,11 +4,13 @@ import {
   type Credential,
 } from "../../../../packages/contracts/src/index";
 import { normalizeMatch } from "../../../../packages/lcu/src/normalize-match";
-import raw from "../../../../fixtures/lcu/candidates/h2-20261021/G1.json";
+import fixtureRaw from "../../../../fixtures/lcu/candidates/h2-20261021/G1.json";
 import { CollectorService } from "./history-sync";
 import type { Outbox } from "./outbox";
 // Development-only fixture wiring; never talks to LCU, Riot, or a live server.
 export function fixtureService(box: Outbox, mode: string) {
+  const raw = structuredClone(fixtureRaw);
+  if (mode === "champion") raw.participants[0].championId = 67;
   const match = normalizeMatch(raw);
   const key = "KR:" + match.gameId;
   let actor: Credential = {

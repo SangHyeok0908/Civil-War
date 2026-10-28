@@ -73,4 +73,5 @@ tasks.register('buildWeb', Exec) {
 tasks.named('processResources') {
     dependsOn tasks.named('buildWeb')
     from('../web/dist') { into 'static' }
+    from('../../packages/game-assets/catalog.json') { into 'assets' }
 }

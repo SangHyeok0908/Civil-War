@@ -229,3 +229,22 @@ test("stopped client remains usable for saved pending review", async () => {
     ),
   ).toBe(0);
 });
+test("champion compact rows and Portrait fallback keep confirmation usable", async () => {
+  const page = await launch("champion");
+  await page
+    .getByRole("button", { name: "과거 경기 조회", exact: true })
+    .click();
+  await expect(page.getByText("베인", { exact: true }).first()).toBeVisible();
+  const portraits = page.locator("img.champion-portrait");
+  await expect(portraits).toHaveCount(10);
+  await expect(portraits.first()).toHaveJSProperty("naturalWidth", 128);
+  await portraits
+    .first()
+    .evaluate((img) => img.dispatchEvent(new Event("error")));
+  await expect(page.getByText("베인", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("기록 보기", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("combobox")).toHaveCount(10);
+  await expect(
+    page.getByRole("button", { name: "내전 등록", exact: true }),
+  ).toBeVisible();
+});

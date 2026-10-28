@@ -5,6 +5,7 @@ import {
   type Role,
 } from "../../../../packages/contracts/src/index";
 import type { MatchView } from "../preload/collector-api";
+import { ChampionPortrait, getChampionLabel } from "./ChampionPortrait";
 import { message } from "./messages";
 const labels = {
   TOP: "탑",
@@ -76,20 +77,13 @@ export function MatchReview({
                   .map((p) => (
                     <tr key={p.puuid}>
                       <td>
-                        {record.names[p.puuid]}
-                        <small>챔피언 #{p.championId}</small>
-                        <details>
-                          <summary>기록 보기</summary>
-                          <p>
-                            피해 {p.championDamage.toLocaleString()} · 받은 피해{" "}
-                            {p.damageTaken.toLocaleString()} · CS{" "}
-                            {p.laneCs + p.neutralCs} · 골드{" "}
-                            {p.goldEarned.toLocaleString()} · 시야{" "}
-                            {p.visionScore} · 오브젝트 {p.objectiveDamage} ·
-                            포탑 {p.turretDamage}
-                          </p>
-                          <p>아이템 {p.items.join(" / ")}</p>
-                        </details>
+                        <span className="participant-identity">
+                          <ChampionPortrait championId={p.championId} />
+                          <span>
+                            {record.names[p.puuid]}
+                            <small>{getChampionLabel(p.championId)}</small>
+                          </span>
+                        </span>
                       </td>
                       <td>
                         {p.kills}/{p.deaths}/{p.assists}
