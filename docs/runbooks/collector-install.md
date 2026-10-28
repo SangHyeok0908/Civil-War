@@ -59,6 +59,12 @@ $env:CW_SERVER_ORIGIN = "https://your-service.example"
 
 개발 환경에서는 [고정 도구 버전](../../package.json)으로 다음 명령을 실행한다. 처음 생성할 때 Windows 런타임과 설치 도구를 내려받으므로 네트워크 연결이 필요하다.
 
+Windows에서 설치판을 생성·검증할 때는 NSIS 형식을 지원하는 정식 7-Zip을 설치하고 같은 PowerShell에서 아래 경로를 지정한다. 설치 도구가 기본으로 받는 Windows용 `7za.exe`는 지원 형식이 제한되어 최종 설치판의 내부 검증에 사용할 수 없다. 이 설정은 개발용 빌드에만 필요하며 수집기 사용자에게 7-Zip 설치를 요구하지 않는다. Windows 자동 검사도 같은 환경변수와 지원 형식 확인을 사용한다.
+
+```powershell
+$env:ELECTRON_BUILDER_7ZIP_PATH = Join-Path $env:ProgramFiles '7-Zip\7z.exe'
+```
+
 ```sh
 pnpm install --frozen-lockfile
 pnpm test:collector-release

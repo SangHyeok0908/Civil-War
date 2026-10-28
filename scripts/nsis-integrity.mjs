@@ -54,7 +54,13 @@ export async function verifyEmbeddedUninstaller(installer) {
     extracted.status !== 0 ||
     extracted.stdout.length === 0
   )
-    throw new Error("UNINSTALLER_EXTRACTION_FAILED");
+    throw new Error("UNINSTALLER_EXTRACTION_FAILED", {
+      cause:
+        extracted.error ??
+        new Error(
+          `7-Zip exit=${extracted.status}, bytes=${extracted.stdout.length}: ${extracted.stderr.toString().trim()}`,
+        ),
+    });
   const integrity = verifyNsisIntegrity(extracted.stdout);
   return {
     bytes: extracted.stdout.length,

@@ -50,6 +50,8 @@ jobs:
   client:
     runs-on: windows-2022
     timeout-minutes: 15
+    env:
+      ELECTRON_BUILDER_7ZIP_PATH: 'C:\Program Files\7-Zip\7z.exe'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -57,6 +59,13 @@ jobs:
           node-version: "24.22.1"
       - run: npm install --global pnpm@11.5.0
       - run: pnpm install --frozen-lockfile
+      - name: Check NSIS archive support
+        run: |
+          $formats = & $env:ELECTRON_BUILDER_7ZIP_PATH i
+          if ($LASTEXITCODE -ne 0 -or -not ($formats -match '\bNsis\b')) {
+            throw 'The selected 7-Zip must support NSIS archives.'
+          }
+          $formats | Select-String -Pattern '\bNsis\b'
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm test:collector-release

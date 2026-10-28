@@ -65,6 +65,8 @@ macOS arm64·Node.js 24.22.1에서 보관한 배포 설치 파일을 7-Zip으로
 
 [추출 코드](../../scripts/nsis-integrity.mjs)는 7-Zip에 전달하는 내부 경로를 `/`로 고정하고 있었다. macOS의 실제 설치판에서 해당 구분자는 제거 파일을 반환했지만 반대 구분자로 요청하면 종료 코드 0·출력 0바이트가 됐다. 내부 경로도 실행 운영체제의 구분자로 만들도록 수정했다. 제거 파일의 원래 CRC를 확인하는 검사는 그대로 유지한다.
 
+경로 수정 커밋 `7351c74`의 [Windows 재검사](https://github.com/SangHyeok0908/Civil-War/actions/runs/40647759074)에서도 보강한 실제 설치 파일 추출 사례가 실패했다. 따라서 구분자 수정만으로 해결됐다고 판정하지 않았다. 설치 도구가 Windows에서 내려받는 것은 지원 형식이 제한된 `7za.exe`였으며, [7-Zip 소스 안내](https://github.com/ip7z/7zip/blob/main/DOC/readme.txt)의 해당 프로그램 지원 목록에는 NSIS가 없다. [Windows 실행 환경 안내](https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md)에서 제공하는 정식 7-Zip을 명시적으로 선택하고, 검사 시작 전에 실제 지원 형식에 NSIS가 있는지 확인하도록 바꿨다. 추출 실패 시에는 종료 코드·출력 크기·도구의 오류 내용도 원인으로 남긴다.
+
 [기존 실제 NSIS 회귀 사례](../../scripts/nsis-integrity.test.mjs)를 보강해 생성한 제거 프로그램을 최종 설치 파일에 넣고, 같은 검증 함수로 다시 추출한 크기·저장 CRC를 대조한다. macOS의 배포·복구 사례 12개, 단위 사례 64개와 기존 설치판 재검증은 통과했다. 수정 후 실제 Windows 자동 검사의 결과는 [PR 검사 목록](https://github.com/SangHyeok0908/Civil-War/pull/7/checks)에서 확인하며, 로컬 성공을 Windows 실행 성공으로 바꾸지 않는다.
 
 ### 배포판과 운영 확인
