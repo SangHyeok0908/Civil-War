@@ -3,6 +3,7 @@ package cw.riot;
 import static org.assertj.core.api.Assertions.*;
 
 import com.sun.net.httpserver.HttpServer;
+import cw.contracts.AccountContracts.SoloRankLookup;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -79,8 +80,9 @@ class HttpRiotGatewayTest {
             status.set(204);
             assertThat(gateway.getSoloRank("official-id").status()).isEqualTo("unranked");
             status.set(429);
-            assertThat(gateway.getSoloRank("official-id").status()).isEqualTo("unavailable");
-            assertThat(gateway.getSoloRank("official-id").retryAfterMillis()).isEqualTo(12000);
+            SoloRankLookup throttled = gateway.getSoloRank("official-id");
+            assertThat(throttled.status()).isEqualTo("unavailable");
+            assertThat(throttled.retryAfterMillis()).isEqualTo(12000);
         } finally {
             server.stop(0);
         }
