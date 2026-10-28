@@ -29,14 +29,11 @@ function rankLabel(m: AdminMember) {
   return "솔로랭크 조회 대기 또는 연결 확인 필요";
 }
 const blank = {
-  puuid: "",
   riotId: "",
-  displayName: "",
   active: true,
   primaryRole: null as Role | null,
   secondaryRole: null as Role | null,
   allowedRoles: [] as Role[],
-  seedSkill: 50,
 };
 export function MembersAdmin() {
   const result = useRemote<AdminMember[]>("/api/admin/members");
@@ -74,7 +71,7 @@ export function MembersAdmin() {
                   <h3>
                     {m.displayName}{" "}
                     <span className="badge">
-                      {m.active ? "활성" : "비활성"}
+                      {m.active ? "팀 추천 대상" : "팀 추천 제외"}
                     </span>
                   </h3>
                   <small>

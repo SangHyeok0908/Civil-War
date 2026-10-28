@@ -22,7 +22,9 @@ class GuestPromotionIntegrationTest extends DatabaseTestSupport {
     @Autowired AdminMatchService admin;
 
     private void guests() {
-        for (int i = 7; i <= 11; i++) members.deleteById("member-" + i);
+        for (int i = 7; i <= 11; i++) {
+            members.deleteById("member-" + i);
+        }
     }
 
     @Test
@@ -32,7 +34,7 @@ class GuestPromotionIntegrationTest extends DatabaseTestSupport {
         concurrent(
                 () -> profiles.create(json.readTree("{\"riotId\":\"Player7#test\"}")),
                 () -> registration.registerMatch(confirmation(false), actor(1)));
-        var promoted = members.findByRiotIdIgnoreCase("Player7#test").getFirst();
+        MemberEntity promoted = members.findByRiotIdIgnoreCase("Player7#test").getFirst();
         assertThat(promoted.accountId).isEqualTo("member-7");
         assertThat(matches.count()).isEqualTo(1);
         assertThat(
@@ -57,14 +59,15 @@ class GuestPromotionIntegrationTest extends DatabaseTestSupport {
     void canceledHistoryNeverReturns() {
         guests();
         registered();
-        var second = raw();
+        tools.jackson.databind.node.ObjectNode second = raw();
         second.put("gameId", "9000000000000000000002");
         String canceled =
                 ingest.ingestMatch(new IngestMatchInput(second, "second", 1), actor(1)).matchKey();
         registration.registerMatch(
                 new ConfirmationInput(canceled, roles(false), "confirm-second"), actor(1));
         admin.cancel(canceled);
-        var member = profiles.create(json.readTree("{\"riotId\":\"Player7#test\"}"));
+        cw.contracts.MemberContracts.Member member =
+                profiles.create(json.readTree("{\"riotId\":\"Player7#test\"}"));
         worker.runOnce();
         assertThat(evaluations.current().memberStats())
                 .filteredOn(s -> s.memberId().equals(member.id()))

@@ -30,6 +30,17 @@ test("설치용 빌드에는 개발용 경기 응답과 시험 서비스가 들�
   assert.match(main, /node:sqlite/);
   assert.ok(existsSync("apps/collector/build/release/preload.cjs"));
   assert.ok(existsSync("apps/collector/build/release/renderer/index.html"));
+  const catalog = JSON.parse(
+    await readFile("packages/game-assets/catalog.json", "utf8"),
+  );
+  assert.equal(catalog.champions[67].name, "베인");
+  for (const champion of Object.values(catalog.champions)) {
+    const bytes = await readFile(
+      "apps/collector/build/release/renderer/assets/champions/" +
+        champion.image,
+    );
+    assert.equal(bytes.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
+  }
 });
 
 async function withRelease(run) {

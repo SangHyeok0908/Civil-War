@@ -23,8 +23,8 @@ class CollectorProgressIntegrationTest extends DatabaseTestSupport {
     void liveWorkerLockAllowsRunning() throws Exception {
         registered();
         evaluations.claim(false);
-        try (var connection = jdbc.getDataSource().getConnection();
-                var statement = connection.createStatement()) {
+        try (java.sql.Connection connection = jdbc.getDataSource().getConnection();
+                java.sql.Statement statement = connection.createStatement()) {
             statement.execute("select pg_advisory_lock(731954801)");
             try {
                 assertThat(status()).isEqualTo("running");

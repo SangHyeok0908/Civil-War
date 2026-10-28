@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useState } from "react";
 import {
   ROLES,
   validateRoles,
@@ -26,15 +26,15 @@ export function MatchReview({
   save: (roles: Record<string, Role | null>) => void;
   confirm: (roles: Record<string, Role>) => void;
 }) {
-  const manual = useRef(record.manualRoles ?? {});
-  useEffect(() => {
-    manual.current = record.manualRoles ?? {};
-  }, [JSON.stringify(record.manualRoles)]);
-  const [roles, setRoles] = useState(record.roles);
+  const [edits, setEdits] = useState<Record<string, Role | null>>({});
   const [checked, setChecked] = useState(false);
-  useEffect(() => {
-    setRoles(record.roles);
-  }, [JSON.stringify(record.roles)]);
+  const roles = { ...record.roles };
+  if (record.state === "pending") {
+    for (const [id, role] of Object.entries(edits)) {
+      if (role === null) delete roles[id];
+      else roles[id] = role;
+    }
+  }
   let valid = true;
   try {
     validateRoles(record.match, roles);
@@ -42,7 +42,7 @@ export function MatchReview({
     valid = false;
   }
   const editable =
-    record.state === "pending" && record.status !== "등록 진행 중";
+    record.state === "pending" && record.category !== "registering";
   return (
     <article className="match">
       <header>
@@ -103,20 +103,14 @@ export function MatchReview({
                             aria-label={record.names[p.puuid] + " 실제 포지션"}
                             value={roles[p.puuid] ?? ""}
                             onChange={(e) => {
-                              const next = {
-                                ...roles,
-                                [p.puuid]: e.target.value as Role,
-                              };
-                              setRoles(next);
-                              if (!e.target.value) delete next[p.puuid];
-                              const draft = {
-                                ...manual.current,
-                                [p.puuid]: e.target.value
-                                  ? (e.target.value as Role)
-                                  : null,
-                              };
-                              manual.current = draft;
-                              save(draft);
+                              const role = e.target.value
+                                ? (e.target.value as Role)
+                                : null;
+                              setEdits((previous) => ({
+                                ...previous,
+                                [p.puuid]: role,
+                              }));
+                              save({ [p.puuid]: role });
                             }}
                             disabled={busy}
                           >
@@ -137,7 +131,7 @@ export function MatchReview({
                             (s) => s.puuid === p.puuid && s.role,
                           ) &&
                           !Object.prototype.hasOwnProperty.call(
-                            record.manualRoles ?? {},
+                            { ...record.manualRoles, ...edits },
                             p.puuid,
                           ) && (
                             <small>경기 기록으로 추정 · 역할 확인 필요</small>
@@ -163,7 +157,10 @@ export function MatchReview({
           <p>팀마다 다섯 포지션을 한 명씩 확인해야 등록할 수 있습니다.</p>
           <button
             disabled={
-              busy || !checked || !valid || record.status === "문제 해결 필요"
+              busy ||
+              !checked ||
+              !valid ||
+              record.category === "action_required"
             }
             onClick={() => confirm(roles)}
           >

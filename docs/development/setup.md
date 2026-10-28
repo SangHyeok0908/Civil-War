@@ -16,7 +16,7 @@ pnpm test:e2e
 
 `test:e2e`는 빌드한 **실제 Electron main/preload/renderer와 파일 SQLite**를 사용하되 LCU와 서버는 고정 시험 응답(fixture)이다. League·실제 인증·Riot API에 연결하지 않는다. macOS에서도 이 테스트는 실행할 수 있으며 일반 수집기 실행은 Windows만 지원한다. `pnpm test:probe`는 재사용한 LCU 전송 계층의 로컬 HTTPS 회귀 테스트다. `pnpm format:check`는 클라이언트 소스 형식을 검사한다.
 
-Windows PowerShell에서 운영자가 발급한 개인별 코드와 실제 LCU 계정으로 실행한다:
+Windows PowerShell에서 운영자가 발급한 모임 코드와 실제 LCU 계정으로 실행한다:
 
 ```powershell
 $env:CW_SERVER_ORIGIN = "https://your-service.example"
@@ -58,6 +58,10 @@ export SERVER_ORIGIN=http://localhost:8080
 
 JAR(자바 실행 묶음)의 파일명에 넣을 버전은 서버 빌드 설정을 따른다. 또는 `java -jar apps/server/build/libs/civil-war-server-<빌드 버전>.jar --spring.profiles.active=dev`를 사용한다. 로컬 HTTP는 dev 프로필에서 사용한다. 쿠키·출처·위조 요청 방지 설정은 [현재 계약](../contracts/api.md)을 따른다. origin은 완전한 출처 값이며 끝 `/`를 붙이지 않는다.
 
+## 자동 솔로랭크 참고 연결
+
+서버 실행 환경에 `RIOT_API_KEY`를 설정하면 공식 Account-v1과 League-v4를 읽어 자동 시작 기준을 갱신한다. 키는 수집기·브라우저·로그에 넣지 않는다. [집 서버 환경 예시](../../infra/home-server/.env.example)와 Compose는 이 값을 서버 컨테이너에만 전달한다. 키가 없거나 서비스 조회가 실패해도 참가자는 저장하고 최근 성공값 또는 공통 시작값을 사용한다. 현재 정보는 참가자 관리의 조회 상태·시각으로 확인한다. 환산·갱신 정책은 [정책 파일](../../apps/server/src/main/resources/policies/rank-seed-v1.json)이 원본이다.
+
 ## 최초 관리자와 복구
 
 같은 DB 환경변수를 설정한 로컬 터미널에서:
@@ -69,7 +73,7 @@ java -jar apps/server/build/libs/civil-war-server-<빌드 버전>.jar admin:code
 
 명령은 웹 서버를 열지 않고 종료한다. `ADMIN_CODE=`는 터미널에 한 번만 출력한다. 유효 기간·세션 규칙은 현재 계약을 따른다. `--revoke-all`은 기존 관리자 세션과 미소비 관리자 코드를 폐기한다. 수집기 인증은 별도 관리한다. 일반 로그로 출력하지 않으며 셸 리다이렉션/터미널 기록에 코드를 보관하지 않는다.
 
-브라우저 `/admin`에 코드를 입력한 뒤 회원을 만들고 개인별 수집기 코드를 발급한다. 계정에는 실제 LCU PUUID(계정 식별자)를 사용하며 Riot 공식 API PUUID와 혼용하지 않는다. 요청·응답과 쿠키 갱신은 [현재 계약](../contracts/api.md)을 참고한다.
+브라우저 `/admin`에 관리자 코드를 입력한 뒤 Riot ID로 참가자를 추가하고 ‘코드·인증’에서 모임 코드를 발급한다. 수집기는 현재 롤 계정으로 모임에 연결한다. 수동 PUUID 입력은 받지 않는다. 요청·응답과 쿠키 갱신은 [현재 계약](../contracts/api.md)을 참고한다.
 
 ## 웹과 전체 통합 검증
 
@@ -85,11 +89,11 @@ pnpm test:probe
 pnpm format:check
 ```
 
-`test:web`는 실제 패키지 JAR·Chromium·격리 PostgreSQL을 사용한다. Docker Compose 테스트 DB가 먼저 실행되어야 한다. 검사 실행기(harness)의 [스크립트](../../scripts/web-test-server.mjs)가 DB 이름과 서버·제어 포트의 정본이다. 실행기는 전용 DB만 초기화하고 실제 API로 합성 회원·경기를 등록한다. 필요한 포트를 다른 서버가 점유하면 종료 후 실행한다. 프로세스 제어는 테스트 스크립트에만 있고 제품 JAR에는 없다. 테스트 중 JAR를 덮어쓰지 않는다. Java는 `JAVA_HOME` 또는 PATH에서, Docker는 `CW_DOCKER` 또는 기본 설치에서 찾는다.
+`test:web`는 실제 패키지 JAR·Chromium·격리 PostgreSQL을 사용한다. Docker Compose 테스트 DB가 먼저 실행되어야 한다. 포트를 바꿨다면 `CW_TEST_DB_PORT`를 웹 실행기에도 전달하고 동일 Compose 프로젝트를 `COMPOSE_PROJECT_NAME`으로 선택한다. 검사 실행기(harness)의 [스크립트](../../scripts/web-test-server.mjs)가 DB 이름과 서버·제어 포트의 정본이다. 실행기는 전용 DB만 초기화하고 실제 API로 합성 회원·경기를 등록한다. 필요한 포트를 다른 서버가 점유하면 종료 후 실행한다. 프로세스 제어는 테스트 스크립트에만 있고 제품 JAR에는 없다. 테스트 중 JAR를 덮어쓰지 않는다. Java는 `JAVA_HOME` 또는 PATH에서, Docker는 `CW_DOCKER` 또는 기본 설치에서 찾는다.
 
 실제 서버 브라우저 테스트는 공개/관리 흐름, stage 2 HttpServerApi·SQLite Outbox의 확인 대기→확정→응답 유실 재시도, 원문 소수 정밀도, 역할 정정/취소, 실행 중 작업자 강제 종료→관리 CLI 무개입→재시작 복구를 확인한다. `ui-states.fixture.spec.ts`는 네트워크 UI 상태를 주입하는 별도 fixture 검사이며 서버 검증 증거로 합산하여 설명하지 않는다. `test:e2e`는 기존 Electron fixture만 실행하므로 Windows collector CI가 Java/PostgreSQL 웹 harness를 시작하지 않는다.
 
-화면 캡처는 `docs/validation/assets/stage3-*.png`, 로컬 테스트 로그·추적은 gitignore된 `test-results/`에 생성된다. 테스트 인증 상태는 `test-results/web-state.json`의 합성 DB 전용 값이며 운영 자료로 재사용하지 않는다.
+화면 캡처는 `docs/validation/assets/2026-10-28-ux-*.png`, 로컬 테스트 로그·추적은 gitignore된 `test-results/`에 생성된다. 테스트 인증 상태는 `test-results/web-state.json`의 합성 DB 전용 값이며 운영 자료로 재사용하지 않는다.
 
 코드 형식과 에디터 설정은 [코드 작성 규칙](code-style.md)을 따른다. 현재 연동 제한·설치·배포의 남은 확인은 [현재 상태](../status.md)를 참고한다. 여기의 명령은 실행 방법이며 통과 증거는 각 실행 보고서에 기록한다.
 

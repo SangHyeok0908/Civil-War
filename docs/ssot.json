@@ -260,6 +260,12 @@
       "role": "historical",
       "date": "2026-10-28",
       "current": "docs/status.md"
+    },
+    {
+      "path": "docs/validation/2026-10-28-ux-implementation-report.md",
+      "role": "historical",
+      "date": "2026-10-28",
+      "current": "docs/status.md"
     }
   ],
   "topics": [
@@ -447,6 +453,16 @@
       "id": "collector-navigation",
       "title": "수집기 상태별 목록과 쉬운 용어",
       "source": "docs/spec.md#수집기-목록과-용어"
+    },
+    {
+      "id": "rank-seed-policy",
+      "title": "솔로랭크 팀 편성 시작값과 갱신 정책",
+      "source": "apps/server/src/main/resources/policies/rank-seed-v1.json"
+    },
+    {
+      "id": "game-asset-catalog",
+      "title": "챔피언 한국어 이름과 고정 자산 버전",
+      "source": "packages/game-assets/catalog.json"
     }
   ],
   "conditionalEvidence": [

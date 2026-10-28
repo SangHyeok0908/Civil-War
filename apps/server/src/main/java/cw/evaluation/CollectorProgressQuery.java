@@ -4,6 +4,7 @@ import cw.contracts.ApiException;
 import cw.contracts.MatchContracts.CollectorPrincipal;
 import cw.db.RecalculationJob;
 import cw.db.ServiceState;
+import cw.matches.MatchEntity;
 import cw.matches.MatchRepository;
 import cw.matches.MatchViews;
 import jakarta.persistence.*;
@@ -39,9 +40,10 @@ public class CollectorProgressQuery {
         if (keys == null
                 || keys.size() > 100
                 || keys.stream()
-                        .anyMatch(k -> k == null || !k.matches("[A-Z0-9]{1,16}:[0-9]{1,30}")))
+                        .anyMatch(k -> k == null || !k.matches("[A-Z0-9]{1,16}:[0-9]{1,30}"))) {
             throw new ApiException(422, "INVALID_REQUEST");
-        var records =
+        }
+        List<MatchEntity> records =
                 keys.stream()
                         .distinct()
                         .map(
@@ -52,30 +54,34 @@ public class CollectorProgressQuery {
                         .toList();
         records.forEach(m -> views.requireParticipant(m, actor));
         ServiceState state = em.find(ServiceState.class, 1);
-        var g =
+        GenerationEntity g =
                 state.activeGenerationId == null
                         ? null
                         : em.find(GenerationEntity.class, state.activeGenerationId);
         String status = "unknown";
         if (g != null
                 && g.sourceRevision == state.sourceRevision
-                && Objects.equals(g.scoringVersion, state.desiredScoringVersion)) status = "ready";
-        else {
-            var jobs =
+                && Objects.equals(g.scoringVersion, state.desiredScoringVersion)) {
+            status = "ready";
+        } else {
+            List<RecalculationJob> jobs =
                     em.createQuery(
                                     "from RecalculationJob where sourceRevision=:r",
                                     RecalculationJob.class)
                             .setParameter("r", state.sourceRevision)
                             .getResultList();
-            if (jobs.isEmpty()) status = "queued";
-            else {
-                var job = jobs.getFirst();
+            if (jobs.isEmpty()) {
+                status = "queued";
+            } else {
+                RecalculationJob job = jobs.getFirst();
                 if (job.scoringVersion != null
-                        && !Objects.equals(job.scoringVersion, state.desiredScoringVersion))
+                        && !Objects.equals(job.scoringVersion, state.desiredScoringVersion)) {
                     status = "queued";
-                else if (job.status.equals("pending")) status = "queued";
-                else if (job.status.equals("failed")) status = "failed";
-                else if (job.status.equals("running")) {
+                } else if (job.status.equals("pending")) {
+                    status = "queued";
+                } else if (job.status.equals("failed")) {
+                    status = "failed";
+                } else if (job.status.equals("running")) {
                     boolean live =
                             Boolean.TRUE.equals(
                                     em.createNativeQuery(
@@ -86,7 +92,7 @@ public class CollectorProgressQuery {
                 }
             }
         }
-        var evaluation =
+        EvaluationProgress evaluation =
                 new EvaluationProgress(
                         status, state.sourceRevision, state.desiredScoringVersion, clock.instant());
         return records.stream()

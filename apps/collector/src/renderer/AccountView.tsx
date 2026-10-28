@@ -18,7 +18,15 @@ export function AccountView({
       <div>
         <small>연결된 계정</small>
         <h2>{account.displayName ?? "롤 클라이언트 연결 대기"}</h2>
-        <p>{account.enrolled ? "모임에 연결됨" : "모임 코드 입력 필요"}</p>
+        <p>
+          {["AUTH_REVOKED", "COLLECTOR_UPDATE_REQUIRED"].includes(
+            account.code ?? "",
+          )
+            ? "모임에 다시 연결해야 합니다"
+            : account.enrolled
+              ? "모임에 연결됨"
+              : "모임 코드 입력 필요"}
+        </p>
         {account.code && <p className="warning">{message(account.code)}</p>}
       </div>
       <form

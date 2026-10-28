@@ -26,6 +26,7 @@ services:
       DATABASE_URL: jdbc:postgresql://postgres:5432/cw_collector_acceptance
       DATABASE_USER: cw_collector_acceptance
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      RIOT_API_KEY: ${RIOT_API_KEY:-}
       SERVER_ORIGIN: ${SERVER_ORIGIN:?Set the public HTTPS origin in .env}
     depends_on:
       postgres:

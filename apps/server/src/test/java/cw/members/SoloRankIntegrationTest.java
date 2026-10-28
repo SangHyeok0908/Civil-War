@@ -32,12 +32,12 @@ class SoloRankIntegrationTest extends DatabaseTestSupport {
                 .thenReturn(new AccountLookup("verified", "official", "Player1#test"));
         when(gateway.getSoloRank("official"))
                 .thenReturn(new SoloRankLookup("ranked", "DIAMOND", "I", 0));
-        var first = ranks.refresh("member-1");
+        cw.contracts.AccountContracts.RankSeedSnapshot first = ranks.refresh("member-1");
         assertThat(first.teamSeed()).isEqualTo(90.);
         long before = revision();
         when(gateway.getSoloRank("official"))
                 .thenReturn(new SoloRankLookup("unavailable", null, null, 12000));
-        var failed = ranks.refresh("member-1");
+        cw.contracts.AccountContracts.RankSeedSnapshot failed = ranks.refresh("member-1");
         assertThat(failed.status()).isEqualTo("unavailable");
         assertThat(failed.teamSeed()).isEqualTo(90.);
         assertThat(failed.observedAt()).isEqualTo(first.observedAt());

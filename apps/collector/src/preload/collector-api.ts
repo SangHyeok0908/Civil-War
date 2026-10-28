@@ -3,13 +3,16 @@ import type {
   Role,
   MatchState,
 } from "../../../../packages/contracts/src/index";
-export type DisplayState =
-  | "전송 대기"
-  | "확인 대기"
-  | "등록 진행 중"
-  | "등록 완료"
-  | "등록 취소"
-  | "문제 해결 필요";
+export const DISPLAY_STATES = {
+  upload_pending: "전송 대기",
+  review_pending: "확인 대기",
+  registering: "등록 진행 중",
+  registered: "등록 완료",
+  canceled: "등록 취소",
+  action_required: "문제 해결 필요",
+} as const;
+export type MatchCategory = keyof typeof DISPLAY_STATES;
+export type DisplayState = (typeof DISPLAY_STATES)[MatchCategory];
 export interface SafeAccount {
   connected: boolean;
   displayName: string | null;
@@ -20,6 +23,7 @@ export interface MatchView {
   matchKey: string;
   state: MatchState;
   status: DisplayState;
+  category: MatchCategory;
   match: NormalizedMatch;
   roles: Record<string, Role>;
   manualRoles?: Record<string, Role | null>;

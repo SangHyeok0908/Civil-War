@@ -78,8 +78,9 @@ class MemberAggregatorTest {
 
     @Test
     void guestDoesNotEnterCumulativeMean() {
-        var input = ScoringServiceTest.input(List.of(ScoringServiceTest.game("1", false)));
-        var scores =
+        EvaluationInput input =
+                ScoringServiceTest.input(List.of(ScoringServiceTest.game("1", false)));
+        List<GameScore> scores =
                 List.of(
                         new GameScore("1", "m0", Role.TOP, input.scoringVersion(), 0., 1, Map.of()),
                         new GameScore(

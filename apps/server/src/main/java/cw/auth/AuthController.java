@@ -38,14 +38,13 @@ public class AuthController {
 
     @PostMapping("/api/admin/session")
     public ResponseEntity<?> login(@RequestBody CodeInput input, HttpServletRequest req) {
-        limiter.check(req.getRemoteAddr());
+        limiter.attempt("admin", req.getRemoteAddr());
 
         AuthService.LoginReply reply;
 
         try {
             reply = auth.login(input.code());
         } catch (ApiException e) {
-            limiter.failed(req.getRemoteAddr());
             throw e;
         }
 
@@ -71,15 +70,15 @@ public class AuthController {
     @PostMapping("/api/collector/enroll")
     public AuthService.EnrollmentReply enroll(
             @RequestBody EnrollmentInput input, HttpServletRequest req) {
-        limiter.check("collector", req.getRemoteAddr());
+        limiter.attempt("collector", req.getRemoteAddr());
         try {
-            if (input.protocolVersion() == null || input.protocolVersion() != 2)
+            if (input.protocolVersion() == null || input.protocolVersion() != 2) {
                 throw new ApiException(426, "COLLECTOR_UPDATE_REQUIRED");
+            }
             EnrollmentReply reply = auth.enroll(input.code(), input.currentAccount());
             limiter.succeeded("collector", req.getRemoteAddr());
             return reply;
         } catch (ApiException error) {
-            limiter.failed("collector", req.getRemoteAddr());
             throw error;
         }
     }

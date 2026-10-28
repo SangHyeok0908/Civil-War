@@ -45,6 +45,8 @@
 | collector-review | [수집기 챔피언 표시와 포지션 제안](spec.md#수집기-경기-확인-화면) |
 | collector-progress | [수집기 전송·등록·계산 진행 안내](spec.md#전송등록계산-진행-안내) |
 | collector-navigation | [수집기 상태별 목록과 쉬운 용어](spec.md#수집기-목록과-용어) |
+| rank-seed-policy | [솔로랭크 팀 편성 시작값과 갱신 정책](../apps/server/src/main/resources/policies/rank-seed-v1.json) |
+| game-asset-catalog | [챔피언 한국어 이름과 고정 자산 버전](../packages/game-assets/catalog.json) |
 
 ## 기준 문서
 
@@ -99,6 +101,7 @@
 - [docs/validation/2026-10-28-uninstaller-integrity-report.md](validation/2026-10-28-uninstaller-integrity-report.md) — 2026-10-28, 현재: [docs/status.md](status.md)
 - [docs/superpowers/decisions/2026-10-28-ux-requirements.md](superpowers/decisions/2026-10-28-ux-requirements.md) — 2026-10-28, 현재: [docs/spec.md](spec.md)
 - [docs/validation/2026-10-28-ux-planning-report.md](validation/2026-10-28-ux-planning-report.md) — 2026-10-28, 현재: [docs/status.md](status.md)
+- [docs/validation/2026-10-28-ux-implementation-report.md](validation/2026-10-28-ux-implementation-report.md) — 2026-10-28, 현재: [docs/status.md](status.md)
 
 ## 보존한 과거 기록 구간
 

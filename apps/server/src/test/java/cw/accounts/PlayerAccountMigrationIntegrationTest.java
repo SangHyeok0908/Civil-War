@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.Statement;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -19,6 +20,42 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("test")
 class PlayerAccountMigrationIntegrationTest {
     @Autowired DataSource dataSource;
+
+    @Test
+    void emptyDatabaseAppliesAllAccountMigrations() {
+        String schema = "ux_empty_" + UUID.randomUUID().toString().replace("-", "");
+        Flyway migration =
+                Flyway.configure()
+                        .dataSource(dataSource)
+                        .locations("classpath:db/migrations")
+                        .schemas(schema)
+                        .defaultSchema(schema)
+                        .cleanDisabled(false)
+                        .load();
+        try {
+            assertThat(migration.migrate().migrationsExecuted).isEqualTo(8);
+            JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "select count(*) from " + schema + ".members", Integer.class))
+                    .isZero();
+            assertThat(
+                            jdbc.queryForObject(
+                                    "select generation from "
+                                            + schema
+                                            + ".group_collector_code where id=1",
+                                    Long.class))
+                    .isEqualTo(1);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "select count(*) from information_schema.columns where table_schema=? and table_name='match_participants' and column_name='player_id' and is_nullable='NO'",
+                                    Integer.class,
+                                    schema))
+                    .isEqualTo(1);
+        } finally {
+            migration.clean();
+        }
+    }
 
     @Test
     void backfillKeepsMemberAndMatchKeys() throws Exception {
@@ -70,6 +107,14 @@ class PlayerAccountMigrationIntegrationTest {
                         }
                     }
                 }
+                try (Statement insert = c.createStatement()) {
+                    insert.execute(
+                            "insert into admin_sessions values('legacy-session',repeat('a',64),repeat('b',64),now(),now(),false)");
+                    insert.execute(
+                            "insert into collector_credentials values('legacy-device',repeat('c',64),'legacy-0',now(),false)");
+                    insert.execute(
+                            "insert into enrollment_codes values('old-personal',repeat('d',64),'collector','legacy-0',now()+interval '1 day',false,false)");
+                }
                 c.setSchema("public");
             }
             List<Map<String, Object>> before =
@@ -115,6 +160,33 @@ class PlayerAccountMigrationIntegrationTest {
                                             + ".members where id=account_id",
                                     Integer.class))
                     .isEqualTo(10);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "select revoked from "
+                                            + schema
+                                            + ".admin_sessions where id='legacy-session'",
+                                    Boolean.class))
+                    .isFalse();
+            assertThat(
+                            jdbc.queryForObject(
+                                    "select revoked from "
+                                            + schema
+                                            + ".collector_credentials where id='legacy-device'",
+                                    Boolean.class))
+                    .isTrue();
+            assertThat(
+                            jdbc.queryForObject(
+                                    "select revoked from "
+                                            + schema
+                                            + ".enrollment_codes where id='old-personal'",
+                                    Boolean.class))
+                    .isTrue();
+            assertThat(
+                            jdbc.queryForObject(
+                                    "select count(*) from information_schema.columns where table_schema=? and table_name in ('members','match_participants') and column_name in ('account_id','player_id') and is_nullable='NO'",
+                                    Integer.class,
+                                    schema))
+                    .isEqualTo(2);
         } finally {
             old.clean();
         }

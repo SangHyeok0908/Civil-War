@@ -74,7 +74,9 @@ public class IngestService {
                         .filter(Objects::nonNull)
                         .distinct()
                         .count();
-        if (registered < 6) throw new ApiException(422, "INSUFFICIENT_REGISTERED_PARTICIPANTS");
+        if (registered < 6) {
+            throw new ApiException(422, "INSUFFICIENT_REGISTERED_PARTICIPANTS");
+        }
         matches.save(match);
         mutations.audit("match_ingested", actor.memberId(), match.id, "{}");
 

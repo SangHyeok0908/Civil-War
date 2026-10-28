@@ -90,8 +90,9 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
             }
 
             if (path.startsWith("/api/collector/")
-                    && !"2".equals(request.getHeader("X-CW-Collector-Protocol")))
+                    && !"2".equals(request.getHeader("X-CW-Collector-Protocol"))) {
                 throw new ApiException(426, "COLLECTOR_UPDATE_REQUIRED");
+            }
             HttpServletRequest req = request;
 
             if (!Set.of("GET", "HEAD", "OPTIONS").contains(req.getMethod())) {

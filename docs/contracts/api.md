@@ -1,10 +1,10 @@
 # 현재 HTTP/JSON 계약
 
-> 2026-10-28 안내: 이 문서는 현재 구현의 요청·응답 계약이다. [새 사용자 경험 목표](../spec.md)와 [전환 계획](../superpowers/plans/2026-10-28-ux-improvements.md)의 새 계정·게스트·인증·진행 형식은 구현 작업에서 스키마와 함께 갱신한다. 계획 작성만으로 현행 호출 형식이 바뀐 것은 아니다.
+기록일: 2026-10-24. 편집·보완일: 2026-10-28. 계정 연결·게스트·공통 코드·계산 진행 계약을 프로토콜 2로 반영했다. 운영 적용과 실제 외부 연동의 확인 범위는 [실행 보고서](../validation/2026-10-28-ux-implementation-report.md)를 따른다.
 
 이 문서는 수집기·웹 화면·서버가 주고받는 요청, 응답과 검증 경계를 설명한다. 경기 수집과 내전 등록은 별도 요청이며, 계산 중에도 등록된 경기 기록은 읽을 수 있다. 외부에 공개하는 응답에는 계정 식별자나 인증 정보를 넣지 않는다.
 
-2026-10-24에 기존 [단계 1 계약](stage1-api.md), [단계 3 계약](stage3-api.md), [LCU 후보 매핑](../validation/lcu-candidate-contract.md)을 통합했다. 새 정책 결정이나 구현 변경은 없다. JSON(데이터 교환 형식)의 구조·필수 필드·허용 값은 [현재 JSON Schema](stage3.schema.json)가 기준이다. [stage1.schema.json](stage1.schema.json)은 당시 구조를 남긴 과거 자료다. 필드 사이의 관계와 서버 검사는 이 문서도 함께 적용한다.
+2026-10-24에 기존 [단계 1 계약](stage1-api.md), [단계 3 계약](stage3-api.md), [LCU 후보 매핑](../validation/lcu-candidate-contract.md)을 통합했다. 이후 2026-10-28 사용자 경험 변경을 아래 계약에 반영했다. JSON(데이터 교환 형식)의 구조·필수 필드·허용 값은 [현재 JSON Schema](stage3.schema.json)가 기준이다. [stage1.schema.json](stage1.schema.json)은 당시 구조를 남긴 과거 자료다. 필드 사이의 관계와 서버 검사는 이 문서도 함께 적용한다.
 
 | 구분 | 주체·현재 상태 | 지금 판단할 사항 |
 | --- | --- | --- |
@@ -39,7 +39,8 @@ HTTP(웹 요청·응답 규약)의 경로 표에서 `:id`, `:key`는 경로에 �
 | 404 | `NOT_FOUND`; 공개 조회에서 대기·취소 경기는 없는 경기와 구분하지 않음 |
 | 409 | `MATCH_CANCELED`, `INVALID_STATE`, `CONFLICT`, `REFERENCE_MAPPING_CONFLICT`; 취소된 경기 등록 재시도 중단 |
 | 413 | `BODY_TOO_LARGE`; 본문 크기 수정 |
-| 422 | `INVALID_MATCH`, `UNREGISTERED_PARTICIPANT`, `UNSUPPORTED_SCHEMA`, `INVALID_MEMBER`, `INVALID_SCOPE`, `INVALID_TEAM_MEMBERS`, `INVALID_SCORING_RULES`, `INVALID_REFERENCE_MAPPING`, `INVALID_REFERENCE_SAMPLE`; 입력·등록 상태 확인 |
+| 422 | `INVALID_MATCH`, `INSUFFICIENT_REGISTERED_PARTICIPANTS`, `UNSUPPORTED_SCHEMA`, `INVALID_MEMBER`, `INVALID_SCOPE`, `INVALID_TEAM_MEMBERS`, `INVALID_SCORING_RULES`, `INVALID_REFERENCE_MAPPING`, `INVALID_REFERENCE_SAMPLE`; 입력·등록 상태 확인 |
+| 426 | `COLLECTOR_UPDATE_REQUIRED`; 새 수집기로 업데이트하고 같은 자료 폴더 사용 |
 | 429 | `RATE_LIMITED`, `retryable:true`, `Retry-After: 600`; 대기 후 재시도 |
 | 500 | `INTERNAL_ERROR`, `retryable:true`; 저장한 같은 요청을 대기 시간을 늘려 재시도 |
 
@@ -47,49 +48,59 @@ HTTP(웹 요청·응답 규약)의 경로 표에서 `:id`, `:key`는 경로에 �
 
 Riot 비밀번호나 LCU 인증 토큰을 서버로 보내지 않는다. LCU에서 현재 계정을 찾았다는 사실은 서버 인증을 대신하지 않는다.
 
-코드와 수집기·관리자 세션 토큰은 임의의 32바이트를 패딩 없는 base64url로 인코딩한 43자 문자열이다. 데이터베이스에는 SHA-256(단방향 해시 함수) 해시만 저장한다. 코드 범위 검사와 1회 소비는 하나의 트랜잭션(함께 성공하거나 취소되는 처리)으로 수행한다. 관리자 코드는 30분, 수집기 코드는 24시간 유효하다. 관리자 세션은 7일 미사용 또는 생성 후 30일에 만료하며, 수집기 자격은 철회할 때까지 유지한다.
+관리자 입력 코드는 앞자리 0을 보존하는 임의 숫자 6자리이며 30분 동안 한 번 사용할 수 있다. 새 발급은 이전 미사용 관리자 코드를 해제한다. 모임 코드와 기기·브라우저 토큰은 기존 32바이트 난수의 43자 base64url 형식을 유지한다. 모임 코드는 재발급·삭제할 때까지 여러 기기에서 반복 사용한다. 서버에는 SHA-256(단방향 해시 함수)만 저장하며 평문 코드는 발급 응답에만 제공한다. 관리자 세션은 7일 미사용 또는 생성 후 30일에 만료한다. 짧은 관리자 코드는 DB 해시 유출 시 추측에 약하므로 DB 접근 보호와 코드 만료가 함께 필요하다.
 
 | 메서드·경로 | 요청·권한 | 응답 |
 | --- | --- | --- |
 | `POST /api/admin/session` | `{code}` + 정확한 `Origin` | 200 `{sessionId,csrfToken}` + 관리자 쿠키 |
 | `GET /api/admin/session` | 관리자 쿠키 | 200 `{sessionId,csrfToken}`; 새로고침 후 CSRF 복구 |
 | `POST /api/admin/logout` | 관리자 쓰기 인증 | 204; 쿠키 제거·서버 세션 철회 |
-| `POST /api/collector/enroll` | `{code,currentPuuid}` | 200 `{token,memberId,credentialId,puuid}` |
-| `POST /api/admin/codes` | 관리자 쓰기 인증. `{scope:"admin"}` 또는 `{scope:"collector",memberId}` | 200 `{id,code,scope,expiresAt}`; 평문 코드는 이때 한 번만 제공 |
-| `GET /api/admin/codes` | 관리자 쿠키 | 최신 100개 `{id,scope,memberId,expiresAt,consumed,revoked}`; 평문·해시 제외 |
+| `POST /api/collector/enroll` | `{code,currentAccount:IdentityObservation,protocolVersion:2}` | 200 `{token,memberId,credentialId,puuid,codeGeneration}` |
+| `POST /api/admin/codes` | 관리자 쓰기 인증. `{scope:"admin"}` | 200 `{id,code,scope,expiresAt}`; 평문 코드는 이때 한 번만 제공 |
+| `GET /api/admin/codes` | 관리자 쿠키 | 관리자 코드 최신 100개 `{id,scope,memberId,expiresAt,consumed,revoked}`; 평문·해시 제외 |
 | `DELETE /api/admin/codes/:id` | 관리자 쓰기 인증 | 204; 코드 철회 |
 | `GET /api/admin/sessions` | 관리자 쿠키 | `[{id,revoked,createdAt,lastSeenAt}]` |
 | `DELETE /api/admin/sessions/:id` | 관리자 쓰기 인증 | 204; 세션 철회 |
 | `GET /api/admin/collector-credentials` | 관리자 쿠키 | `[{id,memberId,revoked,createdAt}]` |
 | `DELETE /api/admin/collector-credentials/:id` | 관리자 쓰기 인증 | 204; 수집기 자격 철회 |
+| `GET /api/admin/collector-code` | 관리자 쿠키 | `{active,generation,issuedAt}`; 비밀값 제외 |
+| `POST /api/admin/collector-code` | 관리자 쓰기 인증 | `{code,generation}`; 기존 코드가 있으면 409 |
+| `POST /api/admin/collector-code/rotate` | 관리자 쓰기 인증 | 새 `{code,generation}`; 모든 기기 연결 해제 |
+| `DELETE /api/admin/collector-code` | 관리자 쓰기 인증 | 204; 코드 삭제·모든 기기 연결 해제 |
 | `GET /api/admin/audit` | 관리자 쿠키 | 최신 100개 비공개 감사 기록 |
 
 관리자 쓰기 인증은 관리자 쿠키, 설정과 정확히 같은 `Origin`, `X-CSRF-Token` 세 가지다. CSRF(다른 사이트에서 인증된 사용자의 쓰기 요청을 유도하는 공격)를 막기 위한 경계다. 관리자 경로는 수집기 토큰으로 접근할 수 없으며 `Authorization` 헤더가 있으면 거절한다. 쿠키는 `__Host-cw-admin`, `Secure`, `HttpOnly`, `SameSite=Strict`, `Path=/`, Domain 없음으로 설정한다. 명시적인 개발·테스트 HTTP 모드에서만 `Secure` 없는 `cw-admin-dev`를 쓴다. CORS(다른 출처의 웹 페이지 접근 허용)를 넓게 열지 않으며, 읽기 전용 세션 복구도 쿠키 인증과 브라우저의 동일 출처 제한을 따른다.
 
-수집기 요청은 `Authorization: Bearer <token>`을 쓴다. 요청 주체의 `memberId`, `credentialId`, `puuid`는 서버가 토큰에서 정하며, 요청 본문의 주체 정보를 믿지 않는다. 등록 시 `currentPuuid`가 코드에 연결된 회원의 변경 불가능한 LCU PUUID와 같아야 한다. 불일치하면 코드를 소비하지 않는다. 수집기는 토큰을 화면 렌더러 코드에 노출하지 않고 저장한 작업을 원래 회원·자격에 묶는다.
+수집기의 모든 요청은 `X-CW-Collector-Protocol: 2`를 보내며 인증 후에는 `Authorization: Bearer <token>`도 사용한다. 구형 요청은 본문 해석 전에 426을 반환한다. `IdentityObservation`은 `{puuid,riotId,source,observedAt}`이며, 등록에는 LCU의 현재 로그인 계정에서 얻은 `source:"current_summoner"`만 허용한다. 관측은 최근 자료여야 하고 과거 경기의 이름만으로 연결하지 않는다. 모임 코드가 맞아도 등록 참가자로 연결되지 않은 계정은 `UNREGISTERED_COLLECTOR`로 거절한다.
 
-코드 교환 실패는 직접 연결한 원격 IP별로 10분에 5회까지 허용하고 이후 429로 제한한다. 성공하면 해당 실패 기록을 초기화한다. 이 제한은 메모리에만 있어 서버 재시작 시 초기화되지만 코드·자격·세션은 데이터베이스에 남는다. 전달된 IP 헤더는 신뢰하지 않으므로 프록시 뒤의 여러 사용자가 같은 제한을 공유할 수 있다. 신뢰 프록시 설정의 최신 상태는 [현재 상태](../status.md)를 따른다.
+`POST /api/collector/accounts/observations`는 `{rawMatch,observations:IdentityObservation[]}`를 받는다. 자신의 적격 형식 경기 참가자에 해당하는 최대 10개의 `current_lookup` 관측만 받으며 현재 이름·계정 키의 충돌을 거절한다. LCU의 현재 PUUID 조회와 공식 Riot ID 조회는 별도 연결 근거다. LCU와 공식 PUUID를 서로 복사하지 않는다.
+
+모임 코드 세대 교체와 모든 기기 해제는 같은 저장 단위로 처리한다. 수집·등록은 상태 잠금을 잡은 뒤 세대를 다시 검사한다. 관리자 세션·경기 기록·PC 대기는 삭제하지 않는다. 기존 대기는 같은 참가자와 같은 계정으로 새 연결을 확인한 뒤 이어 보낼 수 있다.
+
+코드 시도는 인증 영역별로 분리한 영속 DB 제한을 사용한다. IP별 10분 5회, 관리자 전체 10분 50회를 동시 요청에도 적용하며 재시작 후 유지한다. 성공 시 해당 영역의 IP 제한을 초기화하고 관리자 성공만 관리자 전체 제한을 초기화한다. 공통 코드 사용은 관리자 실패를 지우지 않는다. 전달된 IP 헤더는 신뢰하지 않아 프록시 뒤 사용자가 한도를 공유할 수 있다.
 
 ## 회원
 
 역할은 `TOP`(탑), `JUNGLE`(정글), `MIDDLE`(미드), `BOTTOM`(바텀), `UTILITY`(서포터) 중 하나다. 인증된 [Member](stage3.schema.json#/$defs/Member)는 다음 필드를 갖는다.
 
 ```json
-{"id":"opaque-member-id","puuid":"private-lcu-puuid","riotId":"Name#KR1","displayName":"Name","active":true,"primaryRole":"TOP","secondaryRole":"JUNGLE","allowedRoles":["JUNGLE","TOP"],"seedSkill":50,"profileRevision":1}
+{"id":"opaque-member-id","puuid":"private-lcu-puuid","riotId":"Name#KR1","displayName":"Name#KR1","active":true,"primaryRole":"TOP","secondaryRole":"JUNGLE","allowedRoles":["JUNGLE","TOP"],"seedSkill":50,"profileRevision":1}
 ```
 
 | 메서드·경로 | 동작 |
 | --- | --- |
 | `GET /api/admin/members` | 관리자 쿠키로 전체 Member 배열 조회 |
-| `GET /api/collector/members` | 수집기 토큰으로 전체 Member 배열 조회 |
+| `GET /api/collector/members` | 수집기 토큰으로 LCU 계정 연결을 마친 Member 배열 조회 |
 | `GET /api/admin/members/:id` | 관리자 쿠키로 Member 1명 조회 |
-| `POST /api/admin/members` | 관리자 쓰기 인증. `puuid`, `riotId`, `displayName`, `seedSkill` 필수, active·역할 선택. 생성한 Member, 200 |
-| `PATCH /api/admin/members/:id` | 관리자 쓰기 인증. displayName·riotId·active·primaryRole·secondaryRole·allowedRoles·seedSkill 일부 변경, 변경된 Member 반환 |
+| `POST /api/admin/members` | 관리자 쓰기 인증. `riotId`만 필수, active·역할 선택. 생성한 Member, 200 |
+| `PATCH /api/admin/members/:id` | 관리자 쓰기 인증. riotId·active·primaryRole·secondaryRole·allowedRoles 일부 변경, 변경된 Member 반환 |
 | `GET /api/members` | 공개 [PublicMember](stage3.schema.json#/$defs/PublicMember) 배열: `{id,displayName,active,primaryRole,secondaryRole,allowedRoles}` |
 
-`seedSkill`(초기 실력값)은 정수 0~100이며 랭크로 자동 추정하지 않는다. primary·secondary는 null일 수 있지만 둘 다 있으면 달라야 하고 `allowedRoles`에 포함되어야 한다. 생성 시 `allowedRoles`를 생략하면 null이 아닌 primary·secondary에서 만들며, 역할이 전혀 없으면 빈 배열로 둔다. 이 회원을 팀 추천에 쓰려면 운영자가 가능한 역할을 정해야 한다.
+계정 입력은 Riot ID만 받는다. 생성·편집의 공개 이름·PUUID·수동 실력 입력은 거절한다. `puuid`가 null인 프로필도 저장하며 현재 계정 관측 후 안정적인 계정 행에 연결한다. `displayName`은 Riot ID 전체를 따라가고 이름 변경은 회원·계정 키와 과거 기록을 유지한다. 기존 `seedSkill` 응답은 감사용 호환 필드이며 계산에 사용하지 않는다.
 
-PATCH에서 생략한 필드는 유지하고 PUUID·ID 변경은 거절한다. 이름 변경은 안정적인 회원 ID나 과거 연결을 바꾸지 않는다. 비활성화도 과거 기록은 보존하되 이후 팀 추천에서 제외한다. 이름·Riot ID만 실제로 바뀌면 `profileRevision`(프로필 변경 번호)만 증가한다. 역할·활성 상태·seedSkill이 실제로 바뀌거나 회원이 생성되면 `sourceRevision`(계산 입력 변경 번호)과 재계산 작업도 생성한다. 아무 값도 바뀌지 않은 PATCH는 재계산을 만들지 않는다.
+`teamSeed`, `rankStatus`, `rankTier`, `rankDivision`, `rankObservedAt`은 자동 솔로랭크 참고 상태다. 등급 없음과 조회 실패를 구분하며 실패 시 최근 성공값을 유지한다. 수치·갱신 주기의 원본은 [등급 정책](../../apps/server/src/main/resources/policies/rank-seed-v1.json)이다. 이 참고값은 공개 누적 점수에 섞지 않는다. 공식 키는 서버의 `RIOT_API_KEY`에만 둔다.
+
+주·부 포지션은 서로 달라야 하고 가능한 포지션에 포함되어야 한다. 가능한 역할이 없는 참가자는 팀 추천 전에 설정이 필요하다. `active`는 팀 추천 대상이며 비활성화가 기존 기록이나 내전 후보의 등록 인원에서 제외하는 뜻은 아니다. 실제 설정 변경·게스트 연결·실력 기준 변화는 계산 입력 변경 번호와 재계산을 만든다.
 
 ## LCU 원본을 정규화하는 규칙
 
@@ -143,14 +154,18 @@ CS(처치한 미니언·몬스터 수)는 `laneCs + neutralCs`만 더하며 아�
 4. `POST /api/collector/matches/:key/confirm`에 `{rolesByPuuid:{"private-puuid":"TOP",...},clientSubmissionId:"saved-confirmation"}`을 보낸다. `matchKey`는 경로에만 있고 본문에 넣지 않는다. 두 팀 각각 5역할을 중복 없이 갖춰야 한다.
 5. 200 [RegistrationAck](stage3.schema.json#/$defs/RegistrationAck)는 `{matchKey,disposition:"created"|"already_registered",sourceRevision}`이다. 반복 확인에는 이후 다른 변경이 있었어도 최초 등록 때 확정된 revision을 반환한다.
 
-ingest는 등록하거나 `sourceRevision`을 늘리지 않는다. 최초 수집 시 10명의 LCU PUUID가 모두 사전 등록된 회원이어야 한다. 기존 경기 재제출은 원본·정규화 값·참가자·역할·상태를 바꾸지 않는다. 들어온 원본은 다시 검증하되 권한은 **저장된 참가자** 기준으로 검사한다. 취소된 경기 ingest는 `already_canceled`, 확인 요청은 409 `MATCH_CANCELED`다. 먼저 확정된 역할을 반복 확인으로 덮어쓸 수 없다.
+ingest는 등록하거나 `sourceRevision`을 늘리지 않는다. 최초 수집 시 서로 다른 등록 참가자가 양 팀 합계 6명 이상이어야 한다. 나머지는 독립된 playerId를 가진 게스트로 보존한다. 정식 참가자 등록 시 같은 계정의 과거 유효 경기를 회원에 연결하고 전체 누적 결과를 재계산한다. 기존 경기 재제출은 원본·정규화 값·참가자·역할·상태를 바꾸지 않는다. 들어온 원본은 다시 검증하되 권한은 **저장된 참가자** 기준으로 검사한다. 취소된 경기 ingest는 `already_canceled`, 확인 요청은 409 `MATCH_CANCELED`다. 먼저 확정된 역할을 반복 확인으로 덮어쓸 수 없다.
 
 수집한 사람과 달라도 저장된 참가자이면 확인할 수 있다. 비참가자는 해당 경기의 수집기 상세·확인에 접근할 수 없다.
 
 | 메서드·경로 | 동작 |
 | --- | --- |
 | `GET /api/collector/matches?state=pending` | 호출자가 참가한 경기 배열, 최신순. state는 pending·registered·canceled, 기본 pending |
-| `GET /api/collector/matches/:key` | [CollectorMatch](stage3.schema.json#/$defs/CollectorMatch): `{matchKey,state,match:<NormalizedMatch>,confirmedRoles:null|{puuid:Role}}` |
+| `GET /api/collector/matches/:key` | [CollectorMatch](stage3.schema.json#/$defs/CollectorMatch): `{matchKey,state,match:<NormalizedMatch>,confirmedRoles:null|{puuid:Role},roleSuggestions:RoleSuggestion[]}` |
+
+`roleSuggestions`는 참가자별 `{puuid,role:null|Role,source,reason}`이다. 명확한 라인·역할 근거만 사용하고 팀 내 중복 후보는 비운다. 서버 확정값, 수동 초안, 새 제안 순서로 표시한다. 추정과 직접 선택 모두 사람이 확인해야 등록할 수 있다.
+
+`POST /api/collector/progress`는 `{matchKeys:string[]}`를 최대 100개까지 받아 자기 참가 경기의 `CollectorProgress[]`를 반환한다. 각 항목은 `{matchKey,registrationState,registeredRevision,evaluation:{status,targetRevision,scoringVersion,observedAt}}`이다. status는 `queued|running|ready|failed|unknown`이며 현재 입력 변경 번호·선택 계산 버전과 게시 세대가 일치해야 ready다. 작업자의 DB 잠금이 사라지면 running 대신 unknown이다. 비참가·없는 경기 묶음은 403으로 거절하고 관리자 오류 원문을 노출하지 않는다.
 
 원본·정규화 JSON, 참가자 10행, 감사 기록, 상태·revision·작업 변경은 같은 트랜잭션에 참여한다. 응답이 유실되면 보존한 같은 요청을 재시도하며 최초 등록이 이긴다. 이 규모에서는 전체 서비스 상태 행 잠금으로 변경을 직렬화하고 데이터베이스 고유 제약으로 platform/game 중복도 막는다. 수집기·관리자의 비공개 목록은 소규모 친구 모임을 위한 상태별 전체 배열이며 공개 목록만 페이지로 나눈다.
 

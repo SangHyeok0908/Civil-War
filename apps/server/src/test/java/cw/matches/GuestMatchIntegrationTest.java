@@ -16,7 +16,9 @@ class GuestMatchIntegrationTest extends DatabaseTestSupport {
     @Autowired EvaluationRepository evaluation;
 
     private void retain(int count) {
-        for (int i = count + 1; i <= 11; i++) members.deleteById("member-" + i);
+        for (int i = count + 1; i <= 11; i++) {
+            members.deleteById("member-" + i);
+        }
     }
 
     @Test

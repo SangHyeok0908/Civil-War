@@ -1,7 +1,9 @@
 package cw.members;
 
 import cw.accounts.AccountLinkService;
+import cw.accounts.PlayerAccountEntity;
 import cw.contracts.AccountContracts;
+import cw.contracts.AccountContracts.RankSeedSnapshot;
 import cw.contracts.ApiException;
 import cw.contracts.MemberContracts.Member;
 import cw.contracts.MemberContracts.PublicMember;
@@ -48,7 +50,7 @@ public class MemberService {
     }
 
     public Member view(MemberEntity m) {
-        var rank = ranks.snapshot(m.accountId);
+        RankSeedSnapshot rank = ranks.snapshot(m.accountId);
         return new Member(
                 m.id,
                 m.puuid,
@@ -97,9 +99,10 @@ public class MemberService {
         MemberEntity m = new MemberEntity();
         m.id = UUID.randomUUID().toString();
         m.riotId = AccountContracts.riotId(text(input, "riotId", 100));
-        if (!members.findByRiotIdIgnoreCase(m.riotId).isEmpty())
+        if (!members.findByRiotIdIgnoreCase(m.riotId).isEmpty()) {
             throw new ApiException(409, "CONFLICT");
-        var account = links.prepareMember(m.riotId);
+        }
+        PlayerAccountEntity account = links.prepareMember(m.riotId);
         m.accountId = account.id;
         m.puuid = account.lcuPuuid;
         m.displayName = m.riotId;

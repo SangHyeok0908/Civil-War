@@ -17,7 +17,9 @@ public final class AccountContracts {
             double teamSeed, String status, String tier, String division, Instant observedAt) {}
 
     public static String riotId(String value) {
-        if (value == null) throw new ApiException(422, "INVALID_RIOT_ID");
+        if (value == null) {
+            throw new ApiException(422, "INVALID_RIOT_ID");
+        }
         String cleaned = value.strip();
         int hash = cleaned.indexOf('#');
         if (cleaned.length() > 100

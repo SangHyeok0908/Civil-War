@@ -27,7 +27,7 @@ class RoleSkillCalculatorTest {
 
     @Test
     void fiveGamePriorMixesWithHistory() {
-        var score = new GameScore("game", "m", Role.TOP, "version", 80., 1, Map.of());
+        GameScore score = new GameScore("game", "m", Role.TOP, "version", 80., 1, Map.of());
         assertThat(
                         new RoleSkillCalculator()
                                 .calculate(List.of(legacy()), List.of(score)).stream()

@@ -52,7 +52,7 @@ test("tenPlayerComparison and missingAssetFallback", async ({ page }) => {
     page.getByTestId("player-row").first().getByText("사망 보정"),
   ).toBeVisible();
   await page.screenshot({
-    path: "docs/validation/assets/stage3-match-desktop.png",
+    path: "docs/validation/assets/2026-10-28-ux-match-desktop.png",
     fullPage: true,
   });
 });
@@ -75,10 +75,10 @@ test("aggregateKdaFromTotals and provisionalVisible", async ({
   await page.goto("/rankings");
   await expect(page.getByText("평가 중")).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "다온", exact: true }),
+    page.getByRole("link", { name: s.members[10].displayName, exact: true }),
   ).toBeVisible();
   await page.screenshot({
-    path: "docs/validation/assets/stage3-rankings.png",
+    path: "docs/validation/assets/2026-10-28-ux-rankings.png",
     fullPage: true,
   });
 });
@@ -93,7 +93,7 @@ test("anonymousTeamChoices and keyboard selection", async ({ page }) => {
   await expect(page.locator(".candidate")).toHaveCount(3);
   await expect(page.locator(".team-seat")).toHaveCount(30);
   await page.screenshot({
-    path: "docs/validation/assets/stage3-teams.png",
+    path: "docs/validation/assets/2026-10-28-ux-teams.png",
     fullPage: true,
   });
 });
@@ -134,7 +134,7 @@ test("mobileReadableTablesAndNavigation", async ({ page }) => {
       .evaluate((e) => e.scrollWidth > e.clientWidth),
   ).toBe(true);
   await page.screenshot({
-    path: "docs/validation/assets/stage3-mobile.png",
+    path: "docs/validation/assets/2026-10-28-ux-mobile.png",
     fullPage: true,
   });
   await page.getByRole("link", { name: "팀 추천", exact: true }).click();

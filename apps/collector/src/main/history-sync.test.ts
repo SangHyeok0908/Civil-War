@@ -481,3 +481,27 @@ it("actual transfer phase is observable while confirmation awaits response", asy
   done();
   await sending;
 });
+it("revoked idle connection asks for a new group code without clearing saved identity", async () => {
+  const x = setup();
+  x.api.members.mockRejectedValue(new ClientError("AUTH_REVOKED", 401));
+  const result = await x.service.initialize();
+  expect(result.account.enrolled).toBe(true);
+  expect(result.account.code).toBe("AUTH_REVOKED");
+});
+it("draft patches retain previous participants and explicit unselection", async () => {
+  const x = setup();
+  await x.service.initialize();
+  await x.service.queryPastMatches();
+  const first = match.participants[0].puuid,
+    second = match.participants[1].puuid;
+  await x.service.saveDraft(key, { [first]: "TOP" });
+  await x.service.saveDraft(key, { [second]: "JUNGLE" });
+  expect((await x.service.snapshot()).matches[0].roles).toMatchObject({
+    [first]: "TOP",
+    [second]: "JUNGLE",
+  });
+  await x.service.saveDraft(key, { [first]: null });
+  expect((await x.service.snapshot()).matches[0].roles).toEqual({
+    [second]: "JUNGLE",
+  });
+});

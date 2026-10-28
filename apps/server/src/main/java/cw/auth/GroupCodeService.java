@@ -35,19 +35,23 @@ public class GroupCodeService {
 
     @Transactional(readOnly = true)
     public Status status() {
-        var code = current();
+        GroupCollectorCode code = current();
         return new Status(code.secretHash != null, code.generation, code.issuedAt);
     }
 
     public IssuedGroupCode issue() {
         mutations.lock();
-        if (current().secretHash != null) throw new ApiException(409, "GROUP_CODE_EXISTS");
+        if (current().secretHash != null) {
+            throw new ApiException(409, "GROUP_CODE_EXISTS");
+        }
         return replace();
     }
 
     public IssuedGroupCode rotate() {
         mutations.lock();
-        if (current().secretHash == null) throw new ApiException(409, "GROUP_CODE_MISSING");
+        if (current().secretHash == null) {
+            throw new ApiException(409, "GROUP_CODE_MISSING");
+        }
         return replace();
     }
 
@@ -55,7 +59,7 @@ public class GroupCodeService {
         byte[] bytes = new byte[32];
         random.nextBytes(bytes);
         String secret = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        var code = current();
+        GroupCollectorCode code = current();
         code.secretHash = AuthService.hash(secret);
         code.generation++;
         code.issuedAt = clock.instant();
@@ -66,8 +70,10 @@ public class GroupCodeService {
 
     public void delete() {
         mutations.lock();
-        var code = current();
-        if (code.secretHash == null) return;
+        GroupCollectorCode code = current();
+        if (code.secretHash == null) {
+            return;
+        }
         code.secretHash = null;
         code.generation++;
         em.createQuery("update CollectorCredential c set c.revoked=true").executeUpdate();
@@ -76,16 +82,18 @@ public class GroupCodeService {
 
     @Transactional(readOnly = true)
     public long verifyCode(String secret) {
-        var code = current();
-        if (code.secretHash == null || !AuthService.matchesHash(secret, code.secretHash))
+        GroupCollectorCode code = current();
+        if (code.secretHash == null || !AuthService.matchesHash(secret, code.secretHash)) {
             throw new ApiException(401, "AUTH_REVOKED");
+        }
         return code.generation;
     }
 
     @Transactional(readOnly = true)
     public void requireCurrentGeneration(CollectorPrincipal principal) {
-        var code = current();
-        if (code.secretHash == null || principal.codeGeneration() != code.generation)
+        GroupCollectorCode code = current();
+        if (code.secretHash == null || principal.codeGeneration() != code.generation) {
             throw new ApiException(401, "AUTH_REVOKED");
+        }
     }
 }

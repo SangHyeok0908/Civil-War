@@ -26,6 +26,14 @@ public final class RankSeedPolicy {
         return values;
     }
 
+    public static long successCacheSeconds() {
+        return POLICY.get("successCacheSeconds").asLong();
+    }
+
+    public static long failureBackoffMillis() {
+        return POLICY.get("failureBackoffMillis").asLong();
+    }
+
     public static double neutral() {
         return POLICY.get("neutral").asDouble();
     }
@@ -35,10 +43,13 @@ public final class RankSeedPolicy {
                 divisions = values("divisions"),
                 top = values("topTiers");
         int index;
-        if (divided.contains(tier) && divisions.contains(division))
+        if (divided.contains(tier) && divisions.contains(division)) {
             index = divided.indexOf(tier) * divisions.size() + divisions.indexOf(division);
-        else if (top.contains(tier)) index = divided.size() * divisions.size() + top.indexOf(tier);
-        else throw new IllegalArgumentException("Unknown ranked tier");
+        } else if (top.contains(tier)) {
+            index = divided.size() * divisions.size() + top.indexOf(tier);
+        } else {
+            throw new IllegalArgumentException("Unknown ranked tier");
+        }
         int last = divided.size() * divisions.size() + top.size() - 1;
         return Math.round(POLICY.get("maximum").asDouble() * index / last);
     }

@@ -1,10 +1,14 @@
 package cw.riot;
 
+import cw.accounts.PlayerAccountEntity;
 import cw.accounts.PlayerAccountRepository;
+import cw.contracts.AccountContracts.AccountLookup;
 import cw.contracts.AccountContracts.RankSeedSnapshot;
 import cw.contracts.AccountContracts.SoloRankLookup;
 import cw.db.MutationCoordinator;
+import cw.db.ServiceState;
 import cw.domain.RankSeedPolicy;
+import cw.members.MemberEntity;
 import cw.members.MemberRepository;
 import java.time.Clock;
 import java.util.Objects;
@@ -40,7 +44,9 @@ public class SoloRankService {
     }
 
     public RankSeedSnapshot snapshot(String playerId) {
-        if (playerId == null) return empty();
+        if (playerId == null) {
+            return empty();
+        }
         return snapshots.findById(playerId).map(this::view).orElseGet(this::empty);
     }
 
@@ -54,9 +60,9 @@ public class SoloRankService {
     }
 
     public RankSeedSnapshot refresh(String memberId) {
-        var member = members.findById(memberId).orElseThrow();
+        MemberEntity member = members.findById(memberId).orElseThrow();
         String playerId = member.accountId, riotId = member.riotId;
-        var official = gateway.resolveAccount(riotId);
+        AccountLookup official = gateway.resolveAccount(riotId);
         SoloRankLookup result =
                 official != null && "verified".equals(official.status())
                         ? gateway.getSoloRank(official.puuid())
@@ -67,22 +73,25 @@ public class SoloRankService {
                                 null,
                                 null,
                                 0);
-        if (result == null) result = new SoloRankLookup("unavailable", null, null, 0);
+        if (result == null) {
+            result = new SoloRankLookup("unavailable", null, null, 0);
+        }
         SoloRankLookup lookup = result;
         return tx.execute(
                 transaction -> {
-                    var state = mutations.lock();
-                    var current = members.findById(memberId).orElseThrow();
+                    ServiceState state = mutations.lock();
+                    MemberEntity current = members.findById(memberId).orElseThrow();
                     if (!riotId.equals(current.riotId)
-                            || !Objects.equals(playerId, current.accountId))
+                            || !Objects.equals(playerId, current.accountId)) {
                         return snapshot(current.accountId);
-                    var account = accounts.findById(playerId).orElseThrow();
+                    }
+                    PlayerAccountEntity account = accounts.findById(playerId).orElseThrow();
                     SoloRankSnapshot saved =
                             snapshots
                                     .findById(playerId)
                                     .orElseGet(
                                             () -> {
-                                                var value = new SoloRankSnapshot();
+                                                SoloRankSnapshot value = new SoloRankSnapshot();
                                                 value.playerId = playerId;
                                                 value.seedValue = RankSeedPolicy.neutral();
                                                 return value;
@@ -92,9 +101,9 @@ public class SoloRankService {
                     saved.status = lookup.status();
                     if (official != null && "verified".equals(official.status())) {
                         if (account.officialPuuid != null
-                                && !account.officialPuuid.equals(official.puuid()))
+                                && !account.officialPuuid.equals(official.puuid())) {
                             saved.status = "conflict";
-                        else {
+                        } else {
                             account.officialPuuid = official.puuid();
                             account.linkStatus =
                                     account.lcuPuuid == null ? "official_linked" : "verified";
@@ -109,11 +118,16 @@ public class SoloRankService {
                         saved.tier = lookup.tier();
                         saved.division = lookup.division();
                         saved.observedAt = clock.instant();
-                        saved.nextAttemptAt = clock.instant().plusSeconds(86400);
-                    } else
+                        saved.nextAttemptAt =
+                                clock.instant().plusSeconds(RankSeedPolicy.successCacheSeconds());
+                    } else {
                         saved.nextAttemptAt =
                                 clock.instant()
-                                        .plusMillis(Math.max(300000, lookup.retryAfterMillis()));
+                                        .plusMillis(
+                                                Math.max(
+                                                        RankSeedPolicy.failureBackoffMillis(),
+                                                        lookup.retryAfterMillis()));
+                    }
                     snapshots.save(saved);
                     if (Double.compare(before, saved.seedValue) != 0) {
                         mutations.changed(state);
@@ -124,9 +138,11 @@ public class SoloRankService {
     }
 
     public void refreshNextDue() {
-        for (var member : members.findAll()) {
-            if (member.accountId == null) continue;
-            var snapshot = snapshots.findById(member.accountId).orElse(null);
+        for (MemberEntity member : members.findAll()) {
+            if (member.accountId == null) {
+                continue;
+            }
+            SoloRankSnapshot snapshot = snapshots.findById(member.accountId).orElse(null);
             if (snapshot == null
                     || snapshot.nextAttemptAt == null
                     || !snapshot.nextAttemptAt.isAfter(clock.instant())) {

@@ -4,7 +4,7 @@ export const messages: Record<string, string> = {
   LCU_UNAVAILABLE: "롤 클라이언트 조회에 실패했습니다. 다시 조회하세요.",
   HISTORY_PAGINATION_STALLED:
     "경기 목록이 반복되어 조회를 중단했습니다. 앞서 조회한 경기만 처리했으며, 더 오래된 기록은 확인하지 못했습니다.",
-  ACCOUNT_MISMATCH: "현재 롤 계정과 모임에 연결 계정이 다릅니다.",
+  ACCOUNT_MISMATCH: "현재 롤 계정과 모임에 연결한 계정이 다릅니다.",
   ENROLL_REQUIRED: "운영자가 발급한 모임 코드를 입력해 모임에 연결하세요.",
   REENROLL_REQUIRED:
     "보호된 인증 정보를 읽지 못했습니다. 모임 코드를 다시 입력해 연결하세요.",

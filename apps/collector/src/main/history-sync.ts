@@ -17,11 +17,13 @@ import type { LcuClient, Account } from "./lcu-client";
 import type { HttpServerApi } from "./server-api";
 import { Outbox } from "./outbox";
 import { Uploader } from "./uploader";
-import type {
-  Snapshot,
-  SafeAccount,
-  HistorySyncResult,
-  MatchView,
+import {
+  DISPLAY_STATES,
+  type MatchCategory,
+  type Snapshot,
+  type SafeAccount,
+  type HistorySyncResult,
+  type MatchView,
 } from "../preload/collector-api";
 export class CollectorService {
   private credential: Credential | null = null;
@@ -93,6 +95,11 @@ export class CollectorService {
         await this.loadPendingMatches();
       } catch (e) {
         this.serverError = code(e);
+        if (
+          e instanceof ClientError &&
+          ["AUTH_REVOKED", "COLLECTOR_UPDATE_REQUIRED"].includes(e.code)
+        )
+          this.credentialError = e.code;
       }
       await this.uploader.drainOutbox();
       await this.refreshProgress(true);
@@ -151,6 +158,11 @@ export class CollectorService {
       return members;
     } catch (e) {
       this.serverError = code(e);
+      if (
+        e instanceof ClientError &&
+        ["AUTH_REVOKED", "COLLECTOR_UPDATE_REQUIRED"].includes(e.code)
+      )
+        this.credentialError = e.code;
       if (
         e instanceof ClientError &&
         e.status > 0 &&
@@ -233,6 +245,11 @@ export class CollectorService {
       this.serverError = null;
     } catch (e) {
       this.serverError = code(e);
+      if (
+        e instanceof ClientError &&
+        ["AUTH_REVOKED", "COLLECTOR_UPDATE_REQUIRED"].includes(e.code)
+      )
+        this.credentialError = e.code;
       if (
         e instanceof ClientError &&
         e.status > 0 &&
@@ -332,7 +349,11 @@ export class CollectorService {
       )
     )
       throw new ClientError("INVALID_ROLES");
-    this.box.cache("draft:" + actor.memberId + ":" + key, values);
+    const draftKey = "draft:" + actor.memberId + ":" + key;
+    this.box.cache(draftKey, {
+      ...this.box.cached<Record<string, Role | null>>(draftKey),
+      ...values,
+    });
     return this.snapshot();
   }
   async confirmRegistration(
@@ -429,18 +450,19 @@ export class CollectorService {
       const failed = relevant.find((j) => j.state === "needs_attention");
       const confirmation = relevant.find((j) => j.kind === "confirm");
       const ingest = relevant.find((j) => j.kind === "ingest");
-      let status: MatchView["status"] =
+      const category: MatchCategory =
         record.state === "registered"
-          ? "등록 완료"
+          ? "registered"
           : record.state === "canceled"
-            ? "등록 취소"
+            ? "canceled"
             : failed
-              ? "문제 해결 필요"
+              ? "action_required"
               : confirmation && confirmation.state !== "succeeded"
-                ? "등록 진행 중"
+                ? "registering"
                 : ingest && ingest.state !== "succeeded"
-                  ? "전송 대기"
-                  : "확인 대기";
+                  ? "upload_pending"
+                  : "review_pending";
+      const status = DISPLAY_STATES[category];
       const manualRoles =
         this.box.cached<Record<string, Role | null>>(
           "draft:" + actor.memberId + ":" + record.matchKey,
@@ -503,6 +525,7 @@ export class CollectorService {
         matchKey: record.matchKey,
         state: record.state,
         status,
+        category,
         match: record.match,
         roles,
         transfer,

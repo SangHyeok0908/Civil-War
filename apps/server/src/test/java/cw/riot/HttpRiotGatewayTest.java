@@ -28,8 +28,12 @@ class HttpRiotGatewayTest {
                             exchange.getRequestURI().getPath().startsWith("/riot/account/")
                                     ? "{\"puuid\":\"official-id\",\"gameName\":\"한글친구\",\"tagLine\":\"KR1\"}"
                                     : "[{\"queueType\":\"RANKED_FLEX_SR\",\"tier\":\"CHALLENGER\",\"rank\":\"I\"},{\"queueType\":\"RANKED_SOLO_5x5\",\"tier\":\"GOLD\",\"rank\":\"I\"}]";
-                    if (status.get() == 204) body = "[]";
-                    if (status.get() == 429) exchange.getResponseHeaders().add("Retry-After", "12");
+                    if (status.get() == 204) {
+                        body = "[]";
+                    }
+                    if (status.get() == 429) {
+                        exchange.getResponseHeaders().add("Retry-After", "12");
+                    }
                     byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
                     exchange.sendResponseHeaders(
                             secure ? (status.get() == 204 ? 200 : status.get()) : 403,
@@ -40,7 +44,7 @@ class HttpRiotGatewayTest {
         server.start();
         try {
             URI origin = URI.create("http://127.0.0.1:" + server.getAddress().getPort());
-            var gateway =
+            HttpRiotGateway gateway =
                     new HttpRiotGateway(
                             "test-secret", origin, origin, JsonMapper.builder().build());
             assertThat(gateway.resolveAccount("한글친구#KR1").puuid()).isEqualTo("official-id");

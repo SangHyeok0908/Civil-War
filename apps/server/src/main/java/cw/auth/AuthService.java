@@ -66,8 +66,9 @@ public class AuthService {
 
     public CodeReply issueCode(String scope, String memberId, String actor) {
         mutations.lock();
-        if (!"admin".equals(scope) || memberId != null)
+        if (!"admin".equals(scope) || memberId != null) {
             throw new ApiException(422, "INVALID_SCOPE");
+        }
         String code = null;
         for (int attempt = 0; attempt < 30; attempt++) {
             String candidate = adminCodes.generate();
@@ -81,7 +82,9 @@ public class AuthService {
                 break;
             }
         }
-        if (code == null) throw new ApiException(503, "CODE_GENERATION_FAILED");
+        if (code == null) {
+            throw new ApiException(503, "CODE_GENERATION_FAILED");
+        }
         em.createQuery(
                         "update EnrollmentCode c set c.revoked=true where c.scope='admin' and c.consumed=false")
                 .executeUpdate();
@@ -111,8 +114,9 @@ public class AuthService {
     public EnrollmentReply enroll(String code, IdentityObservation current) {
         mutations.lock();
         groups.verifyCode(code);
-        if (current == null || !"current_summoner".equals(current.source()))
+        if (current == null || !"current_summoner".equals(current.source())) {
             throw new ApiException(422, "ACCOUNT_EVIDENCE_REQUIRED");
+        }
         links.observe(current);
         return enroll(code, current.puuid());
     }
@@ -138,7 +142,9 @@ public class AuthService {
     public LoginReply login(String code) {
         mutations.lock();
 
-        if (code == null || !code.matches("[0-9]{6}")) throw new ApiException(401, "AUTH_REVOKED");
+        if (code == null || !code.matches("[0-9]{6}")) {
+            throw new ApiException(401, "AUTH_REVOKED");
+        }
         EnrollmentCode entity = usableCode(code, "admin");
         String token = secret();
         String csrf = csrfFor(token);

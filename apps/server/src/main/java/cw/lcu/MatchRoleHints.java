@@ -10,14 +10,17 @@ import tools.jackson.databind.JsonNode;
 public class MatchRoleHints {
     public List<RoleSuggestion> suggest(JsonNode raw) {
         Map<Integer, String> identities = new HashMap<>();
-        for (var i : raw.path("participantIdentities"))
+        for (JsonNode i : raw.path("participantIdentities")) {
             identities.put(
                     i.path("participantId").asInt(), i.path("player").path("puuid").asString());
+        }
         record Candidate(String puuid, int team, Role role) {}
         List<Candidate> rows = new ArrayList<>();
-        for (var p : raw.path("participants")) {
+        for (JsonNode p : raw.path("participants")) {
             String position = p.path("teamPosition").asString(null);
-            if (position == null) position = p.path("stats").path("teamPosition").asString(null);
+            if (position == null) {
+                position = p.path("stats").path("teamPosition").asString(null);
+            }
             Role direct = null;
             try {
                 direct = Role.valueOf(position);

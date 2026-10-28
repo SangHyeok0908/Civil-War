@@ -209,7 +209,7 @@ test("canceled cannot register", async () => {
 test("account mismatch disables collection", async () => {
   const page = await launch("mismatch");
   await expect(
-    page.getByText("현재 롤 계정과 모임에 연결 계정이 다릅니다."),
+    page.getByText("현재 롤 계정과 모임에 연결한 계정이 다릅니다."),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "롤에서 경기 가져오기", exact: true }),

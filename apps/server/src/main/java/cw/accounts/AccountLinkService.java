@@ -4,6 +4,7 @@ import cw.contracts.AccountContracts;
 import cw.contracts.AccountContracts.IdentityObservation;
 import cw.contracts.ApiException;
 import cw.db.MutationCoordinator;
+import cw.db.ServiceState;
 import cw.members.MemberEntity;
 import cw.members.MemberRepository;
 import jakarta.persistence.EntityManager;
@@ -40,8 +41,12 @@ public class AccountLinkService {
                 accounts.findByRiotIdIgnoreCase(riotId).stream()
                         .filter(a -> a.lcuPuuid != null && members.findByAccountId(a.id).isEmpty())
                         .toList();
-        if (candidates.size() > 1) throw new ApiException(409, "ACCOUNT_LINK_CONFLICT");
-        if (candidates.size() == 1) return candidates.getFirst();
+        if (candidates.size() > 1) {
+            throw new ApiException(409, "ACCOUNT_LINK_CONFLICT");
+        }
+        if (candidates.size() == 1) {
+            return candidates.getFirst();
+        }
         PlayerAccountEntity account = new PlayerAccountEntity();
         account.id = UUID.randomUUID().toString();
         account.riotId = riotId;
@@ -64,29 +69,40 @@ public class AccountLinkService {
     }
 
     public PlayerAccountEntity observe(IdentityObservation observation) {
-        var state = mutations.lock();
+        ServiceState state = mutations.lock();
         validateObservation(observation);
         String riotId = AccountContracts.riotId(observation.riotId());
         List<MemberEntity> named = members.findByRiotIdIgnoreCase(riotId);
-        if (named.size() > 1) throw conflict();
+        if (named.size() > 1) {
+            throw conflict();
+        }
         MemberEntity member = named.isEmpty() ? null : named.getFirst();
         PlayerAccountEntity account = accounts.findByLcuPuuid(observation.puuid()).orElse(null);
         MemberEntity owner =
                 account == null ? null : members.findByAccountId(account.id).orElse(null);
-        if (owner != null && member != null && !owner.id.equals(member.id)) throw conflict();
-        if (owner != null) member = owner;
+        if (owner != null && member != null && !owner.id.equals(member.id)) {
+            throw conflict();
+        }
+        if (owner != null) {
+            member = owner;
+        }
         PlayerAccountEntity previous =
                 member == null || member.accountId == null
                         ? null
                         : accounts.findById(member.accountId).orElseThrow();
         if (previous != null
                 && previous.lcuPuuid != null
-                && !observation.puuid().equals(previous.lcuPuuid)) throw conflict();
-        if (account == null)
+                && !observation.puuid().equals(previous.lcuPuuid)) {
+            throw conflict();
+        }
+        if (account == null) {
             account = previous == null ? accountForPuuid(observation.puuid()) : previous;
+        }
         if (previous != null && !previous.id.equals(account.id) && previous.officialPuuid != null) {
             if (account.officialPuuid != null
-                    && !account.officialPuuid.equals(previous.officialPuuid)) throw conflict();
+                    && !account.officialPuuid.equals(previous.officialPuuid)) {
+                throw conflict();
+            }
             String official = previous.officialPuuid;
             previous.officialPuuid = null;
             accounts.saveAndFlush(previous);

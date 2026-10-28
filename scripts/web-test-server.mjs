@@ -19,7 +19,7 @@ const jar = path.join(
 );
 const env = {
   ...process.env,
-  DATABASE_URL: "jdbc:postgresql://localhost:55432/cw_web_test",
+  DATABASE_URL: `jdbc:postgresql://localhost:${process.env.CW_TEST_DB_PORT || 55432}/cw_web_test`,
   DATABASE_USER: "cw_test",
   DATABASE_PASSWORD: "cw_test_only",
   SERVER_ORIGIN: origin,
@@ -29,6 +29,7 @@ const args = [
   jar,
   "--spring.profiles.active=dev",
   "--logging.level.root=WARN",
+  "--cw.riot.poll-enabled=false",
 ];
 mkdirSync("test-results", { recursive: true });
 const docker =
@@ -72,7 +73,7 @@ code(); // Run real Flyway migration in the non-web command, then reset only thi
 if (sql("select current_database()") !== "cw_web_test")
   throw Error("Unsafe fixture database");
 sql(
-  "TRUNCATE role_reference_samples,member_reference_links,evaluation_generations,scoring_versions,audit_log,recalculation_jobs,match_participants,matches,collector_credentials,admin_sessions,enrollment_codes,members CASCADE; UPDATE service_state SET source_revision=0,desired_scoring_version=null,active_generation_id=null",
+  "TRUNCATE auth_attempts, solo_rank_snapshots, account_identity_evidence, player_accounts, role_reference_samples,member_reference_links,evaluation_generations,scoring_versions,audit_log,recalculation_jobs,match_participants,matches,collector_credentials,admin_sessions,enrollment_codes,members CASCADE; UPDATE service_state SET source_revision=0,desired_scoring_version=null,active_generation_id=null; UPDATE group_collector_code SET secret_hash=null,generation=1,issued_at=null",
 );
 const firstCode = code();
 let child;
@@ -120,6 +121,7 @@ async function call(
     method,
     headers: {
       "Content-Type": "application/json",
+      "X-CW-Collector-Protocol": "2",
       Origin: origin,
       ...(bearer
         ? { Authorization: "Bearer " + bearer }
@@ -150,36 +152,62 @@ const names = [
   "유월",
   "다온",
 ];
-const members = [];
+let members = [];
 for (let i = 0; i < 11; i++)
   members.push(
     (
       await call("/api/admin/members", {
-        puuid: "fixture-player-" + String(i + 1).padStart(2, "0"),
-        riotId: "Fixture" + (i + 1) + "#TEST",
-        displayName: names[i],
-        seedSkill: 50,
+        riotId: names[i] + "#TEST",
         primaryRole: roles[i % 5],
         secondaryRole: roles[(i + 1) % 5],
         allowedRoles: roles,
       })
     ).value,
   );
-const collectorCode = (
-  await call("/api/admin/codes", {
-    scope: "collector",
-    memberId: members[0].id,
-  })
-).value.code;
+const collectorCode = (await call("/api/admin/collector-code", {})).value.code;
 const credential = (
   await call("/api/collector/enroll", {
     code: collectorCode,
-    currentPuuid: members[0].puuid,
+    protocolVersion: 2,
+    currentAccount: {
+      puuid: "fixture-player-01",
+      riotId: members[0].riotId,
+      source: "current_summoner",
+      observedAt: new Date().toISOString(),
+    },
   })
 ).value;
 const { readFileSync } = await import("node:fs");
 const source = JSON.parse(
   readFileSync("fixtures/lcu/candidates/h2-20261021/G1.json", "utf8"),
+);
+const observation = (i) => ({
+  puuid: "fixture-player-" + String(i + 1).padStart(2, "0"),
+  riotId: members[i].riotId,
+  source: "current_lookup",
+  observedAt: new Date().toISOString(),
+});
+await call(
+  "/api/collector/accounts/observations",
+  {
+    rawMatch: source,
+    observations: members.slice(0, 10).map((_, i) => observation(i)),
+  },
+  "POST",
+  credential.token,
+);
+const eleventh = structuredClone(source);
+eleventh.participantIdentities[9].player.puuid = "fixture-player-11";
+await call(
+  "/api/collector/accounts/observations",
+  { rawMatch: eleventh, observations: [observation(10)] },
+  "POST",
+  credential.token,
+);
+members = (await call("/api/admin/members")).value.sort(
+  (a, b) =>
+    names.findIndex((n) => a.riotId === n + "#TEST") -
+    names.findIndex((n) => b.riotId === n + "#TEST"),
 );
 const keys = [];
 for (let i = 0; i < 12; i++) {
@@ -216,12 +244,7 @@ await waitFor(
 );
 const adminCode = (await call("/api/admin/codes", { scope: "admin" })).value
   .code;
-const nextCollectorCode = (
-  await call("/api/admin/codes", {
-    scope: "collector",
-    memberId: members[0].id,
-  })
-).value.code;
+const nextCollectorCode = collectorCode;
 writeFileSync(
   "test-results/web-state.json",
   JSON.stringify({

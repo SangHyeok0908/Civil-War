@@ -38,9 +38,9 @@ class GroupCodeIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void multipleDevicesUseSameGroupCodeAndKeepLongTokens() {
-        var code = groups.issue();
-        var a = auth.enroll(code.code(), current(1));
-        var b = auth.enroll(code.code(), current(2));
+        GroupCodeService.IssuedGroupCode code = groups.issue();
+        AuthService.EnrollmentReply a = auth.enroll(code.code(), current(1));
+        AuthService.EnrollmentReply b = auth.enroll(code.code(), current(2));
         assertThat(a.token()).hasSize(43).isNotEqualTo(b.token());
         assertThat(auth.requireCollector(a.token()).memberId()).isEqualTo("member-1");
         assertThat(auth.requireCollector(b.token()).memberId()).isEqualTo("member-2");
@@ -49,15 +49,15 @@ class GroupCodeIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void rotateAndDeleteRevokeAllDevices() {
-        var old = groups.issue();
-        var a = auth.enroll(old.code(), current(1));
-        var b = auth.enroll(old.code(), current(2));
-        var next = groups.rotate();
+        GroupCodeService.IssuedGroupCode old = groups.issue();
+        AuthService.EnrollmentReply a = auth.enroll(old.code(), current(1));
+        AuthService.EnrollmentReply b = auth.enroll(old.code(), current(2));
+        GroupCodeService.IssuedGroupCode next = groups.rotate();
         assertThatThrownBy(() -> auth.requireCollector(a.token())).isInstanceOf(ApiException.class);
         assertThatThrownBy(() -> auth.requireCollector(b.token())).isInstanceOf(ApiException.class);
         assertThatThrownBy(() -> auth.enroll(old.code(), current(1)))
                 .isInstanceOf(ApiException.class);
-        var fresh = auth.enroll(next.code(), current(1));
+        AuthService.EnrollmentReply fresh = auth.enroll(next.code(), current(1));
         groups.delete();
         assertThatThrownBy(() -> auth.requireCollector(fresh.token()))
                 .isInstanceOf(ApiException.class);
@@ -66,9 +66,10 @@ class GroupCodeIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void rotationBeforeWriteRejectsOldGeneration() {
-        var code = groups.issue();
-        var credential = auth.enroll(code.code(), current(1));
-        var authenticatedBeforeRotation = auth.requireCollector(credential.token());
+        GroupCodeService.IssuedGroupCode code = groups.issue();
+        AuthService.EnrollmentReply credential = auth.enroll(code.code(), current(1));
+        cw.contracts.MatchContracts.CollectorPrincipal authenticatedBeforeRotation =
+                auth.requireCollector(credential.token());
         groups.rotate();
         assertThatThrownBy(() -> ingest.ingestMatch(input(), authenticatedBeforeRotation))
                 .isInstanceOf(ApiException.class);
@@ -78,7 +79,9 @@ class GroupCodeIntegrationTest extends DatabaseTestSupport {
     @Test
     void guessLimitSurvivesRestartAndCollectorSuccessCannotResetAdmin() {
         AuthRateLimiter first = new AuthRateLimiter(jdbc, clock);
-        for (int i = 0; i < 5; i++) first.failed("admin", "198.51.100.1");
+        for (int i = 0; i < 5; i++) {
+            first.failed("admin", "198.51.100.1");
+        }
         AuthRateLimiter restarted = new AuthRateLimiter(jdbc, clock);
         restarted.succeeded("collector", "198.51.100.1");
         assertThatThrownBy(() -> restarted.check("admin", "198.51.100.1"))

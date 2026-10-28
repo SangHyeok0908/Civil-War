@@ -20,7 +20,8 @@ class AccountLinkIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void riotIdAloneCreatesProfile() {
-        var created = profiles.create(json.readTree("{\"riotId\":\"새친구#KR1\"}"));
+        cw.contracts.MemberContracts.Member created =
+                profiles.create(json.readTree("{\"riotId\":\"새친구#KR1\"}"));
         assertThat(created.id()).isNotBlank();
         assertThat(created.displayName()).isEqualTo("새친구#KR1");
         assertThat(created.puuid()).isNull();
@@ -46,7 +47,8 @@ class AccountLinkIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void rejectsStaleNameOnlyLink() {
-        var member = profiles.create(json.readTree("{\"riotId\":\"New#KR1\"}"));
+        cw.contracts.MemberContracts.Member member =
+                profiles.create(json.readTree("{\"riotId\":\"New#KR1\"}"));
         assertThatThrownBy(
                         () -> links.observe(observation("new-lcu", "New#KR1", "historical_match")))
                 .isInstanceOf(ApiException.class);
@@ -55,14 +57,15 @@ class AccountLinkIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void differentOfficialAndLcuKeysCanLinkWithEvidence() {
-        var member = profiles.create(json.readTree("{\"riotId\":\"Fresh#KR1\"}"));
-        var account =
+        cw.contracts.MemberContracts.Member member =
+                profiles.create(json.readTree("{\"riotId\":\"Fresh#KR1\"}"));
+        PlayerAccountEntity account =
                 accounts.findById(members.findById(member.id()).orElseThrow().accountId)
                         .orElseThrow();
         account.officialPuuid = "official-encrypted";
         accounts.save(account);
         links.observe(observation("lcu-raw", "Fresh#KR1", "current_lookup"));
-        var linked = accounts.findByLcuPuuid("lcu-raw").orElseThrow();
+        PlayerAccountEntity linked = accounts.findByLcuPuuid("lcu-raw").orElseThrow();
         assertThat(linked.officialPuuid).isEqualTo("official-encrypted");
         assertThat(linked.id).isEqualTo(account.id);
         assertThat(members.findById(member.id()).orElseThrow().puuid).isEqualTo("lcu-raw");
@@ -70,7 +73,8 @@ class AccountLinkIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void duplicateEvidenceIsIdempotent() {
-        var member = profiles.create(json.readTree("{\"riotId\":\"Fresh#KR1\"}"));
+        cw.contracts.MemberContracts.Member member =
+                profiles.create(json.readTree("{\"riotId\":\"Fresh#KR1\"}"));
         links.observe(observation("lcu-raw", "Fresh#KR1", "current_lookup"));
         long first = revision();
         links.observe(observation("lcu-raw", "Fresh#KR1", "current_lookup"));

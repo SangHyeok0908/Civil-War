@@ -17,6 +17,18 @@ public class AuthRateLimiter {
         this.clock = clock;
     }
 
+    @Transactional
+    public void attempt(String scope, String ip) {
+        jdbc.query(
+                "select pg_advisory_xact_lock(hashtextextended(?,0))",
+                rs -> {
+                    return null;
+                },
+                "cw-auth-attempt:" + scope);
+        check(scope, ip);
+        failed(scope, ip);
+    }
+
     public void check(String ip) {
         check("admin", ip);
     }
@@ -34,8 +46,10 @@ public class AuthRateLimiter {
         jdbc.update(
                 "delete from auth_attempts where started_at<=?",
                 Timestamp.from(clock.instant().minusSeconds(600)));
-        if (count(scope + ":" + ip) >= 5 || ("admin".equals(scope) && count("admin:global") >= 50))
+        if (count(scope + ":" + ip) >= 5
+                || ("admin".equals(scope) && count("admin:global") >= 50)) {
             throw new ApiException(429, "RATE_LIMITED");
+        }
     }
 
     private int count(String bucket) {
@@ -55,15 +69,20 @@ public class AuthRateLimiter {
     @Transactional
     public void failed(String scope, String ip) {
         if (jdbc.queryForObject("select count(*) from auth_attempts", Integer.class) >= 10000
-                && count(scope + ":" + ip) == 0) throw new ApiException(429, "RATE_LIMITED");
+                && count(scope + ":" + ip) == 0) {
+            throw new ApiException(429, "RATE_LIMITED");
+        }
         increment(scope + ":" + ip);
-        if ("admin".equals(scope)) increment("admin:global");
+        if ("admin".equals(scope)) {
+            increment("admin:global");
+        }
     }
 
     @Transactional
     public void succeeded(String scope, String ip) {
         jdbc.update("delete from auth_attempts where bucket=?", scope + ":" + ip);
-        if ("admin".equals(scope))
+        if ("admin".equals(scope)) {
             jdbc.update("delete from auth_attempts where bucket='admin:global'");
+        }
     }
 }

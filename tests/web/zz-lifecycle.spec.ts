@@ -15,7 +15,7 @@ test("activeWorkerCrash rollsBackPublication CLI neverClaims restartRecovers", a
     await admin(
       request,
       "/members/" + s.members[0].id,
-      { seedSkill: 67 },
+      { active: false },
       "PATCH",
     );
     await expect
@@ -53,7 +53,7 @@ test("activeWorkerCrash rollsBackPublication CLI neverClaims restartRecovers", a
     {
       env: {
         ...process.env,
-        DATABASE_URL: "jdbc:postgresql://localhost:55432/cw_web_test",
+        DATABASE_URL: `jdbc:postgresql://localhost:${process.env.CW_TEST_DB_PORT || 55432}/cw_web_test`,
         DATABASE_USER: "cw_test",
         DATABASE_PASSWORD: "cw_test_only",
         SERVER_ORIGIN: origin,
@@ -91,5 +91,7 @@ test("activeWorkerCrash rollsBackPublication CLI neverClaims restartRecovers", a
   await expect(
     page.getByRole("heading", { name: "활약 랭킹", exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".rankings tbody tr")).toHaveCount(11);
+  await expect(page.locator(".rankings tbody tr")).toHaveCount(
+    (await (await request.get("/api/members")).json()).length,
+  );
 });

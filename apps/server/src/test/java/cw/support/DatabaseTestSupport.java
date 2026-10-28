@@ -128,7 +128,9 @@ public abstract class DatabaseTestSupport {
     }
 
     protected synchronized CollectorPrincipal actor(int i) {
-        if (!groups.status().active()) collectorCode();
+        if (!groups.status().active()) {
+            collectorCode();
+        }
         return new CollectorPrincipal(
                 "member-" + i,
                 "credential-" + i,

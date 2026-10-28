@@ -19,7 +19,7 @@ test("codeOnlyLogin csrf cookie restore and logout", async ({
   expect(cookie?.httpOnly).toBe(true);
   expect(cookie?.sameSite).toBe("Strict");
   await page.screenshot({
-    path: "docs/validation/assets/stage3-admin.png",
+    path: "docs/validation/assets/2026-10-28-ux-admin.png",
     fullPage: true,
   });
   await page.getByRole("button", { name: "로그아웃" }).click();
@@ -35,7 +35,7 @@ test("referenceDoesNotOverwriteManual soloNeverEntersRanking explicitApply", asy
   await login(page, request);
   const panel = page.locator(".admin-members>.panel").filter({
     has: page.getByRole("heading", {
-      name: member.displayName + " 활성",
+      name: member.displayName + " 팀 추천 대상",
       exact: true,
     }),
   });
@@ -109,21 +109,21 @@ test("newBrowserCode and collectorDeviceRevocation", async ({
 }) => {
   await login(page, request);
   await page.getByRole("link", { name: "코드·인증" }).click();
-  await page
-    .getByRole("combobox", { name: "코드 종류", exact: true })
-    .selectOption("collector");
-  await page
-    .getByRole("combobox", { name: "연결할 참가자", exact: true })
-    .selectOption(state().members[1].id);
-  const issued = page.waitForResponse(
-    (r) =>
-      r.url().endsWith("/api/admin/codes") && r.request().method() === "POST",
-  );
-  await page.getByRole("button", { name: "코드 발급", exact: true }).click();
-  const code = await (await issued).json();
-  await expect(page.locator("output")).toContainText(code.code);
+  await expect(page.getByText("사용 중", { exact: true })).toBeVisible();
+  const code = { code: state().collectorCode };
+  const member = state().members[1];
   const enrolled = await request.post("/api/collector/enroll", {
-    data: { code: code.code, currentPuuid: state().members[1].puuid },
+    headers: { "X-CW-Collector-Protocol": "2" },
+    data: {
+      code: code.code,
+      protocolVersion: 2,
+      currentAccount: {
+        puuid: member.puuid,
+        riotId: member.riotId,
+        source: "current_summoner",
+        observedAt: new Date().toISOString(),
+      },
+    },
   });
   expect(enrolled.status()).toBe(200);
   const credential = await enrolled.json();
@@ -140,19 +140,21 @@ test("newBrowserCode and collectorDeviceRevocation", async ({
     .poll(async () =>
       (
         await request.get("/api/collector/members", {
-          headers: { Authorization: "Bearer " + credential.token },
+          headers: {
+            "X-CW-Collector-Protocol": "2",
+            Authorization: "Bearer " + credential.token,
+          },
         })
       ).status(),
     )
     .toBe(401);
-  await page
-    .getByRole("combobox", { name: "코드 종류", exact: true })
-    .selectOption("admin");
   const newIssued = page.waitForResponse(
     (r) =>
       r.url().endsWith("/api/admin/codes") && r.request().method() === "POST",
   );
-  await page.getByRole("button", { name: "코드 발급", exact: true }).click();
+  await page
+    .getByRole("button", { name: "운영자 코드 발급", exact: true })
+    .click();
   const next = await (await newIssued).json();
   const context = await browser.newContext();
   const newPage = await context.newPage();

@@ -115,10 +115,10 @@ test("actualStage2OutboxToSpring pending lostConfirmAck roleCorrection cancellat
     "0.12345678901234567890123456789",
   );
   await page
-    .getByLabel("여울 실제 포지션", { exact: true })
+    .getByLabel(s.members[0].displayName + " 실제 포지션", { exact: true })
     .selectOption("JUNGLE");
   await page
-    .getByLabel("바람 실제 포지션", { exact: true })
+    .getByLabel(s.members[1].displayName + " 실제 포지션", { exact: true })
     .selectOption("TOP");
   await page.getByRole("button", { name: "포지션 정정 저장" }).click();
   await expect(

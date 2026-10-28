@@ -36,20 +36,23 @@ public class CollectorIdentityController {
     @PostMapping("/api/collector/accounts/observations")
     @Transactional
     public Object observe(@RequestBody Observations input, HttpServletRequest req) {
-        var actor = (CollectorPrincipal) req.getAttribute("collector");
-        var match =
+        CollectorPrincipal actor = (CollectorPrincipal) req.getAttribute("collector");
+        NormalizedMatch match =
                 validator.normalize(new IngestMatchInput(input.rawMatch(), "identity-check", 1));
         mutations.lock();
         groups.requireCurrentGeneration(actor);
-        if (match.participants().stream().noneMatch(p -> p.puuid().equals(actor.puuid())))
+        if (match.participants().stream().noneMatch(p -> p.puuid().equals(actor.puuid()))) {
             throw new ApiException(403, "FORBIDDEN");
-        if (input.observations() == null || input.observations().size() > 10)
+        }
+        if (input.observations() == null || input.observations().size() > 10) {
             throw new ApiException(422, "INVALID_REQUEST");
-        for (var o : input.observations()) {
+        }
+        for (IdentityObservation o : input.observations()) {
             if (o == null
                     || !"current_lookup".equals(o.source())
-                    || match.participants().stream().noneMatch(p -> p.puuid().equals(o.puuid())))
+                    || match.participants().stream().noneMatch(p -> p.puuid().equals(o.puuid()))) {
                 throw new ApiException(422, "ACCOUNT_EVIDENCE_REQUIRED");
+            }
             links.observe(o);
         }
         return Map.of("observed", input.observations().size());

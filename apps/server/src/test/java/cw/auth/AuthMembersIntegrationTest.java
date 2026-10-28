@@ -59,6 +59,36 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
     }
 
     @Test
+    void concurrentGuessesCannotExceedFiveAttempts() throws Exception {
+        try (java.util.concurrent.ExecutorService pool =
+                java.util.concurrent.Executors.newFixedThreadPool(8)) {
+            java.util.concurrent.CyclicBarrier barrier = new java.util.concurrent.CyclicBarrier(8);
+            java.util.List<java.util.concurrent.Callable<Integer>> requests =
+                    new java.util.ArrayList<>();
+            for (int i = 0; i < 8; i++) {
+                requests.add(
+                        () -> {
+                            barrier.await();
+                            return mvc.perform(
+                                            post("/api/admin/session")
+                                                    .header("Origin", "http://localhost:8080")
+                                                    .contentType("application/json")
+                                                    .content("{\"code\":\"999999\"}"))
+                                    .andReturn()
+                                    .getResponse()
+                                    .getStatus();
+                        });
+            }
+            java.util.List<Integer> statuses = new java.util.ArrayList<>();
+            for (java.util.concurrent.Future<Integer> result : pool.invokeAll(requests)) {
+                statuses.add(result.get());
+            }
+            assertThat(statuses.stream().filter(code -> code == 401).count()).isEqualTo(5);
+            assertThat(statuses.stream().filter(code -> code == 429).count()).isEqualTo(3);
+        }
+    }
+
+    @Test
     void protocolOneRequiresUpdateBeforeDecoding() throws Exception {
         assertThat(
                         mvc.perform(
@@ -378,8 +408,8 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void unknownCollectorCannotJoinAndCodeRemainsUsable() throws Exception {
-        var code = collectorCode();
-        var body =
+        CodeReply code = collectorCode();
+        Map<String, Object> body =
                 Map.of(
                         "code",
                         code.code(),
@@ -395,7 +425,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                 "current_summoner",
                                 "observedAt",
                                 java.time.Instant.now().toString()));
-        var response =
+        MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/collector/enroll")
                                         .header("X-CW-Collector-Protocol", "2")
