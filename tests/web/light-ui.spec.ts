@@ -77,3 +77,58 @@ test("portrait host failure falls back without blocking selection", async ({
   await page.getByRole("checkbox").first().check();
   await expect(page.getByRole("checkbox").first()).toBeChecked();
 });
+
+test("page navigation returns to the new records and restores a clear focus", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 600 });
+  await page.goto("/matches");
+  await page.getByRole("button", { name: "다음 페이지", exact: true }).click();
+  await expect(page.locator('.pagination [aria-current="page"]')).toHaveText(
+    "2 페이지",
+  );
+  await expect(page.locator(".match-link").first()).toBeInViewport();
+  await expect(
+    page.getByRole("region", { name: "경기 기록", exact: true }),
+  ).toBeFocused();
+});
+
+test("public member availability explains its effect on team selection", async ({
+  page,
+}) => {
+  await page.goto("/members");
+  await expect(page.locator(".member-card .badge").first()).toHaveText(
+    "팀 추천 대상",
+  );
+});
+
+test("long Riot IDs remain readable beside admin controls on a small screen", async ({
+  page,
+  request,
+}) => {
+  await login(page, request);
+  await page.route("**/api/admin/members", async (route) => {
+    const response = await route.fetch();
+    const members = await response.json();
+    members[0].displayName = "VeryLongGameName#KR123";
+    members[0].riotId = "VeryLongGameName#KR123";
+    await route.fulfill({ response, json: members });
+  });
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.reload();
+  const identity = page.locator(".member-identity small").first();
+  await expect(identity).toContainText("VeryLongGameName#KR123");
+  expect(
+    await identity.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth,
+    ),
+  ).toBe(true);
+  await page
+    .locator(".admin-members .panel")
+    .first()
+    .getByRole("button", { name: "편집", exact: true })
+    .click();
+  await expect(
+    page.getByRole("textbox", { name: "Riot ID", exact: true }),
+  ).toBeVisible();
+});

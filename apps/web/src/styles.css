@@ -1303,6 +1303,7 @@ textarea {
   gap: 7px;
 }
 .member-identity h3,
+.member-identity small,
 .member-card h2,
 .selection-card strong,
 .team-seat a {

@@ -1,4 +1,4 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useRef } from "react";
 import { Pagination } from "../../../../../packages/ui/Pagination";
 import { useRemote } from "../../api";
 import type { MatchPage, PublicMember } from "../../types";
@@ -21,6 +21,11 @@ export function MatchList({
   embedded?: boolean;
 }) {
   const catalog = useContext(CatalogContext);
+  const start = useRef<HTMLElement>(null);
+  const showStart = () => {
+    start.current?.focus({ preventScroll: true });
+    start.current?.scrollIntoView({ block: "start" });
+  };
   const [championQuery, setChampionQuery] = useState("");
   const [filter, setFilter] = useState({
     memberId: memberId || "",
@@ -41,7 +46,11 @@ export function MatchList({
     setPrevious([]);
   };
   return (
-    <section>
+    <section
+      ref={start}
+      tabIndex={-1}
+      aria-label={embedded ? "참가 경기" : "경기 기록"}
+    >
       {!embedded && (
         <Heading eyebrow="MATCH HISTORY" title="경기 기록">
           <span className="subtle">확정된 내전만 공개됩니다</span>
@@ -165,10 +174,12 @@ export function MatchList({
         canNext={!!result.data?.nextCursor}
         busy={result.loading}
         previous={() => {
+          showStart();
           setCursor(previous.at(-1) || "");
           setPrevious(previous.slice(0, -1));
         }}
         next={() => {
+          showStart();
           setPrevious([...previous, cursor]);
           setCursor(result.data?.nextCursor || "");
         }}

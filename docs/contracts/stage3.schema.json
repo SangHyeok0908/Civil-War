@@ -420,6 +420,13 @@
             "string",
             "null"
           ]
+        },
+        "profileIconId": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
         }
       },
       "required": [

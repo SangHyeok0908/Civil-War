@@ -33,8 +33,13 @@ class PlayerAccountMigrationIntegrationTest {
                         .cleanDisabled(false)
                         .load();
         try {
-            assertThat(migration.migrate().migrationsExecuted).isEqualTo(8);
+            assertThat(migration.migrate().migrationsExecuted).isEqualTo(9);
             JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "select count(*) from " + schema + ".member_profile_snapshots",
+                                    Integer.class))
+                    .isZero();
             assertThat(
                             jdbc.queryForObject(
                                     "select count(*) from " + schema + ".members", Integer.class))

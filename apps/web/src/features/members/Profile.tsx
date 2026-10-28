@@ -42,7 +42,7 @@ export function Members() {
                 </p>
               </div>
               <span className={"badge " + (m.active ? "cyan" : "")}>
-                {m.active ? "활성" : "비활성"}
+                {m.active ? "팀 추천 대상" : "팀 추천 제외"}
               </span>
             </a>
           ))}
