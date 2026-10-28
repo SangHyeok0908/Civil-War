@@ -41,6 +41,10 @@
 | collector-acceptance | [Windows 기기 등록·대기 자료 보존·인증 복구 실기 절차](runbooks/collector-acceptance.md) |
 | home-server-compose | [시험 서버 서비스·DB·볼륨·Tunnel 설정](../infra/home-server/compose.yml) |
 | home-server-runtime | [서버 컨테이너 Java 실행 환경](../infra/home-server/Dockerfile) |
+| guest-policy | [게스트 기록과 정식 참가자 전환](spec.md#게스트-기록과-정식-등록) |
+| collector-review | [수집기 챔피언 표시와 포지션 제안](spec.md#수집기-경기-확인-화면) |
+| collector-progress | [수집기 전송·등록·계산 진행 안내](spec.md#전송등록계산-진행-안내) |
+| collector-navigation | [수집기 상태별 목록과 쉬운 용어](spec.md#수집기-목록과-용어) |
 
 ## 기준 문서
 
@@ -63,6 +67,7 @@
 - [docs/superpowers/plans/2026-10-26-confirmed-objective.md](superpowers/plans/2026-10-26-confirmed-objective.md)
 - [docs/superpowers/plans/2026-10-26-windows-installer.md](superpowers/plans/2026-10-26-windows-installer.md)
 - [docs/superpowers/plans/2026-10-26-collector-acceptance.md](superpowers/plans/2026-10-26-collector-acceptance.md)
+- [docs/superpowers/plans/2026-10-28-ux-improvements.md](superpowers/plans/2026-10-28-ux-improvements.md)
 
 ## 이력 문서
 
@@ -92,6 +97,8 @@
 - [docs/validation/2026-10-26-collector-acceptance-preparation.md](validation/2026-10-26-collector-acceptance-preparation.md) — 2026-10-26, 현재: [docs/status.md](status.md)
 - [docs/validation/2026-10-28-history-pagination-report.md](validation/2026-10-28-history-pagination-report.md) — 2026-10-28, 현재: [docs/status.md](status.md)
 - [docs/validation/2026-10-28-uninstaller-integrity-report.md](validation/2026-10-28-uninstaller-integrity-report.md) — 2026-10-28, 현재: [docs/status.md](status.md)
+- [docs/superpowers/decisions/2026-10-28-ux-requirements.md](superpowers/decisions/2026-10-28-ux-requirements.md) — 2026-10-28, 현재: [docs/spec.md](spec.md)
+- [docs/validation/2026-10-28-ux-planning-report.md](validation/2026-10-28-ux-planning-report.md) — 2026-10-28, 현재: [docs/status.md](status.md)
 
 ## 보존한 과거 기록 구간
 
