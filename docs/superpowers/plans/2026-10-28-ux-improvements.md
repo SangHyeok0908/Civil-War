@@ -47,7 +47,7 @@
 
 권고 순서는 T01 → T02 → T03 → T04 → T05 → T06 → T07 → T08 → T09 → T10 → T11이다. 게스트·계정·인증은 같은 자료 계약을 공유하므로 독립된 제품처럼 따로 배포하지 않는다. 자산 표시와 목록 UI는 계약이 고정된 뒤 별도 검토할 수 있다. 각 작업은 관련 실패 검사를 먼저 추가하고 최소 구현 후 그 검사로 확인한다. 아래 커밋 제목은 실제 구현 시 사용할 제안이다.
 
-### T01: 계정·게스트 기반과 전달 형식 준비
+### Task 1: T01 — 계정·게스트 기반과 전달 형식 준비
 
 **파일:** 새 `apps/server/src/main/java/cw/accounts/PlayerAccountEntity.java`, `PlayerAccountRepository.java`, `apps/server/src/main/resources/db/migrations/V5__player_accounts.sql`; 수정 `members/MemberEntity.java`, `matches/MatchParticipantEntity.java`, `contracts/MemberContracts.java`, `contracts/MatchContracts.java`, `contracts/EvaluationContracts.java`(모두 서버 `cw/` 아래), `packages/contracts/src/index.ts`, `decode.ts`, `docs/contracts/stage3.schema.json`, `docs/contracts/api.md`, `apps/server/src/test/java/cw/support/DatabaseTestSupport.java`; 새 `apps/server/src/test/java/cw/accounts/PlayerAccountMigrationIntegrationTest.java`.
 
@@ -59,7 +59,7 @@
 - [ ] TypeScript 디코더·Java DTO·JSON 스키마·시험 자료를 맞춘다. 수집기 전용 전달 계약은 `X-CW-Collector-Protocol: 2`로 식별한다. 원본 정규화의 `schemaVersion:1`과 별개라는 점을 계약에 적고, 이전 버전의 실제 차단은 T06 전환에서 수행한다.
 - [ ] 위 전환 검사, `cw.contracts.Stage3ContractIntegrationTest`, `pnpm typecheck`를 실행해 성공을 확인한다. 커밋 제안: `refactor: 참가자와 게임 계정 식별 구조 분리`.
 
-### T02: Riot ID만 입력하는 참가자 등록과 계정 연결
+### Task 2: T02 — Riot ID만 입력하는 참가자 등록과 계정 연결
 
 **파일:** 새 서버 `cw/accounts/AccountIdentityResolver.java`, `AccountLinkService.java`, `AccountLinkEntity.java`, `cw/riot/RiotGateway.java`, `HttpRiotGateway.java`, `cw/contracts/AccountContracts.java`; 수정 `members/MemberService.java`, `MemberController.java`, `MemberReferenceImporter.java`, `MemberReferenceController.java`, 수집기 `main/lcu-client.ts`, `server-api.ts`, 웹 `features/admin/Members.tsx`, `types.ts`; 새 서버 시험 `cw/accounts/AccountLinkIntegrationTest.java`와 `tests/web/member-registration.spec.ts`.
 
@@ -71,7 +71,7 @@
 - [ ] 표시 이름은 P01 기본을 자동 생성하고 수동 이름·PUUID 입력을 제거한다. 일시 조회 장애 때는 저장된 ‘계정 연결 확인 중’ 프로필을 반환한다. 계정이 실제로 없다는 확정 응답은 오류로 알린다. 미연결 계정을 등록 인원으로 세지 않는다. 역할을 아직 고르지 않아도 프로필 생성은 가능하고 팀 추천에는 기존 역할 검증을 적용한다.
 - [ ] 위 서버 시험과 `pnpm test:web -- tests/web/member-registration.spec.ts`에서 Riot ID 단일 입력, 오류·보류 표시, 비활성 의미 분리(P07)를 확인한다. 실제 Riot 호출은 가상 응답 검사와 구분해 기록한다. 커밋 제안: `feat: Riot ID로 참가자 등록과 계정 연결 지원`.
 
-### T03: 게스트 경기 수집·소급 연결·평가
+### Task 3: T03 — 게스트 경기 수집·소급 연결·평가
 
 **파일:** 수정 서버 `matches/IngestService.java`, `MatchViews.java`, `CollectorMatchQuery.java`, `PublicMatchQuery.java`, `RegistrationService.java`, `MatchSpecifications.java`, `evaluation/EvaluationSnapshot.java`, `domain/ScoringService.java`, `MemberAggregator.java`, T02 `AccountLinkService.java`; 웹 `features/matches/Detail.tsx`, `List.tsx`, `features/members/Profile.tsx`; 추가 시험 `cw/matches/GuestMatchIntegrationTest.java`, `cw/members/GuestPromotionIntegrationTest.java`, 수정 `cw/domain/ScoringServiceTest.java`, `MemberAggregatorTest.java`, `tests/web/public-web.spec.ts`.
 
@@ -83,7 +83,7 @@
 - [ ] 경기별 점수의 상대 조회·동점 순위는 회원 null을 비교하지 않고 계정 키를 사용한다. 개인·랭킹·누적 평균은 P02의 회원 모집단으로 제한한다. 공개 게스트는 회원 링크가 없으며 개인 번호·계정 키를 PUUID 대용으로 노출하지 않는다. 등록 후 같은 사람의 기존 카드가 회원 정보로 연결돼야 한다.
 - [ ] 이름 변경·정식 전환 후 공개 DTO의 `playerId`가 같은 계정을 가리키고 과거 개인 링크가 이어지는지도 확인한다. 위 시험과 기존 등록·동시성·재전송·정정·취소 검사, `pnpm test:web -- tests/web/public-web.spec.ts`를 통과시킨다. 커밋 제안: `feat: 게스트 내전 기록과 정식 참가자 소급 집계 지원`.
 
-### T04: 자동 등급 시작값과 내전 보정
+### Task 4: T04 — 자동 등급 시작값과 내전 보정
 
 **파일:** 새 서버 `cw/riot/SoloRankSnapshot.java`, `SoloRankService.java`, `cw/domain/RankSeedPolicy.java`, `resources/policies/rank-seed-v1.json`, `resources/db/migrations/V6__solo_rank_snapshots.sql`; 수정 `RiotGateway.java`, `members/MemberService.java`, `contracts/MemberContracts.java`, `domain/RoleSkillCalculator.java`, `evaluation/EvaluationSnapshot.java`, 웹 `Members.tsx`, `components/Common.tsx`; 새 시험 `cw/domain/RankSeedPolicyTest.java`, `RoleSkillCalculatorTest.java`, `cw/members/SoloRankIntegrationTest.java`.
 
@@ -95,7 +95,7 @@
 - [ ] 정상 등급·등급 없음·실패·오래된 마지막 자료를 구분해 저장한다. 등급 갱신이 실제 계산 입력을 바꿀 때만 변경 번호와 계산 작업을 만든다. P04의 비차단 갱신과 기존 보정 강도를 적용하고 과거 `seed_skill`은 감사용 보존으로 전환한다. 관리자 입력과 화면의 수동 실력 안내를 제거한다.
 - [ ] 위 검사·팀 추천 회귀·가상 404/429/5xx 검사를 통과시킨다. 공식 키 실연동이 없으면 그 부분을 미검증으로 기록한다. 커밋 제안: `feat: 솔로랭크 등급과 내전 기록으로 팀 편성 기준 산출`.
 
-### T05: 숫자 관리자 코드·모임 코드·모든 수집기 해제
+### Task 5: T05 — 숫자 관리자 코드·모임 코드·모든 수집기 해제
 
 **파일:** 새 서버 `cw/auth/GroupCollectorCode.java`, `GroupCodeService.java`, `resources/db/migrations/V7__group_collector_auth.sql`; 수정 `auth/AuthService.java`, `AuthController.java`, `ApiSecurityFilter.java`, `AuthRateLimiter.java`, `CollectorCredential.java`, `cli/AdminCodeCommand.java`, 웹 `features/admin/Codes.tsx`, `Login.tsx`; 새 시험 `cw/auth/GroupCodeIntegrationTest.java`, 수정 기존 `AuthMembersIntegrationTest.java`, `LocalRecoveryIntegrationTest.java`.
 
@@ -107,7 +107,7 @@
 - [ ] 관리자 짧은 코드의 입력 제한은 별도 지속 저장하고 복구 CLI도 새 형식을 쓰게 한다. 관리자 쿠키·요청 위조 방지·세션 만료와 로컬 복구는 유지한다. 6자리로 바꾸는 대상과 공통 코드·기기 토큰을 혼동하지 않는다.
 - [ ] 코드 화면의 참가자 선택과 개인 코드 목록을 공통 코드 관리로 교체한다. 삭제·재발급 전에 모든 수집기가 해제된다는 영향을 안내한다. 위 검사와 `pnpm test:web -- tests/web/admin-web.spec.ts`를 통과시킨다. 커밋 제안: `feat: 모임 공통 연결 코드와 6자리 관리자 코드 지원`.
 
-### T06: 새 수집 계약·인증 재연결·로컬 자료 보존
+### Task 6: T06 — 새 수집 계약·인증 재연결·로컬 자료 보존
 
 **파일:** 수정 수집기 `main/server-api.ts`, `credential-store.ts`, `history-sync.ts`, `outbox.ts`, `outbox-migrations.ts`, `ipc.ts`, `main.ts`, `preload/collector-api.ts`, `preload/index.ts`, 서버 `auth/ApiSecurityFilter.java`; 시험 `main/outbox.test.ts`, `history-sync.test.ts`, `server-api.test.ts`, `tests/web/cross-stage.spec.ts`.
 
@@ -119,7 +119,7 @@
 - [ ] 서버는 새 계약을 지원한 뒤 구형 수집기의 쓰기에 426 `COLLECTOR_UPDATE_REQUIRED`를 응답한다. 새 수집기는 일반 오류 대신 업데이트 필요를 알린다. 구형 개인 코드를 계속 허용하는 제품 우회는 남기지 않는다. 관리자 기존 세션은 공통 코드 전환으로 해제하지 않는다.
 - [ ] 위 검사·교차 단계 실제 HTTP 검사·토큰 렌더러 미노출 회귀를 통과시킨다. 이 자동 전환 검사는 제외된 실제 Windows 버전 업데이트 시험을 다시 요구하는 것이 아니다. 커밋 제안: `feat: 공통 코드 재연결 시 저장된 경기 요청 보존`.
 
-### T07: 근거 있는 포지션 기본값과 수동 초안 우선
+### Task 7: T07 — 근거 있는 포지션 기본값과 수동 초안 우선
 
 **파일:** 새 `packages/lcu/src/role-hints.ts`, `role-hints.test.ts`; 수정 서버 `cw/lcu/MatchNormalizer.java` 또는 새 `MatchRoleHints.java`, `matches/MatchViews.java`, 양쪽 계약·디코더, 수집기 `main/history-sync.ts`, `outbox.ts`, `renderer/MatchReview.tsx`; 시험 `cw/lcu/ContractCompatibilityTest.java`, `main/history-sync.test.ts`, `tests/e2e/collector.spec.ts`.
 
@@ -130,7 +130,7 @@
 - [ ] P05의 보수적인 근거 규칙을 구현한다. 수집·다시 불러오기 양쪽에서 같은 제안을 재현하고, 제안 출처와 수동 편집 여부를 보존한다. 추정하기 어려운 열 명에게 임의 역할을 강제로 채우지 않는다.
 - [ ] Electron 화면에서 제안·직접 선택·수정·재실행·각 팀 역할 중복·최종 확인을 검사한다. 자동 제안만으로 등록됐다고 표시하지 않는다. 커밋 제안: `feat: 경기 포지션을 근거에 따라 미리 제안`.
 
-### T08: 챔피언 이름·초상화와 간결한 참가자 행
+### Task 8: T08 — 챔피언 이름·초상화와 간결한 참가자 행
 
 **파일:** 새 `packages/game-assets/catalog.json`, `packages/game-assets/champions/`, 수집기 `renderer/ChampionPortrait.tsx`; 수정 기존 서버 `resources/assets/catalog.json`을 공유 원본에서 생성하는 빌드, `scripts/build-collector.mjs`, `apps/server/build.gradle`, 웹 `components/ChampionItemIcon.tsx`, 수집기 `renderer/MatchReview.tsx`, `styles.css`, `index.html`; 검증은 `tests/e2e/collector.spec.ts`와 빌드 자산 검사에 추가한다.
 
@@ -141,7 +141,7 @@
 - [ ] P06 로컬 자산 안을 적용하고 수집기의 원격 스크립트·일반 네트워크 접근을 넓히지 않는다. 알 수 없는 새 ID에는 명세의 예외 표시를 쓴다. 원본·전송 payload·서버 점수 입력은 그대로 보존한다.
 - [ ] 빌드한 설치용 자산에도 이름·이미지가 포함되는지 확인한다. 공개 웹의 상세 기록과 기존 아이콘 동작 회귀도 검사하고 결과 화면을 남긴다. 커밋 제안: `feat: 수집기에 챔피언 이름과 초상화 표시`.
 
-### T09: 전송 관측과 등록 후 계산 상태 조회
+### Task 9: T09 — 전송 관측과 등록 후 계산 상태 조회
 
 **파일:** 새 서버 `cw/evaluation/CollectorProgressController.java`, `CollectorProgressQuery.java`; 수정 `EvaluationRepository.java`, `GenerationPublisher.java`, `RecalculationWorker.java`(진행 관측이 필요한 범위), `matches/MatchViews.java`, 수집기 `main/uploader.ts`, `server-api.ts`, `history-sync.ts`, `outbox.ts`, `outbox-migrations.ts`, `preload/collector-api.ts`; 새 화면 `renderer/MatchProgress.tsx`; 새 시험 `cw/evaluation/CollectorProgressIntegrationTest.java`, `main/progress.test.ts`와 기존 Electron·교차 단계 시험.
 
@@ -154,7 +154,7 @@
 - [ ] 상태 조회는 실행 중 한 묶음만 보내고 기본 5초 간격으로 갱신한다. 오류 후에는 기존 재시도 상한을 재사용해 간격을 늘린다. 마지막 관측은 따로 보존한다. 서버 접근 해제 시 조회도 멈추고 재연결을 안내한다. 등록 완료 목록은 계산 실패 때문에 되돌리지 않는다.
 - [ ] 실제 HTTP 응답 유실·느린 응답·429·5xx와 가상 연결 단절 화면을 구분해 확인한다. 계산 상태는 경기 단위 안내로 표시하며 참가자별 행에 점수 칸을 추가하지 않는다. 커밋 제안: `feat: 전송과 점수 반영 진행 상황 안내`.
 
-### T10: 전체·상태별 목록과 쉬운 용어
+### Task 10: T10 — 전체·상태별 목록과 쉬운 용어
 
 **파일:** 새 수집기 `renderer/match-list-model.ts`, `match-list-model.test.ts`; 수정 `App.tsx`, `OutboxView.tsx`, `MatchList.tsx`, `AccountView.tsx`, `MatchReview.tsx`, `messages.ts`, `styles.css`, `preload/collector-api.ts`; 시험 `tests/e2e/collector.spec.ts`.
 
@@ -166,7 +166,7 @@
 - [ ] 정본의 일곱 문구를 버튼·도움말·오류에 반영한다. 두 불러오기 버튼의 자료 출처를 구분한다. ‘멈춘 전송 이어 보내기’는 인증 복구 후 같은 계정 요청을 이어 보낸다는 의미를 유지하고 모든 오류를 무조건 재전송하지 않는다. 개발용 상태·내부 식별자 노출도 점검한다.
 - [ ] 여섯 상태·전체의 실제 화면, 상태 이동·0건·서버 단절·필터 선택 보존을 Electron에서 확인하고 결과 이미지를 남긴다. 커밋 제안: `feat: 수집기 상태별 목록과 쉬운 안내 문구 적용`.
 
-### T11: 통합 검증·안전한 적용 절차·문서 일치
+### Task 11: T11 — 통합 검증·안전한 적용 절차·문서 일치
 
 **파일:** 새 서버 `apps/server/src/main/resources/db/migrations/V8__require_player_links.sql`; 수정 `tests/web/cross-stage.spec.ts`, `public-web.spec.ts`, `admin-web.spec.ts`, `tests/e2e/collector.spec.ts`, `scripts/web-test-server.mjs`, 수집기 `main/fixture.ts`, `docs/contracts/api.md`, `docs/spec.md`, `docs/status.md`, `docs/runbooks/collector-install.md`, `collector-acceptance.md`, `home-server.md`, `docs/development/setup.md`, `docs/ssot.json`; 새 실행 보고서와 화면 이미지는 완료 시 등록한다.
 

@@ -49,7 +49,7 @@ public abstract class DatabaseTestSupport {
         }
 
         jdbc.execute(
-                "TRUNCATE evaluation_generations, scoring_versions, audit_log, recalculation_jobs, match_participants, matches, collector_credentials, admin_sessions, enrollment_codes, members CASCADE");
+                "TRUNCATE account_identity_evidence, player_accounts, evaluation_generations, scoring_versions, audit_log, recalculation_jobs, match_participants, matches, collector_credentials, admin_sessions, enrollment_codes, members CASCADE");
         jdbc.update(
                 "update service_state set source_revision=0, desired_scoring_version=null, active_generation_id=null");
 

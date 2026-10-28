@@ -1,7 +1,6 @@
 package cw.members;
 
 import cw.contracts.Role;
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -13,7 +12,7 @@ import jakarta.persistence.Table;
 public class MemberEntity {
     @Id public String id;
 
-    @Column(updatable = false)
+    public String accountId;
     public String puuid;
 
     public String riotId;
