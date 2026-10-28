@@ -1,0 +1,61 @@
+:root {
+  color-scheme: light;
+  font-family:
+    "Pretendard",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Malgun Gothic",
+    sans-serif;
+  font-synthesis: none;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--background);
+  --background: #f5f6f8;
+  --surface: #ffffff;
+  --text: #202632;
+  --secondary-text: #475467;
+  --muted: #667085;
+  --border: #e4e7ec;
+  --input: #f1f3f6;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-soft: #edf4ff;
+  --on-primary: #ffffff;
+  --success: #067647;
+  --success-soft: #ecf8f1;
+  --danger: #b4233d;
+  --danger-soft: #fff0f2;
+  --amber: #8b5900;
+  --amber-soft: #fff6e5;
+  --radius: 20px;
+  --control-radius: 12px;
+  --cyan: var(--primary);
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  margin-top: 24px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.pagination button {
+  min-height: 44px;
+}
+.pagination [aria-current="page"] {
+  min-width: 64px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

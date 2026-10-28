@@ -7,6 +7,7 @@ export interface PublicMember {
   primaryRole: Role | null;
   secondaryRole: Role | null;
   allowedRoles: Role[];
+  profileIconId?: number | null;
 }
 export interface AdminMember extends PublicMember {
   puuid: string | null;

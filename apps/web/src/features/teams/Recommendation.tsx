@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api, useRemote } from "../../api";
+import { MemberAvatar } from "../../components/MemberAvatar";
 import type { PublicMember, Recommendation as Result } from "../../types";
 import {
   Heading,
@@ -74,6 +75,7 @@ export function Recommendation() {
                     setResult(undefined);
                   }}
                 />
+                <MemberAvatar member={m} />
                 <span>
                   <strong>{m.displayName}</strong>
                   <small>
@@ -125,6 +127,11 @@ export function Recommendation() {
                       {team.map((s) => (
                         <div className="team-seat" key={s.memberId}>
                           <span className="role">{roleName[s.role]}</span>
+                          <MemberAvatar
+                            member={members.data?.find(
+                              (m) => m.id === s.memberId,
+                            )}
+                          />
                           <a href={"/members/" + s.memberId}>
                             {
                               members.data?.find((m) => m.id === s.memberId)

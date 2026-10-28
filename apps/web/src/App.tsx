@@ -57,12 +57,7 @@ export function App() {
       <main id="main" tabIndex={-1}>
         {content}
       </main>
-      <footer>
-        <span>
-          CIVIL WAR <span className="subtle">· 함께한 경기의 기록</span>
-        </span>
-        <span>시간 표기 KST · 비공식 내전 평가</span>
-      </footer>
+      <footer>Civil War</footer>
     </CatalogContext.Provider>
   );
 }

@@ -110,9 +110,15 @@ test("paginationAndSameParticipantFilters", async ({ page, request }) => {
     .getByRole("combobox", { name: "참가자", exact: true })
     .selectOption(state().members[10].id);
   await expect(page.locator(".match-card")).toHaveCount(1);
+  const selected = await (
+    await request.get("/api/matches?memberId=" + state().members[10].id)
+  ).json();
+  const other = selected.items[0].participants.find(
+    (p: any) => p.memberId !== state().members[10].id,
+  );
   await page
-    .getByRole("combobox", { name: "포지션", exact: true })
-    .selectOption("TOP");
+    .getByRole("combobox", { name: "챔피언", exact: true })
+    .fill(String(other.championId));
   await expect(page.getByText("아직 등록된 기록이 없습니다.")).toBeVisible();
   const bad = await request.get("/api/no-such-route");
   expect(bad.status()).toBe(404);

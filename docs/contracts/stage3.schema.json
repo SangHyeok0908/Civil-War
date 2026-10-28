@@ -483,6 +483,13 @@
           },
           "uniqueItems": true,
           "maxItems": 5
+        },
+        "profileIconId": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
         }
       },
       "required": [

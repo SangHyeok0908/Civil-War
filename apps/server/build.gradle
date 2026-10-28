@@ -65,6 +65,7 @@ tasks.register('buildWeb', Exec) {
     workingDir file('../..')
     commandLine(System.getProperty('os.name').toLowerCase().contains('windows') ? 'pnpm.cmd' : 'pnpm', 'build:web')
     inputs.dir(file('../web/src'))
+    inputs.dir(file('../../packages/ui'))
     inputs.file(file('../web/index.html'))
     inputs.file(file('../../vite.web.config.ts'))
     inputs.file(file('../../pnpm-lock.yaml'))

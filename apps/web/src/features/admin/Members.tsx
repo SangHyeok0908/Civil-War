@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api, useRemote } from "../../api";
+import { MemberAvatar } from "../../components/MemberAvatar";
 import type { AdminMember, Role, Suggestion } from "../../types";
 import {
   roles,
@@ -65,21 +66,29 @@ export function MembersAdmin() {
       ) : (
         <div className="admin-members">
           {result.data.map((m) => (
-            <div className="panel" key={m.id}>
+            <div
+              className={
+                "panel member-panel" + (editing === m.id ? " is-editing" : "")
+              }
+              key={m.id}
+            >
               <div className="panel-heading">
-                <div>
-                  <h3>
-                    {m.displayName}{" "}
-                    <span className="badge">
-                      {m.active ? "팀 추천 대상" : "팀 추천 제외"}
-                    </span>
-                  </h3>
-                  <small>
-                    {m.riotId} · {!m.puuid && "게임 계정 연결 확인 중 · "}{" "}
-                    {m.allowedRoles.map((r) => roleName[r]).join(" / ") ||
-                      "포지션 미지정"}
-                  </small>
-                  <small>{rankLabel(m)}</small>
+                <div className="member-identity">
+                  <MemberAvatar member={m} />
+                  <div>
+                    <h3>
+                      {m.displayName}{" "}
+                      <span className="badge">
+                        {m.active ? "팀 추천 대상" : "팀 추천 제외"}
+                      </span>
+                    </h3>
+                    <small>
+                      {m.riotId} · {!m.puuid && "게임 계정 연결 확인 중 · "}{" "}
+                      {m.allowedRoles.map((r) => roleName[r]).join(" / ") ||
+                        "포지션 미지정"}
+                    </small>
+                    <small>{rankLabel(m)}</small>
+                  </div>
                 </div>
                 <button
                   className="secondary"
