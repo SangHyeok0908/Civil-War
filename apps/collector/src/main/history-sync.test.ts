@@ -29,10 +29,19 @@ function setup() {
   boxes.push(box);
   let cred: any = actor;
   const lcu = {
-    getAccount: vi.fn(async () => ({
+    getAccount: vi.fn(async (): Promise<import("./lcu-client").Account> => ({
       puuid: actor.puuid,
       displayName: "수집자",
+      identity: {
+        puuid: actor.puuid,
+        riotId: "Collector#KR1",
+        source: "current_summoner" as const,
+        observedAt: new Date().toISOString(),
+      },
     })),
+    getIdentity: vi.fn(async () => {
+      throw new ClientError("LCU_UNAVAILABLE");
+    }),
     listPastMatches: vi.fn(async (_puuid: string) => ({
       ids: [match.gameId],
       warningCode: null as string | null,
@@ -51,6 +60,7 @@ function setup() {
     active: true,
   }));
   const api = {
+    observations: vi.fn(async () => {}),
     enroll: vi.fn(async () => actor),
     members: vi.fn(async () => roster),
     pending: vi.fn(async () => [] as any[]),
@@ -137,7 +147,7 @@ it("queryFailureIsNotPending; unknown member and account mismatch blocked", asyn
   expect(x.box.listOutbox()).toHaveLength(0);
   x.box.cache("members:" + actor.memberId, []);
   expect((await x.service.queryPastMatches()).results[0].code).toBe(
-    "UNREGISTERED_PARTICIPANT",
+    "INSUFFICIENT_REGISTERED_PARTICIPANTS",
   );
   x.lcu.getAccount.mockResolvedValue({
     puuid: "different",
@@ -354,5 +364,16 @@ it("late pending list cannot undo a background registration", async () => {
   });
   expect(x.box.listOutbox().every((item) => item.state === "succeeded")).toBe(
     true,
+  );
+});
+it("six registered players allow guests, five do not", async () => {
+  const x = setup();
+  await x.service.initialize();
+  x.box.cache("members:" + actor.memberId, (await x.api.members()).slice(0, 6));
+  expect((await x.service.queryPastMatches()).results[0].code).toBeNull();
+  x.box.cache("members:" + actor.memberId, (await x.api.members()).slice(0, 5));
+  x.api.members.mockResolvedValueOnce((await x.api.members()).slice(0, 5));
+  expect((await x.service.queryPastMatches()).results[0].code).toBe(
+    "INSUFFICIENT_REGISTERED_PARTICIPANTS",
   );
 });

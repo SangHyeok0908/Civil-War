@@ -31,10 +31,19 @@ export class CollectorService {
   private querying = false;
   readonly uploader: Uploader;
   constructor(
-    private lcu: Pick<LcuClient, "getAccount" | "listPastMatches" | "getMatch">,
+    private lcu: Pick<
+      LcuClient,
+      "getAccount" | "listPastMatches" | "getMatch" | "getIdentity"
+    >,
     private api: Pick<
       HttpServerApi,
-      "enroll" | "members" | "pending" | "get" | "ingest" | "confirm"
+      | "enroll"
+      | "members"
+      | "pending"
+      | "get"
+      | "ingest"
+      | "confirm"
+      | "observations"
     >,
     private store: {
       load(): Promise<Credential | null>;
@@ -151,7 +160,8 @@ export class CollectorService {
         .some((i) => i.state !== "succeeded" && i.puuid !== account.puuid)
     )
       throw new ClientError("PENDING_OWNER_MISMATCH");
-    const c = await this.api.enroll(codeValue, account.puuid);
+    if (!account.identity) throw new ClientError("ACCOUNT_EVIDENCE_REQUIRED");
+    const c = await this.api.enroll(codeValue, account.identity);
     for (const key of ["token", "memberId", "credentialId", "puuid"] as const)
       text(c[key]);
     if (c.puuid !== account.puuid) throw new ClientError("ACCOUNT_MISMATCH");
@@ -224,7 +234,7 @@ export class CollectorService {
     try {
       const actor = await this.currentActor();
       // A healthy cached roster makes collection independent of remote latency.
-      const members =
+      let members =
         this.box.cached<Member[]>("members:" + actor.memberId) ??
         (await this.refreshMembers());
       void this.refreshMembers().catch(() => {});
@@ -239,12 +249,24 @@ export class CollectorService {
           if (match.gameId !== id) throw new ClientError("INVALID_MATCH");
           if (!match.participants.some((p) => p.puuid === actor.puuid))
             throw new ClientError("ACCOUNT_MISMATCH");
+          const identities = [];
+          for (const p of match.participants) {
+            try {
+              identities.push(await this.lcu.getIdentity(p.puuid));
+            } catch {}
+          }
+          if (identities.length) {
+            await this.api.observations(capture.rawMatch, identities, actor);
+            members = await this.refreshMembers();
+          }
           if (
-            match.participants.some(
-              (p) => !members.some((m) => m.puuid === p.puuid),
-            )
+            new Set(
+              match.participants
+                .filter((p) => members.some((m) => m.puuid === p.puuid))
+                .map((p) => p.puuid),
+            ).size < 6
           )
-            throw new ClientError("UNREGISTERED_PARTICIPANT");
+            throw new ClientError("INSUFFICIENT_REGISTERED_PARTICIPANTS");
           const current = await this.currentActor();
           if (
             current.memberId !== actor.memberId ||

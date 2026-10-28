@@ -1,5 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
-import { migration } from "./outbox-migrations";
+import { migration, migration2 } from "./outbox-migrations";
 import {
   ClientError,
   validateRoles,
@@ -30,8 +30,11 @@ export class Outbox {
     );
     const version = (this.db.prepare("PRAGMA user_version").get() as any)
       .user_version;
-    if (version > 1) throw new ClientError("DATABASE_VERSION");
-    this.db.exec(migration);
+    if (version > 2) throw new ClientError("DATABASE_VERSION");
+    this.transaction(() => {
+      if (version < 1) this.db.exec(migration);
+      if (version < 2) this.db.exec(migration2);
+    });
     this.db.exec("UPDATE outbox SET state='pending' WHERE state='sending'");
   }
   close() {

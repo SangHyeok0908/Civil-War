@@ -8,6 +8,7 @@ export interface CollectorPrincipal {
 }
 export interface Credential extends CollectorPrincipal {
   token: string;
+  codeGeneration?: number;
 }
 export interface Member {
   id: string;

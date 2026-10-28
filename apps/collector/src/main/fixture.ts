@@ -51,7 +51,16 @@ export function fixtureService(box: Outbox, mode: string) {
       return {
         puuid: mode === "mismatch" ? "other" : actor.puuid,
         displayName: "테스트 수집자#KR1",
+        identity: {
+          puuid: actor.puuid,
+          riotId: "테스트 수집자#KR1",
+          source: "current_summoner" as const,
+          observedAt: new Date().toISOString(),
+        },
       };
+    },
+    getIdentity: async () => {
+      throw new ClientError("LCU_UNAVAILABLE");
     },
     listPastMatches: async () => {
       control.historyCalls++;
@@ -65,6 +74,7 @@ export function fixtureService(box: Outbox, mode: string) {
     getMatch: async () => ({ rawMatch: raw, rawJson: JSON.stringify(raw) }),
   };
   const api = {
+    observations: async () => {},
     enroll: async () => actor,
     members: async () => {
       online();

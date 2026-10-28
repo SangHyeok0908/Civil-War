@@ -3,6 +3,7 @@ import {
   object,
   text,
   type Credential,
+  type IdentityObservation,
   type CollectorMatch,
   type IngestMatchInput,
   type ConfirmationInput,
@@ -42,6 +43,7 @@ export class HttpServerApi implements ServerApi {
         method: body === undefined ? "GET" : "POST",
         headers: {
           Accept: "application/json",
+          "X-CW-Collector-Protocol": "2",
           ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
           ...(c ? { Authorization: "Bearer " + c.token } : {}),
         },
@@ -79,12 +81,15 @@ export class HttpServerApi implements ServerApi {
       throw new ClientError("INVALID_SERVER_RESPONSE", 502);
     }
   }
-  async enroll(code: string, currentPuuid: string): Promise<Credential> {
+  async enroll(
+    code: string,
+    currentAccount: IdentityObservation,
+  ): Promise<Credential> {
     const r = object(
       await this.request(
         "/api/collector/enroll",
         undefined,
-        JSON.stringify({ code, currentPuuid }),
+        JSON.stringify({ code, currentAccount, protocolVersion: 2 }),
       ),
     );
     return {
@@ -92,7 +97,19 @@ export class HttpServerApi implements ServerApi {
       memberId: text(r.memberId),
       credentialId: text(r.credentialId),
       puuid: text(r.puuid),
+      codeGeneration: Number(r.codeGeneration),
     };
+  }
+  async observations(
+    rawMatch: unknown,
+    observations: IdentityObservation[],
+    c: Credential,
+  ) {
+    await this.request(
+      "/api/collector/accounts/observations",
+      c,
+      JSON.stringify({ rawMatch, observations }),
+    );
   }
   async members(c: Credential): Promise<Member[]> {
     return decodeMembers(await this.request("/api/collector/members", c));

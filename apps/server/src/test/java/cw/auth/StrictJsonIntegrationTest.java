@@ -80,6 +80,8 @@ class StrictJsonIntegrationTest extends DatabaseTestSupport {
         MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/collector/matches/" + KEY + "/confirm")
+                                        .header("X-CW-Collector-Protocol", "2")
+                                        .header("X-CW-Collector-Protocol", "2")
                                         .header("Authorization", "Bearer " + token)
                                         .contentType("application/json")
                                         .content(
@@ -108,6 +110,8 @@ class StrictJsonIntegrationTest extends DatabaseTestSupport {
         assertThat(
                         mvc.perform(
                                         post("/api/collector/matches/" + KEY + "/confirm")
+                                                .header("X-CW-Collector-Protocol", "2")
+                                                .header("X-CW-Collector-Protocol", "2")
                                                 .header("Authorization", "Bearer " + token)
                                                 .contentType("application/json")
                                                 .content(
@@ -192,6 +196,8 @@ class StrictJsonIntegrationTest extends DatabaseTestSupport {
         assertThat(
                         mvc.perform(
                                         post("/api/collector/matches/ingest")
+                                                .header("X-CW-Collector-Protocol", "2")
+                                                .header("X-CW-Collector-Protocol", "2")
                                                 .header("Authorization", "Bearer " + token)
                                                 .contentType("application/json")
                                                 .content(
@@ -257,6 +263,8 @@ class StrictJsonIntegrationTest extends DatabaseTestSupport {
             MockHttpServletResponse response =
                     mvc.perform(
                                     post("/api/collector/matches/ingest")
+                                            .header("X-CW-Collector-Protocol", "2")
+                                            .header("X-CW-Collector-Protocol", "2")
                                             .header("Authorization", "Bearer " + token)
                                             .contentType("application/json")
                                             .content(

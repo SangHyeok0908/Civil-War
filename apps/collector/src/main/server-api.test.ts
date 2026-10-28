@@ -108,3 +108,23 @@ it("Retry-After and errors sanitized; remote HTTP and credentials in origin reje
     () => new HttpServerApi("https://user:password@example.test"),
   ).toThrow();
 });
+it("enrollment sends fresh identity and protocol 2", async () => {
+  const identity = {
+    puuid: actor.puuid,
+    riotId: "Tester#KR1",
+    source: "current_summoner" as const,
+    observedAt: new Date().toISOString(),
+  };
+  const api = new HttpServerApi("https://example.test", async (_url, init) => {
+    expect((init?.headers as any)["X-CW-Collector-Protocol"]).toBe("2");
+    expect(JSON.parse(String(init?.body))).toEqual({
+      code: "group",
+      currentAccount: identity,
+      protocolVersion: 2,
+    });
+    return new Response(JSON.stringify({ ...actor, codeGeneration: 3 }));
+  });
+  expect(await api.enroll("group", identity as any)).toMatchObject({
+    codeGeneration: 3,
+  });
+});

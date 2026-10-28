@@ -59,6 +59,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
         MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/collector/enroll")
+                                        .header("X-CW-Collector-Protocol", "2")
                                         .contentType("application/json")
                                         .content(
                                                 json.writeValueAsString(
@@ -79,7 +80,9 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
                         "/api/%61dmin/members",
                         "/api/%63ollector/members")) {
             MockHttpServletResponse response =
-                    mvc.perform(get(URI.create(path))).andReturn().getResponse();
+                    mvc.perform(get(URI.create(path)).header("X-CW-Collector-Protocol", "2"))
+                            .andReturn()
+                            .getResponse();
             assertThat(response.getStatus()).as(path).isIn(400, 401, 403, 404);
             assertThat(response.getContentAsString()).doesNotContain("fixture-player");
         }
@@ -144,6 +147,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
         MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/collector/enroll")
+                                        .header("X-CW-Collector-Protocol", "2")
                                         .contentType("application/json")
                                         .content("x".repeat(ApiSecurityFilter.MAX_BODY_BYTES + 1))
                                         .with(
@@ -166,6 +170,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
                 assertThat(
                                 mvc.perform(
                                                 post("/api/collector/enroll")
+                                                        .header("X-CW-Collector-Protocol", "2")
                                                         .contentType("application/json")
                                                         .content(
                                                                 json.writeValueAsString(
@@ -181,6 +186,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
             MockHttpServletResponse blocked =
                     mvc.perform(
                                     post("/api/collector/enroll")
+                                            .header("X-CW-Collector-Protocol", "2")
                                             .contentType("application/json")
                                             .content("{\"code\":\"invalid-private-code\"}"))
                             .andReturn()
@@ -194,6 +200,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
             assertThat(
                             mvc.perform(
                                             post("/api/collector/enroll")
+                                                    .header("X-CW-Collector-Protocol", "2")
                                                     .contentType("application/json")
                                                     .content(
                                                             json.writeValueAsString(
@@ -285,6 +292,8 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
             assertThat(
                             mvc.perform(
                                             post("/api/collector/matches/ingest")
+                                                    .header("X-CW-Collector-Protocol", "2")
+                                                    .header("X-CW-Collector-Protocol", "2")
                                                     .header("Authorization", "Bearer " + token)
                                                     .contentType("application/json")
                                                     .content(body))
@@ -316,6 +325,8 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
         assertThat(
                         mvc.perform(
                                         post("/api/collector/matches/ingest")
+                                                .header("X-CW-Collector-Protocol", "2")
+                                                .header("X-CW-Collector-Protocol", "2")
                                                 .header("Authorization", "Bearer " + token)
                                                 .contentType("application/json")
                                                 .content(request))
@@ -327,6 +338,8 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
         MockHttpServletResponse response =
                 mvc.perform(
                                 get("/api/collector/matches/" + KEY)
+                                        .header("X-CW-Collector-Protocol", "2")
+                                        .header("X-CW-Collector-Protocol", "2")
                                         .header("Authorization", "Bearer " + token))
                         .andReturn()
                         .getResponse();
@@ -335,6 +348,8 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
         assertThat(
                         mvc.perform(
                                         post("/api/collector/matches/" + KEY + "/confirm")
+                                                .header("X-CW-Collector-Protocol", "2")
+                                                .header("X-CW-Collector-Protocol", "2")
                                                 .header("Authorization", "Bearer " + token)
                                                 .contentType("application/json")
                                                 .content(

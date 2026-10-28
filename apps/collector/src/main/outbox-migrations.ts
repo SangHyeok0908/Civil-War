@@ -44,3 +44,9 @@ CREATE TABLE IF NOT EXISTS rotations (
 
 PRAGMA user_version = 1;
 `;
+
+export const migration2 = `
+ALTER TABLE outbox ADD COLUMN last_attempt_at INTEGER;
+ALTER TABLE outbox ADD COLUMN phase TEXT;
+PRAGMA user_version=2;
+`;

@@ -42,6 +42,7 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
                                     URI.create(
                                             "http://localhost:" + port + "/api/collector/enroll"))
                             .timeout(Duration.ofSeconds(5))
+                            .header("X-CW-Collector-Protocol", "2")
                             .header("Content-Type", "application/json")
                             .POST(publisher)
                             .build();
@@ -77,6 +78,7 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
                 HttpRequest req =
                         HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
                                 .timeout(Duration.ofSeconds(5))
+                                .header("X-CW-Collector-Protocol", "2")
                                 .GET()
                                 .build();
                 HttpResponse<String> response =
@@ -105,6 +107,8 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
                                                     + encodedKey
                                                     + "/confirm"))
                             .timeout(Duration.ofSeconds(5))
+                            .header("X-CW-Collector-Protocol", "2")
+                            .header("X-CW-Collector-Protocol", "2")
                             .header("Authorization", "Bearer " + token)
                             .header("Content-Type", "application/json")
                             .POST(
@@ -125,6 +129,8 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
                                         URI.create(
                                                 "http://localhost:" + port + prefix + encodedKey))
                                 .timeout(Duration.ofSeconds(5))
+                                .header("X-CW-Collector-Protocol", "2")
+                                .header("X-CW-Collector-Protocol", "2")
                                 .header("Authorization", "Bearer " + token)
                                 .GET()
                                 .build();
@@ -146,6 +152,7 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
                     HttpRequest.newBuilder(
                                     URI.create("http://localhost:" + port + "/api/admin/session"))
                             .timeout(Duration.ofSeconds(5))
+                            .header("X-CW-Collector-Protocol", "2")
                             .header("Origin", "http://localhost:8080")
                             .header("Content-Type", "application/json")
                             .POST(

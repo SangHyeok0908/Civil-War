@@ -23,7 +23,12 @@ test("actualStage2OutboxToSpring pending lostConfirmAck roleCorrection cancellat
     return response;
   };
   const api = new HttpServerApi(origin, transport);
-  const credential = await api.enroll(s.collectorCode, s.members[0].puuid);
+  const credential = await api.enroll(s.collectorCode, {
+    puuid: s.members[0].puuid,
+    riotId: s.members[0].riotId,
+    source: "current_summoner",
+    observedAt: new Date().toISOString(),
+  });
   const source = JSON.parse(
     readFileSync("fixtures/lcu/candidates/h2-20261021/G1.json", "utf8"),
   );

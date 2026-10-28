@@ -46,6 +46,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
         MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/collector/enroll")
+                                        .header("X-CW-Collector-Protocol", "2")
                                         .contentType("application/json")
                                         .content(
                                                 json.writeValueAsString(
@@ -58,6 +59,19 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
     }
 
     @Test
+    void protocolOneRequiresUpdateBeforeDecoding() throws Exception {
+        assertThat(
+                        mvc.perform(
+                                        post("/api/collector/enroll")
+                                                .contentType("application/json")
+                                                .content("{\"currentPuuid\":\"old\"}"))
+                                .andReturn()
+                                .getResponse()
+                                .getStatus())
+                .isEqualTo(426);
+    }
+
+    @Test
     void commonCodeSupportsConcurrentDevices() throws Exception {
         CodeReply code = collectorCode();
         String body = json.writeValueAsString(enrollmentBody(code.code(), 1));
@@ -66,6 +80,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                         () ->
                                 mvc.perform(
                                                 post("/api/collector/enroll")
+                                                        .header("X-CW-Collector-Protocol", "2")
                                                         .contentType("application/json")
                                                         .content(body))
                                         .andReturn()
@@ -74,6 +89,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                         () ->
                                 mvc.perform(
                                                 post("/api/collector/enroll")
+                                                        .header("X-CW-Collector-Protocol", "2")
                                                         .contentType("application/json")
                                                         .content(body))
                                         .andReturn()
@@ -140,6 +156,8 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
         assertThat(
                         mvc.perform(
                                         get("/api/collector/members")
+                                                .header("X-CW-Collector-Protocol", "2")
+                                                .header("X-CW-Collector-Protocol", "2")
                                                 .header("Authorization", "Bearer " + token))
                                 .andReturn()
                                 .getResponse()
@@ -148,6 +166,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
         assertThat(
                         mvc.perform(
                                         post("/api/collector/enroll")
+                                                .header("X-CW-Collector-Protocol", "2")
                                                 .contentType("application/json")
                                                 .content(
                                                         json.writeValueAsString(
@@ -177,6 +196,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
         assertThat(
                         mvc.perform(
                                         get("/api/admin/members")
+                                                .header("X-CW-Collector-Protocol", "2")
                                                 .header("Authorization", "Bearer " + token))
                                 .andReturn()
                                 .getResponse()
@@ -201,6 +221,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
         assertThat(
                         mvc.perform(
                                         post("/api/collector/enroll")
+                                                .header("X-CW-Collector-Protocol", "2")
                                                 .contentType("application/json")
                                                 .content(
                                                         json.writeValueAsString(
@@ -236,6 +257,8 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
         assertThat(
                         mvc.perform(
                                         get("/api/collector/members")
+                                                .header("X-CW-Collector-Protocol", "2")
+                                                .header("X-CW-Collector-Protocol", "2")
                                                 .header("Authorization", "Bearer " + token))
                                 .andReturn()
                                 .getResponse()
@@ -375,6 +398,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
         var response =
                 mvc.perform(
                                 post("/api/collector/enroll")
+                                        .header("X-CW-Collector-Protocol", "2")
                                         .contentType("application/json")
                                         .content(json.writeValueAsString(body)))
                         .andReturn()

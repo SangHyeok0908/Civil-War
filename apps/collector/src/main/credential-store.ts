@@ -36,6 +36,9 @@ export class CredentialStore {
         memberId: text(c.memberId),
         credentialId: text(c.credentialId),
         puuid: text(c.puuid),
+        ...(Number.isSafeInteger(c.codeGeneration)
+          ? { codeGeneration: c.codeGeneration }
+          : {}),
       };
     } catch {
       throw new ClientError("REENROLL_REQUIRED");

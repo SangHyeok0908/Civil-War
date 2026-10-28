@@ -94,6 +94,7 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
         assertThat(
                         mvc.perform(
                                         patch("/api/admin/matches/" + KEY + "/roles")
+                                                .header("X-CW-Collector-Protocol", "2")
                                                 .header("Authorization", "Bearer " + token)
                                                 .header("Origin", "http://localhost:8080")
                                                 .contentType("application/json")

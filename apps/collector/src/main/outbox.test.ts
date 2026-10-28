@@ -330,3 +330,37 @@ it.each([
     expect(db(path).matches(actor)[0]).toEqual(accepted ? incoming : saved);
   },
 );
+it("version 1 migration preserves raw payload, owner, submission and draft through reconnect", () => {
+  const b = db();
+  const saved = b.enqueueCollected(
+    {
+      schemaVersion: 1,
+      rawMatch: raw,
+      rawJson: '{"precision":0.12345678901234567890}',
+      clientSubmissionId: "legacy-request",
+    },
+    actor,
+    match,
+  );
+  b.cache("draft:m1:" + key, roles);
+  b.mark(saved.id, "needs_attention", "AUTH_REVOKED");
+  b.db.exec(
+    "ALTER TABLE outbox DROP COLUMN last_attempt_at; ALTER TABLE outbox DROP COLUMN phase; PRAGMA user_version=1",
+  );
+  const path = b.path;
+  b.close();
+  const reopened = new Outbox(path);
+  try {
+    const before = reopened.listOutbox()[0];
+    const next = { ...actor, credentialId: "new-c" };
+    reopened.resumeVerified(next);
+    const after = reopened.listOutbox()[0];
+    expect(after.payload).toEqual(before.payload);
+    expect(after.credentialId).toBe("c1");
+    expect(after.state).toBe("pending");
+    expect(reopened.cached("draft:m1:" + key)).toEqual(roles);
+    expect(after.payload.rawJson).toContain("0.12345678901234567890");
+  } finally {
+    reopened.close();
+  }
+});
