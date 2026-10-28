@@ -21,7 +21,7 @@ export function fixtureService(box: Outbox, mode: string) {
     match.participants.map((p, i) => [p.puuid, ROLES[i % 5]]),
   );
   const control = {
-    offline: mode === "offline",
+    offline: mode === "offline" || mode === "history-stalled",
     historyCalls: 0,
     confirmCalls: 0,
     sent: [] as string[],
@@ -56,7 +56,11 @@ export function fixtureService(box: Outbox, mode: string) {
     listPastMatches: async () => {
       control.historyCalls++;
       if (mode === "failure") throw new ClientError("LCU_UNAVAILABLE");
-      return mode === "pending" ? [] : [match.gameId];
+      return {
+        ids: mode === "pending" ? [] : [match.gameId],
+        warningCode:
+          mode === "history-stalled" ? "HISTORY_PAGINATION_STALLED" : null,
+      };
     },
     getMatch: async () => ({ rawMatch: raw, rawJson: JSON.stringify(raw) }),
   };

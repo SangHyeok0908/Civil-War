@@ -228,9 +228,9 @@ export class CollectorService {
         this.box.cached<Member[]>("members:" + actor.memberId) ??
         (await this.refreshMembers());
       void this.refreshMembers().catch(() => {});
-      const ids = await this.lcu.listPastMatches(actor.puuid);
+      const listing = await this.lcu.listPastMatches(actor.puuid);
       const results: HistorySyncResult["results"] = [];
-      for (const id of ids) {
+      for (const id of listing.ids) {
         let matchKey: string | null = null;
         try {
           const capture = await this.lcu.getMatch(id);
@@ -271,7 +271,11 @@ export class CollectorService {
       }
       await this.uploader.drainOutbox();
       await this.loadPendingMatches();
-      return { results, snapshot: await this.snapshot() };
+      return {
+        results,
+        warningCode: listing.warningCode,
+        snapshot: await this.snapshot(),
+      };
     } finally {
       this.querying = false;
     }

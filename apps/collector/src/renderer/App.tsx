@@ -63,9 +63,11 @@ export function App() {
           onClick={() =>
             void run(async () => {
               const r = await window.collector.queryPastMatches();
-              const failed = r.results.filter((x) => x.code);
-              if (failed.length)
-                setNotice(failed.map((x) => message(x.code!)).join(" / "));
+              const codes = [
+                r.warningCode,
+                ...r.results.map((x) => x.code),
+              ].filter((code): code is string => !!code);
+              setNotice([...new Set(codes)].map(message).join(" / "));
               return r.snapshot;
             })
           }
