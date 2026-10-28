@@ -144,7 +144,7 @@ it("offlineThenResume uses roster cache and confirm FIFO", async () => {
   let r = await x.service.queryPastMatches();
   expect(r.snapshot.matches[0].status).toBe("전송 대기");
   const s = await x.service.confirmRegistration(key, roles, true);
-  expect(s.matches[0].status).toBe("등록 대기");
+  expect(s.matches[0].status).toBe("등록 진행 중");
   expect(x.api.confirm).not.toHaveBeenCalled();
   x.box.db.exec("UPDATE outbox SET next_at=0");
   await x.service.tick();

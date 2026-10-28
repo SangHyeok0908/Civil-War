@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   ROLES,
   validateRoles,
@@ -26,6 +26,10 @@ export function MatchReview({
   save: (roles: Record<string, Role | null>) => void;
   confirm: (roles: Record<string, Role>) => void;
 }) {
+  const manual = useRef(record.manualRoles ?? {});
+  useEffect(() => {
+    manual.current = record.manualRoles ?? {};
+  }, [JSON.stringify(record.manualRoles)]);
   const [roles, setRoles] = useState(record.roles);
   const [checked, setChecked] = useState(false);
   useEffect(() => {
@@ -37,7 +41,8 @@ export function MatchReview({
   } catch {
     valid = false;
   }
-  const editable = record.state === "pending" && record.status !== "등록 대기";
+  const editable =
+    record.state === "pending" && record.status !== "등록 진행 중";
   return (
     <article className="match">
       <header>
@@ -82,7 +87,9 @@ export function MatchReview({
                         <span className="participant-identity">
                           <ChampionPortrait championId={p.championId} />
                           <span>
-                            {record.names[p.puuid]}
+                            <span className="participant-name">
+                              {record.names[p.puuid]}
+                            </span>
                             <small>{getChampionLabel(p.championId)}</small>
                           </span>
                         </span>
@@ -102,12 +109,14 @@ export function MatchReview({
                               };
                               setRoles(next);
                               if (!e.target.value) delete next[p.puuid];
-                              save({
-                                ...record.manualRoles,
+                              const draft = {
+                                ...manual.current,
                                 [p.puuid]: e.target.value
                                   ? (e.target.value as Role)
                                   : null,
-                              });
+                              };
+                              manual.current = draft;
+                              save(draft);
                             }}
                             disabled={busy}
                           >
@@ -130,7 +139,9 @@ export function MatchReview({
                           !Object.prototype.hasOwnProperty.call(
                             record.manualRoles ?? {},
                             p.puuid,
-                          ) && <small>경기 기록으로 추정 · 확인 필요</small>}
+                          ) && (
+                            <small>경기 기록으로 추정 · 역할 확인 필요</small>
+                          )}
                       </td>
                     </tr>
                   ))}
@@ -152,7 +163,7 @@ export function MatchReview({
           <p>팀마다 다섯 포지션을 한 명씩 확인해야 등록할 수 있습니다.</p>
           <button
             disabled={
-              busy || !checked || !valid || record.status === "확인 필요"
+              busy || !checked || !valid || record.status === "문제 해결 필요"
             }
             onClick={() => confirm(roles)}
           >

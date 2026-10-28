@@ -243,3 +243,22 @@ details p {
   place-items: center;
   color: #c4d3e2;
 }
+
+.queue-summary button[aria-pressed="true"] {
+  border-color: #63d6c8;
+  background: #173f42;
+  color: #fff;
+}
+.queue-summary button:focus-visible {
+  outline: 3px solid #63d6c8;
+  outline-offset: 3px;
+}
+.match-progress {
+  padding: 8px 14px;
+  margin: 10px 0;
+  background: #14222f;
+  border-radius: 8px;
+}
+.match-progress small {
+  display: block;
+}

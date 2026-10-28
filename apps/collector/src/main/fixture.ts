@@ -3,13 +3,18 @@ import {
   ROLES,
   type Credential,
 } from "../../../../packages/contracts/src/index";
+import { rawRoleSuggestions } from "../../../../packages/lcu/src/role-hints";
 import { normalizeMatch } from "../../../../packages/lcu/src/normalize-match";
 import fixtureRaw from "../../../../fixtures/lcu/candidates/h2-20261021/G1.json";
 import { CollectorService } from "./history-sync";
 import type { Outbox } from "./outbox";
 // Development-only fixture wiring; never talks to LCU, Riot, or a live server.
 export function fixtureService(box: Outbox, mode: string) {
-  const raw = structuredClone(fixtureRaw);
+  const raw: any = structuredClone(fixtureRaw);
+  if (mode === "hints-guests") {
+    raw.participants[0].timeline = { lane: "TOP", role: "SOLO" };
+    raw.participants[3].timeline = { lane: "BOTTOM", role: "DUO" };
+  }
   if (mode === "champion") raw.participants[0].championId = 67;
   const match = normalizeMatch(raw);
   const key = "KR:" + match.gameId;
@@ -23,7 +28,8 @@ export function fixtureService(box: Outbox, mode: string) {
     match.participants.map((p, i) => [p.puuid, ROLES[i % 5]]),
   );
   const control = {
-    offline: mode === "offline" || mode === "history-stalled",
+    offline:
+      mode === "offline" || mode === "history-stalled" || mode === "filters",
     historyCalls: 0,
     confirmCalls: 0,
     sent: [] as string[],
@@ -37,12 +43,50 @@ export function fixtureService(box: Outbox, mode: string) {
     riotId: "회원" + i + "#KR1",
     active: true,
   }));
-  box.cache("members:m0", members);
+  box.cache(
+    "members:m0",
+    mode === "hints-guests" ? members.slice(0, 6) : members,
+  );
+  if (mode === "filters" && box.matches(actor).length === 0) {
+    for (let i = 0; i < 6; i++) {
+      const m = {
+        ...match,
+        gameId: String(810 + i),
+        startedAtUtc: new Date(Date.UTC(2026, 0, i + 1)).toISOString(),
+      };
+      const key = "KR:" + m.gameId;
+      box.saveMatch(actor, {
+        matchKey: key,
+        state: i === 3 ? "registered" : i === 4 ? "canceled" : "pending",
+        match: m,
+        confirmedRoles: i === 3 ? roles : null,
+      });
+      if (i === 0 || i === 5) {
+        const job = box.enqueueCollected(
+          {
+            schemaVersion: 1,
+            rawMatch: raw,
+            clientSubmissionId: "fixture-" + i,
+          },
+          actor,
+          m,
+        );
+        if (i === 5) box.mark(job.id, "needs_attention", "ACCOUNT_MISMATCH");
+      }
+      if (i === 2)
+        box.enqueueConfirmation(
+          key,
+          { rolesByPuuid: roles, clientSubmissionId: "fixture-confirm" },
+          actor,
+        );
+    }
+  }
   const record = () => ({
     matchKey: key,
     state: control.state as "pending" | "registered" | "canceled",
     match,
     confirmedRoles: control.state === "registered" ? roles : null,
+    roleSuggestions: rawRoleSuggestions(raw),
   });
   const online = () => {
     if (control.offline) throw new ClientError("NETWORK_ERROR");
@@ -92,7 +136,11 @@ export function fixtureService(box: Outbox, mode: string) {
     enroll: async () => actor,
     members: async () => {
       online();
-      return mode === "unregistered" ? [] : members;
+      return mode === "unregistered"
+        ? []
+        : mode === "hints-guests"
+          ? members.slice(0, 6)
+          : members;
     },
     pending: async () => {
       online();

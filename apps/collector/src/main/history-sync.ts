@@ -435,9 +435,9 @@ export class CollectorService {
           : record.state === "canceled"
             ? "등록 취소"
             : failed
-              ? "확인 필요"
+              ? "문제 해결 필요"
               : confirmation && confirmation.state !== "succeeded"
-                ? "등록 대기"
+                ? "등록 진행 중"
                 : ingest && ingest.state !== "succeeded"
                   ? "전송 대기"
                   : "확인 대기";

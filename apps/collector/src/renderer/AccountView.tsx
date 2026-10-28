@@ -18,7 +18,7 @@ export function AccountView({
       <div>
         <small>연결된 계정</small>
         <h2>{account.displayName ?? "롤 클라이언트 연결 대기"}</h2>
-        <p>{account.enrolled ? "기기 등록됨" : "최초 기기 등록 필요"}</p>
+        <p>{account.enrolled ? "모임에 연결됨" : "모임 코드 입력 필요"}</p>
         {account.code && <p className="warning">{message(account.code)}</p>}
       </div>
       <form
@@ -29,7 +29,7 @@ export function AccountView({
         }}
       >
         <label>
-          개인별 등록 코드
+          모임 코드
           <input
             type="password"
             autoComplete="off"
@@ -39,7 +39,7 @@ export function AccountView({
           />
         </label>
         <button disabled={busy || !code.trim() || !account.connected}>
-          기기 등록
+          모임에 연결
         </button>
         <button
           type="button"
@@ -47,7 +47,7 @@ export function AccountView({
           disabled={busy || !account.enrolled}
           onClick={resume}
         >
-          본인 대기 요청 재개
+          멈춘 전송 이어 보내기
         </button>
       </form>
     </section>

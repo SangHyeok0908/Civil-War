@@ -1,11 +1,28 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import type { Snapshot } from "../preload/collector-api";
 import { AccountView } from "./AccountView";
 import { OutboxView } from "./OutboxView";
 import { MatchList } from "./MatchList";
+import { selectMatches, type MatchFilter } from "./match-filters";
 import { message } from "./messages";
 export function App() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const [filter, setFilter] = useState<MatchFilter>("전체");
+  const [moved, setMoved] = useState("");
+  const previous = useRef(new Map<string, string>());
+  useEffect(() => {
+    if (!snapshot) return;
+    if (filter !== "전체") {
+      const changed = snapshot.matches.find(
+        (m) =>
+          previous.current.get(m.matchKey) === filter && m.status !== filter,
+      );
+      if (changed) setMoved(`경기가 ${changed.status} 목록으로 이동했습니다.`);
+    }
+    previous.current = new Map(
+      snapshot.matches.map((m) => [m.matchKey, m.status]),
+    );
+  }, [snapshot, filter]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   useEffect(() => {
@@ -58,7 +75,14 @@ export function App() {
       <div className="actions">
         <button
           disabled={
-            busy || !a.connected || !a.enrolled || a.code === "ACCOUNT_MISMATCH"
+            busy ||
+            !a.connected ||
+            !a.enrolled ||
+            [
+              "ACCOUNT_MISMATCH",
+              "AUTH_REVOKED",
+              "COLLECTOR_UPDATE_REQUIRED",
+            ].includes(a.code ?? "")
           }
           onClick={() =>
             void run(async () => {
@@ -72,14 +96,14 @@ export function App() {
             })
           }
         >
-          {busy ? "처리 중…" : "과거 경기 조회"}
+          {busy ? "처리 중…" : "롤에서 경기 가져오기"}
         </button>
         <button
           className="secondary"
           disabled={busy || !a.enrolled}
           onClick={() => void run(() => window.collector.loadPendingMatches())}
         >
-          서버 확인 대기 불러오기
+          확인할 경기 불러오기
         </button>
         <button
           className="secondary"
@@ -95,6 +119,10 @@ export function App() {
         </button>
       </div>
       <p className="help">
+        「롤에서 경기 가져오기」는 현재 PC의 롤 기록을 조회하고, 「확인할 경기
+        불러오기」는 모임 서버에 저장된 경기를 확인합니다.
+      </p>
+      <p className="help">
         조회는 임시 저장만 합니다. ‘내전 등록’을 누른 경기만 공개 전적에
         반영됩니다.
       </p>
@@ -106,9 +134,18 @@ export function App() {
       {snapshot.serverError && snapshot.serverError !== a.code && (
         <p className="warning">{message(snapshot.serverError)}</p>
       )}
-      <OutboxView matches={snapshot.matches} />
-      <MatchList
+      <OutboxView
         matches={snapshot.matches}
+        selected={filter}
+        onSelect={(value) => {
+          setFilter(value);
+          setMoved("");
+        }}
+      />
+      {moved && <p role="status">{moved}</p>}
+      <MatchList
+        matches={selectMatches(snapshot.matches, filter)}
+        filter={filter}
         busy={busy}
         save={(key, roles) => {
           void window.collector

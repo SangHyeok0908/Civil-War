@@ -37,7 +37,7 @@ test("buttonFetchesAndStages; noAutoRegistration; allRolesConfirmed 5+5", async 
     ),
   ).toBe(0);
   await page
-    .getByRole("button", { name: "과거 경기 조회", exact: true })
+    .getByRole("button", { name: "롤에서 경기 가져오기", exact: true })
     .click();
   await expect(
     page.getByText("확인 대기", { exact: true }).first(),
@@ -54,7 +54,7 @@ test("buttonFetchesAndStages; noAutoRegistration; allRolesConfirmed 5+5", async 
     await selectors.nth(i).selectOption(roles[i % 5]);
   mkdirSync("docs/validation/assets", { recursive: true });
   await page.screenshot({
-    path: "docs/validation/assets/stage2-collector.png",
+    path: "docs/validation/assets/2026-10-28-ux-collector.png",
     fullPage: true,
   });
   await expect(
@@ -113,7 +113,7 @@ test("buttonFetchesAndStages; noAutoRegistration; allRolesConfirmed 5+5", async 
 test("offlineThenResume preserves explicit confirmation through restart", async () => {
   const page = await launch("offline");
   await page
-    .getByRole("button", { name: "과거 경기 조회", exact: true })
+    .getByRole("button", { name: "롤에서 경기 가져오기", exact: true })
     .click();
   await expect(
     page.getByText("전송 대기", { exact: true }).first(),
@@ -128,7 +128,7 @@ test("offlineThenResume preserves explicit confirmation through restart", async 
     .check();
   await page.getByRole("button", { name: "내전 등록", exact: true }).click();
   await expect(
-    page.getByText("등록 대기", { exact: true }).first(),
+    page.getByText("등록 진행 중", { exact: true }).first(),
   ).toBeVisible();
   await app.close();
   app = await electron.launch({
@@ -156,7 +156,7 @@ test("offlineThenResume preserves explicit confirmation through restart", async 
 test("queryFailureIsNotPending", async () => {
   const page = await launch("failure");
   await page
-    .getByRole("button", { name: "과거 경기 조회", exact: true })
+    .getByRole("button", { name: "롤에서 경기 가져오기", exact: true })
     .click();
   await expect(page.getByRole("alert")).toContainText("조회");
   await expect(page.getByRole("combobox")).toHaveCount(0);
@@ -164,7 +164,7 @@ test("queryFailureIsNotPending", async () => {
 test("repeated history keeps an offline match visible with an incomplete-history warning", async () => {
   const page = await launch("history-stalled");
   await page
-    .getByRole("button", { name: "과거 경기 조회", exact: true })
+    .getByRole("button", { name: "롤에서 경기 가져오기", exact: true })
     .click();
 
   await expect(page.getByRole("alert")).toContainText(
@@ -190,14 +190,14 @@ test("pending survives absent LCU history; duplicateShowsExistingState", async (
     page.getByText("확인 대기", { exact: true }).first(),
   ).toBeVisible();
   await page
-    .getByRole("button", { name: "과거 경기 조회", exact: true })
+    .getByRole("button", { name: "롤에서 경기 가져오기", exact: true })
     .click();
   await expect(page.getByRole("combobox")).toHaveCount(10);
 });
 test("canceled cannot register", async () => {
   const page = await launch("canceled");
   await page
-    .getByRole("button", { name: "과거 경기 조회", exact: true })
+    .getByRole("button", { name: "롤에서 경기 가져오기", exact: true })
     .click();
   await expect(
     page.getByText("등록 취소", { exact: true }).first(),
@@ -209,10 +209,10 @@ test("canceled cannot register", async () => {
 test("account mismatch disables collection", async () => {
   const page = await launch("mismatch");
   await expect(
-    page.getByText("현재 롤 계정과 기기 등록 계정이 다릅니다."),
+    page.getByText("현재 롤 계정과 모임에 연결 계정이 다릅니다."),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "과거 경기 조회", exact: true }),
+    page.getByRole("button", { name: "롤에서 경기 가져오기", exact: true }),
   ).toBeDisabled();
 });
 test("stopped client remains usable for saved pending review", async () => {
@@ -221,7 +221,7 @@ test("stopped client remains usable for saved pending review", async () => {
     page.getByText("롤 클라이언트를 실행하고 로그인하세요."),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "과거 경기 조회", exact: true }),
+    page.getByRole("button", { name: "롤에서 경기 가져오기", exact: true }),
   ).toBeDisabled();
   expect(
     await app.evaluate(
@@ -232,7 +232,7 @@ test("stopped client remains usable for saved pending review", async () => {
 test("champion compact rows and Portrait fallback keep confirmation usable", async () => {
   const page = await launch("champion");
   await page
-    .getByRole("button", { name: "과거 경기 조회", exact: true })
+    .getByRole("button", { name: "롤에서 경기 가져오기", exact: true })
     .click();
   await expect(page.getByText("베인", { exact: true }).first()).toBeVisible();
   const portraits = page.locator("img.champion-portrait");
@@ -247,4 +247,91 @@ test("champion compact rows and Portrait fallback keep confirmation usable", asy
   await expect(
     page.getByRole("button", { name: "내전 등록", exact: true }),
   ).toBeVisible();
+});
+
+test("filters show only selected state and moved game notice", async () => {
+  const page = await launch();
+  await page
+    .getByRole("button", { name: "롤에서 경기 가져오기", exact: true })
+    .click();
+  const nav = page.getByRole("navigation", { name: "경기 상태별 보기" });
+  await expect(nav.getByRole("button", { name: /전체/ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await nav.getByRole("button", { name: /등록 완료/ }).click();
+  await expect(page.locator("article.match")).toHaveCount(0);
+  await expect(page.getByText("등록 완료 경기가 없습니다.")).toBeVisible();
+  await nav.getByRole("button", { name: /확인 대기/ }).click();
+  await expect(page.locator("article.match")).toHaveCount(1);
+  for (let i = 0; i < 10; i++)
+    await page
+      .getByRole("combobox")
+      .nth(i)
+      .selectOption(["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"][i % 5]);
+  await page
+    .getByLabel("모임 내전이며 양 팀의 실제 포지션을 확인했습니다")
+    .check();
+  await page.getByRole("button", { name: "내전 등록", exact: true }).click();
+  await expect(page.locator("article.match")).toHaveCount(0);
+  await expect(
+    page.getByText("경기가 등록 완료 목록으로 이동했습니다."),
+  ).toBeVisible();
+  await nav.getByRole("button", { name: /전체/ }).click();
+  await expect(page.locator("article.match")).toHaveCount(1);
+  await expect(page.getByText("점수·랭킹 계산 대기 중")).toBeVisible();
+});
+
+test("all seven filters have correct counts and time order", async () => {
+  const page = await launch("filters");
+  const nav = page.getByRole("navigation", { name: "경기 상태별 보기" });
+  await expect(page.locator("article.match")).toHaveCount(6);
+  expect(
+    await page.locator("article.match > header small").allTextContents(),
+  ).toEqual(["KR:815", "KR:814", "KR:813", "KR:812", "KR:811", "KR:810"]);
+  for (const label of [
+    "전송 대기",
+    "확인 대기",
+    "등록 진행 중",
+    "등록 완료",
+    "등록 취소",
+    "문제 해결 필요",
+  ]) {
+    const button = nav.getByRole("button", {
+      name: new RegExp("^" + label + "\\s+1$"),
+    });
+    await button.click();
+    await expect(page.locator("article.match")).toHaveCount(1);
+    await expect(page.locator("article.match .badge")).toHaveText(label);
+  }
+  await nav.getByRole("button", { name: /전체/ }).click();
+  await expect(page.locator("article.match")).toHaveCount(6);
+});
+test("role hints guests and manual draft survive refresh and restart", async () => {
+  const page = await launch("hints-guests");
+  await page
+    .getByRole("button", { name: "롤에서 경기 가져오기", exact: true })
+    .click();
+  await expect(page.getByRole("combobox").nth(0)).toHaveValue("TOP");
+  await expect(page.getByRole("combobox").nth(3)).toHaveValue("");
+  await expect(page.getByText("게스트", { exact: true })).toHaveCount(4);
+  await page.getByRole("combobox").nth(0).selectOption("MIDDLE");
+  await page
+    .getByRole("button", { name: "확인할 경기 불러오기", exact: true })
+    .click();
+  await expect(page.getByRole("combobox").nth(0)).toHaveValue("MIDDLE");
+  await app.close();
+  app = await electron.launch({
+    args: ["apps/collector/dist/main.cjs"],
+    env: {
+      ...process.env,
+      CW_COLLECTOR_FIXTURE: "1",
+      CW_FIXTURE_MODE: "hints-guests",
+      CW_FIXTURE_DATA: dir,
+    },
+  });
+  const reopened = await app.firstWindow();
+  await expect(reopened.getByRole("combobox").nth(0)).toHaveValue("MIDDLE");
+  await reopened.getByRole("combobox").nth(0).selectOption("");
+  await expect(reopened.getByRole("combobox").nth(0)).toHaveValue("");
 });

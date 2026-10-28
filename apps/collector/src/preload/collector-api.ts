@@ -6,10 +6,10 @@ import type {
 export type DisplayState =
   | "전송 대기"
   | "확인 대기"
-  | "등록 대기"
+  | "등록 진행 중"
   | "등록 완료"
   | "등록 취소"
-  | "확인 필요";
+  | "문제 해결 필요";
 export interface SafeAccount {
   connected: boolean;
   displayName: string | null;
