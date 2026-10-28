@@ -1,6 +1,6 @@
 # 개발 환경 준비와 실행
 
-이 문서는 실행·빌드·테스트·로컬 관리자 복구 방법의 정본이다. 제품 동작은 [현재 명세](../spec.md), 확인한 범위는 [현재 상태](../status.md), 요청·응답은 [현재 계약](../contracts/api.md)을 따른다. LCU는 League Client API(게임 클라이언트의 로컬 인터페이스)다.
+이 문서는 실행·빌드·테스트·관리자 로그인 방법의 정본이다. 제품 동작은 [현재 명세](../spec.md), 확인한 범위는 [현재 상태](../status.md), 요청·응답은 [현재 계약](../contracts/api.md)을 따른다. LCU는 League Client API(게임 클라이언트의 로컬 인터페이스)다.
 
 ## 수집기 개발·실행
 
@@ -16,7 +16,7 @@ pnpm test:e2e
 
 `test:e2e`는 빌드한 **실제 Electron main/preload/renderer와 파일 SQLite**를 사용하되 LCU와 서버는 고정 시험 응답(fixture)이다. League·실제 인증·Riot API에 연결하지 않는다. macOS에서도 이 테스트는 실행할 수 있으며 일반 수집기 실행은 Windows만 지원한다. `pnpm test:probe`는 재사용한 LCU 전송 계층의 로컬 HTTPS 회귀 테스트다. `pnpm format:check`는 클라이언트 소스 형식을 검사한다.
 
-Windows PowerShell에서 운영자가 발급한 모임 코드와 실제 LCU 계정으로 실행한다:
+다음은 개발 소스를 Windows PowerShell에서 실행하는 방법이다. 일반 설치판은 [설치와 실행](../runbooks/collector-install.md#설치와-실행)에 따라 바탕화면 아이콘으로 열며 이 명령이나 서버 주소 입력이 필요 없다. 개발 실행에서는 운영자가 발급한 모임 코드와 실제 LCU 계정을 사용한다:
 
 ```powershell
 $env:CW_SERVER_ORIGIN = "https://your-service.example"
@@ -24,7 +24,7 @@ $env:CW_LCU_LOCKFILE = "C:\Riot Games\League of Legends\lockfile"
 pnpm dev:collector
 ```
 
-서버 기본값은 개발용 `http://127.0.0.1:8080`이다. 외부 서버는 HTTPS만 허용하며 임의 리다이렉트를 따르지 않는다. 설치 경로가 다르면 `CW_LCU_LOCKFILE`을 해당 lockfile 경로로 설정한다. 연결할 때마다 현재 파일을 다시 읽는다. `dev:collector`는 main/preload/화면을 빌드하고 실행한다. 별도 설치용 빌드·Windows 설치판 생성은 [설치 안내](../runbooks/collector-install.md#파일-확인과-재생성)를 따른다.
+개발 실행의 서버 기본값은 `http://127.0.0.1:8080`이다. 외부 서버는 HTTPS만 허용하며 임의 리다이렉트를 따르지 않는다. 설치 경로가 다르면 `CW_LCU_LOCKFILE`을 해당 lockfile 경로로 설정한다. 연결할 때마다 현재 파일을 다시 읽는다. `dev:collector`는 main/preload/화면을 빌드하고 실행한다. 별도 설치용 빌드·Windows 설치판 생성은 [설치 안내](../runbooks/collector-install.md#파일-확인과-재생성)를 따른다.
 
 Windows `%APPDATA%\Civil War Collector`에 로컬 자료를 보관한다. 비공개 경기·회원·인증 자료이므로 공개 저장소에 복사하지 않는다. 등록·대기열·계정 전환·보존 규칙은 [현재 명세](../spec.md), 실시간 솔로 참고 연동 상태는 [현재 상태](../status.md)를 따른다.
 
@@ -40,7 +40,7 @@ docker compose -f infra/compose.test.yml up -d --wait
 
 macOS 설치 환경에서 JDK 선택이 필요하면 `JAVA_HOME`을 빌드 설정이 요구하는 JDK 설치 디렉터리로 지정한다. Windows PowerShell에서는 `./apps/server/gradlew` 대신 `.\apps\server\gradlew.bat`를 사용한다. Gradle 배포판·검증 해시는 [Wrapper 설정](../../apps/server/gradle/wrapper/gradle-wrapper.properties)을 따른다.
 
-`build`와 `bootJar`는 Gradle `buildWeb`을 통해 Vite 웹을 빌드하여 JAR의 static 리소스에 포함한다. 미리 만들어 둔 dist 디렉터리에 의존하지 않는다. `build`는 단위 테스트, **실제 PostgreSQL 통합 테스트**, 실제 HTTP chunked 요청, 실행 JAR의 `admin:code --revoke-all` 복구 테스트와 패키징을 수행한다. DB가 없으면 실패하며 H2나 skip으로 대체하지 않는다. 테스트는 `cw_test` DB를 초기화하므로 개발/운영 데이터에 연결하지 않는다.
+`build`와 `bootJar`는 Gradle `buildWeb`을 통해 Vite 웹을 빌드하여 JAR의 static 리소스에 포함한다. 미리 만들어 둔 dist 디렉터리에 의존하지 않는다. `build`는 단위 테스트, **실제 PostgreSQL 통합 테스트**, 실제 HTTP chunked 요청, 실행 JAR에서 제거한 코드 발급 명령이 DB·기존 세션을 건드리지 않고 종료되는 검사와 패키징을 수행한다. 해당 검사는 [발급 명령 제거 회귀 검사](../../apps/server/src/test/java/cw/auth/LocalRecoveryIntegrationTest.java)에 있다. DB가 없으면 실패하며 H2나 skip으로 대체하지 않는다. 테스트는 `cw_test` DB를 초기화하므로 개발/운영 데이터에 연결하지 않는다.
 
 [테스트 Compose](../../infra/compose.test.yml)와 [서버 테스트 설정](../../apps/server/src/test/resources/application-test.yml)이 DB 이름·계정·포트·전용 프로젝트와 볼륨의 정본이다. 공개된 **테스트 전용** 자격이며 포트는 로컬 접속으로 한정한다. `CW_TEST_DB_PORT`, `CW_TEST_DATABASE_URL`, `CW_TEST_DATABASE_USER`, `CW_TEST_DATABASE_PASSWORD`로 접속을 바꿀 수 있다. DB 이름은 테스트의 안전 장치가 요구하는 값을 유지하고, 포트를 바꾸면 JDBC URL도 함께 바꾼다.
 
