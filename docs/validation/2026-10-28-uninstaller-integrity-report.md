@@ -59,6 +59,16 @@ macOS arm64·Node.js 24.22.1에서 보관한 배포 설치 파일을 7-Zip으로
 
 ## 산출물·남은 확인
 
+### 후속 Windows 자동 검사의 추출 경로 수정
+
+수집기 설치·복구 초안 PR [#7](https://github.com/SangHyeok0908/Civil-War/pull/7)의 최초 커밋 `1d83e3a`에서 Windows 자동 검사 두 실행이 모두 설치판 생성 후 `UNINSTALLER_EXTRACTION_FAILED`로 실패했다. [첫 실행](https://github.com/SangHyeok0908/Civil-War/actions/runs/40645402763)과 [두 번째 실행](https://github.com/SangHyeok0908/Civil-War/actions/runs/40645703214)에서 단위 사례 64개·배포 사례 12개·Electron 시나리오 8개는 통과했고, 최종 설치 파일에서 제거 프로그램을 꺼내는 단계에서 멈췄다. 같은 커밋의 [서버 검사](https://github.com/SangHyeok0908/Civil-War/actions/runs/40645703163)는 성공했다.
+
+[추출 코드](../../scripts/nsis-integrity.mjs)는 7-Zip에 전달하는 내부 경로를 `/`로 고정하고 있었다. macOS의 실제 설치판에서 해당 구분자는 제거 파일을 반환했지만 반대 구분자로 요청하면 종료 코드 0·출력 0바이트가 됐다. 내부 경로도 실행 운영체제의 구분자로 만들도록 수정했다. 제거 파일의 원래 CRC를 확인하는 검사는 그대로 유지한다.
+
+[기존 실제 NSIS 회귀 사례](../../scripts/nsis-integrity.test.mjs)를 보강해 생성한 제거 프로그램을 최종 설치 파일에 넣고, 같은 검증 함수로 다시 추출한 크기·저장 CRC를 대조한다. macOS의 배포·복구 사례 12개, 단위 사례 64개와 기존 설치판 재검증은 통과했다. 수정 후 실제 Windows 자동 검사의 결과는 [PR 검사 목록](https://github.com/SangHyeok0908/Civil-War/pull/7/checks)에서 확인하며, 로컬 성공을 Windows 실행 성공으로 바꾸지 않는다.
+
+### 배포판과 운영 확인
+
 새 판은 `0.2.3-provisional`이며 기존 `0.2.0`·`0.2.1`·`0.2.2` 배포는 비교 근거로 보존한다. 이전 설치판을 새 설치·재설치 기준으로 재사용하지 않는다. 복구 ZIP에는 새 설치 파일, 원본과 바깥 해시로 연결한 복구 파일, 허용 해시 메타데이터, Node.js 도구와 안내만 넣으며 실제 사용자 자료는 포함하지 않는다.
 
 현재 남은 실기는 [상태 정본](../status.md#남은-작업-순서)을 따른다. 다른 기기의 복구에서 알 수 없는 원본이나 실행·접근 오류가 나면 그 코드로 멈춘다. 복구·설치 완료 보고만으로 Windows 자료 보존 시험 전체를 완료 처리하지 않는다.

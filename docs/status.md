@@ -30,6 +30,8 @@ LCU는 League Client API(게임 클라이언트의 로컬 인터페이스), JAR�
 
 기존 배포판의 제거 프로그램이 손상된 상태로 만들어져 Windows 업데이트가 막혔다. [무결성 보고서](validation/2026-10-28-uninstaller-integrity-report.md)에 사용자 오류와 원본 검사, 수정한 빌드 도구·복구 묶음의 범위를 기록했다. 예전 설치판의 바깥 해시 검증 성공은 내부 제거 프로그램 실행 성공을 뜻하지 않았으며, 해당 판을 새 설치·재설치 기준으로 재사용하지 않는다.
 
+수집기 설치·복구 초안 PR [#7](https://github.com/SangHyeok0908/Civil-War/pull/7)의 초기 Windows 자동 검사에서는 최종 설치판의 제거 파일 추출이 실패했다. [후속 경로 수정과 회귀 검증](validation/2026-10-28-uninstaller-integrity-report.md#후속-windows-자동-검사의-추출-경로-수정)을 추가했으며, 원격 재검사 결과는 해당 PR의 검사 목록을 따른다. 이 수정은 개발 환경의 배포 검사 경로에 한정되며 사용자 경기·인증 자료를 변경하지 않는다.
+
 2026-10-28에는 다른 페이지를 요청해도 같은 목록이 반환될 때 확보한 경기까지 수집하지 못하던 처리를 수정했다. 사용자 진단의 실제 관측과 수정판의 가상 응답 검사는 [반복 페이지 보고서](validation/2026-10-28-history-pagination-report.md)에서 구분한다. 페이지 조회 범위가 넓어진 것과 실제 Windows 자료 보존 성공을 뜻하지 않는다.
 
 2026-10-26에는 [공개 후보 자료의 설명 파일 허용값 검사](https://github.com/SangHyeok0908/Civil-War/commit/7ee680d6da58f6302afad0ee3d666b552b3b0f7c)와 [늦은 목록 응답에 의한 수집기 등록 상태 역행 방지](https://github.com/SangHyeok0908/Civil-War/commit/9391475e48b62d5b1f1d370974b7b4058427e93e)를 반영했다. 기존 PR #1–#4는 순서대로 `master`에 병합했다. 이는 오류 수정과 개발 이력 통합이며, 위 표의 미완료 기능이나 실제 환경 검증을 완료한 것으로 바꾸지 않는다.

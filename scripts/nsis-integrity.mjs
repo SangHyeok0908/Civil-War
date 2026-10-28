@@ -46,7 +46,7 @@ export async function verifyEmbeddedUninstaller(installer) {
   const { getPath7za } = require(join(builder, "toolsets/7zip.js"));
   const extracted = spawnSync(
     await getPath7za(),
-    ["x", "-so", installer, "$R0/Uninstall Civil War Collector.exe"],
+    ["x", "-so", installer, join("$R0", "Uninstall Civil War Collector.exe")],
     { maxBuffer: 4 * 1024 * 1024 },
   );
   if (

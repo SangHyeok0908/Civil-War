@@ -81,6 +81,37 @@ test("default NSIS icons produce an uninstaller whose stored CRC matches its act
       bytes.readUInt32LE(bytes.length - 4),
       "the extracted uninstaller must pass the runtime CRC check",
     );
+    // Exercise the final archive boundary too: 7-Zip matches native path
+    // separators, which differ between Windows and the macOS build host.
+    const installer = join(directory, "installer.exe");
+    await writeFile(
+      script,
+      [
+        "Unicode true",
+        `OutFile \"${installer}\"`,
+        'Name "Embedded CRC fixture"',
+        "RequestExecutionLevel user",
+        "Section",
+        'SetOutPath "$R0"',
+        `File "/oname=Uninstall Civil War Collector.exe" "${uninstaller}"`,
+        "SectionEnd",
+      ].join("\n"),
+    );
+    const packed = spawnSync(compiler.path, ["-V1", script], {
+      env: { ...process.env, ...compiler.env },
+      encoding: "utf8",
+    });
+    assert.equal(packed.status, 0, packed.stdout + packed.stderr);
+    const { verifyEmbeddedUninstaller } = await import("./nsis-integrity.mjs");
+    const embedded = await verifyEmbeddedUninstaller(installer);
+    assert.equal(embedded.bytes, bytes.length);
+    assert.equal(
+      embedded.crc32,
+      bytes
+        .readUInt32LE(bytes.length - 4)
+        .toString(16)
+        .padStart(8, "0"),
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
