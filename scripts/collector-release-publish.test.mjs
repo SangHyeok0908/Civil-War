@@ -23,12 +23,16 @@ async function makeDirectory() {
   return directory;
 }
 
-function fakeGh(results) {
+function fakeGh(results, stderrs = {}) {
   const calls = [];
   const gh = async (args) => {
     calls.push(args);
     const key = args.slice(0, 2).join(" ");
-    return { code: results[key] ?? 0, stdout: "", stderr: "" };
+    return {
+      code: results[key] ?? 0,
+      stdout: "",
+      stderr: stderrs[key] ?? "",
+    };
   };
   return { gh, calls };
 }
@@ -121,10 +125,24 @@ test("publishCollectorRelease — 파일이 변조되면 gh를 부르지 않는�
 test("publishCollectorRelease — 생성 실패", async () => {
   const directory = await makeDirectory();
   try {
-    const { gh } = fakeGh({ "release view": 1, "release create": 1 });
-    await assert.rejects(publishCollectorRelease({ directory, commit, gh }), {
-      message: "RELEASE_CREATE_FAILED",
-    });
+    const { gh } = fakeGh(
+      { "release view": 1, "release create": 1 },
+      {
+        "release view": "release not found",
+        "release create": "HTTP 403: forbidden",
+      },
+    );
+    const original = console.error;
+    const errors = [];
+    console.error = (message) => errors.push(message);
+    try {
+      await assert.rejects(publishCollectorRelease({ directory, commit, gh }), {
+        message: "RELEASE_CREATE_FAILED",
+      });
+    } finally {
+      console.error = original;
+    }
+    assert.deepEqual(errors, ["release not found", "HTTP 403: forbidden"]);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

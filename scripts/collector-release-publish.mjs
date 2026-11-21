@@ -46,6 +46,7 @@ export async function publishCollectorRelease({ directory, commit, gh }) {
 
   const existing = await gh(["release", "view", tag]);
   if (existing.code === 0) return "exists";
+  if (existing.stderr) console.error(existing.stderr.trim());
 
   const notesDirectory = await mkdtemp(join(tmpdir(), "cw-release-notes-"));
   try {
@@ -68,7 +69,10 @@ export async function publishCollectorRelease({ directory, commit, gh }) {
       "--notes-file",
       notesFile,
     ]);
-    if (created.code !== 0) throw new Error("RELEASE_CREATE_FAILED");
+    if (created.code !== 0) {
+      if (created.stderr) console.error(created.stderr.trim());
+      throw new Error("RELEASE_CREATE_FAILED");
+    }
     return "created";
   } finally {
     await rm(notesDirectory, { recursive: true, force: true });
