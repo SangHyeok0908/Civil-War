@@ -97,7 +97,25 @@ Invoke-RestMethod "$cwOrigin/api/members"
 자동 교체는 새 `compose.yml`이 집 PC에 있어야 시작되므로 첫 전환은 손으로 한다. 이 전환 중 서버가 몇 분 멈추며 수집기 전송은 지연된다(기록 손실은 아님). 명령은 **기존 배포 폴더**의 PowerShell에서 실행한다.
 
 1. GitHub의 패키지 설정에서 `civil-war-server`와 `civil-war-updater` 이미지가 공개인지 확인하고, 비공개면 공개로 바꾼다. 처음 만들어진 패키지의 기본 공개 여부는 확인하지 않았다. 공개가 아니면 아래 `docker pull`이 로그인을 요구한다.
-2. Discord 서버 설정에서 웹훅을 만들고 주소를 `secrets\discord-webhook-url.txt`에 저장한다. `secrets` 폴더가 없으면 먼저 만든다(`New-Item -ItemType Directory -Force secrets`). 이 파일은 `.env`·`secrets`처럼 공유 ZIP·저장소에 넣지 않는다.
+2. Discord 서버 설정에서 웹훅을 만들고, 주소를 붙여넣어 `secrets\discord-webhook-url.txt`에 저장한다. 위 최초 환경 설정의 Tunnel 토큰 저장과 같은 방식이라 주소가 화면·명령 기록에 남지 않는다. 이 파일은 `.env`·`secrets`처럼 공유 ZIP·저장소에 넣지 않는다.
+
+   ```powershell
+   New-Item -ItemType Directory -Force secrets | Out-Null
+   $cwHook = Read-Host 'Discord 웹훅 주소만 붙여넣으세요' -AsSecureString
+   $cwCredential = [PSCredential]::new('webhook', $cwHook)
+   [IO.File]::WriteAllText((Join-Path $PWD 'secrets\discord-webhook-url.txt'), $cwCredential.GetNetworkCredential().Password.Trim(), [Text.UTF8Encoding]::new($false))
+   Remove-Variable cwHook, cwCredential
+   ```
+
+   교체 담당은 이 파일을 **시작할 때만** 읽는다. 나중에 주소를 바꾸면 `docker compose up -d --force-recreate updater`(또는 `docker compose restart updater`)로 다시 시작해야 반영된다.
+
+   또 `.env`에 `ADMIN_LOGIN_CODE`가 있는지 확인한다. 새 서버 이미지는 이 값이 없으면 시작하지 않는다. 없으면 [운영자 로그인 코드 추가](#2-기존-설정으로-서버-교체)의 블록으로 먼저 추가한다(`compose.yml`의 `server.environment`에는 새 파일이 이미 항목을 포함한다).
+
+   ```powershell
+   Select-String -LiteralPath .env -Pattern '^ADMIN_LOGIN_CODE=' -Quiet
+   ```
+
+   `True`가 나오면 있는 것이다.
 3. 서버·Tunnel을 멈추고 백업한다. [쓰기 중단과 백업](#1-쓰기-중단과-백업) 절차를 그대로 따른다.
 4. 새 `compose.yml`을 저장소 master에서 받아 기존 폴더에 덮어쓴다(위 3번 백업에 기존 파일이 들어 있다). `.env`·`secrets`·프로젝트 이름(`cw-collector-acceptance`)은 바꾸지 않는다. 기존 `compose.yml`에 직접 추가했던 설정이 있으면 백업본과 비교한다.
 
@@ -123,6 +141,19 @@ Invoke-RestMethod "$cwOrigin/api/members"
 
    로그에 `alert failed: test`가 나오고 종료 코드가 0이 아니면 웹훅 파일이 없거나 주소가 틀린 것이다.
 
+**전환이 실패하면**(서버가 정상 상태가 되지 않는 경우 등) 새 서버가 DB를 건드렸는지부터 `docker compose logs --tail 80 server postgres`로 본다. DB 복원은 하지 않고, 전환 전 백업해 둔 설정·실행 파일로만 되돌린다. 3번에서 백업한 폴더(`$env:USERPROFILE\CivilWarBackups\<시각>`)를 쓴다.
+
+```powershell
+docker compose stop updater cloudflared server
+$cwBackupRoot = Get-ChildItem (Join-Path $env:USERPROFILE 'CivilWarBackups') -Directory | Sort-Object Name | Select-Object -Last 1 -ExpandProperty FullName
+Copy-Item -LiteralPath @('compose.yml', 'Dockerfile', '.dockerignore', 'server.jar' | ForEach-Object { Join-Path $cwBackupRoot $_ }) -Destination . -Force
+docker compose up -d --build --wait --remove-orphans postgres server
+docker compose ps
+docker compose start cloudflared
+```
+
+가장 최근 백업 폴더가 맞는지 시각을 확인한다. `--remove-orphans`는 옛 `compose.yml`에 없는 `updater` 컨테이너만 지우며 DB 볼륨은 지우지 않는다. 되돌린 뒤 원인을 파악하기 전에는 `docker compose down -v`나 볼륨 삭제를 하지 않는다.
+
 ### 평소 확인
 
 성공 알림이 없으므로 병합 후 반영 여부는 직접 본다. 비밀값이 섞일 수 있는 `docker inspect` 전체 출력은 쓰지 않고, 아래처럼 라벨만 출력한다.
@@ -132,23 +163,64 @@ docker compose logs --tail 50 updater
 docker inspect --format '{{ json .Config.Labels }}' (docker compose ps -q server)
 ```
 
-출력의 `org.opencontainers.image.revision` 값이 실행 중 서버 이미지의 원본 커밋이며, GitHub의 master 커밋과 대조하는 것이 반영 여부의 최종 확인이다. 교체 담당 로그의 각 줄 앞에는 시각이 붙고 다음 줄이 남는다. 교체 성공 확인에는 `교체 완료: <커밋 앞 7자>`, 시작에는 `교체 시작: <커밋 앞 7자>`가 쓰인다. 되돌렸다면 `되돌림 완료: <커밋 앞 7자>`가 남고 Discord에도 알림이 온다. 교체 도중 교체 담당이 재시작되면 `재시작 복구: <단계>`가 남는다. 실패 단계는 `새 버전 시작 실패`·`백업 실패` 같은 줄과 `alert sent|skipped|failed: <종류>`로, 이미 되돌린 이미지는 `이전에 되돌린 이미지라 다시 시도하지 않습니다.`로 남는다. 커밋 정보를 읽지 못하면 `unknown`으로 적힌다.
+출력의 `org.opencontainers.image.revision` 값이 실행 중 서버 이미지의 원본 커밋이며, GitHub의 master 커밋과 대조하는 것이 반영 여부의 최종 확인이다. 교체 담당이 직접 남기는 줄에는 시각이 붙는다(Docker·Compose가 내는 출력은 시각이 없을 수 있다). 교체 성공 확인에는 `교체 완료: <커밋 앞 7자>`, 시작에는 `교체 시작: <커밋 앞 7자>`가 쓰인다. 되돌렸다면 `되돌림 완료: <커밋 앞 7자>`가 남고 Discord에도 알림이 온다. 교체 도중 교체 담당이 재시작되면 `재시작 복구: <단계>`가 남는다. 실패 단계는 `새 버전 시작 실패`·`백업 실패` 같은 줄과 `alert sent|skipped|failed: <종류>`로, 이미 되돌린 이미지는 `이전에 되돌린 이미지라 다시 시도하지 않습니다.`로 남는다. 이 줄은 `:master`가 실패한 이미지인 동안 매 주기(약 2분)마다 반복되며, 새 이미지가 올라오거나 `--retry`를 실행하기 전까지는 정상이다. 커밋 정보를 읽지 못하면 `unknown`으로 적힌다.
 
 교체 담당이 살아 있는지는 로그가 아니라 `docker compose ps updater`의 상태가 `running`인지로 확인한다. 새 이미지가 없으면 로그에 아무것도 남지 않는 것이 정상이므로, 조용한 로그만으로 멈췄다고 판단하지 않는다. `updater`가 `running`이 아니면 멈춘 것이며 이때도 알림은 오지 않는다.
 
 ### 멈춤 상태의 수동 조치
 
-되돌림도 실패하면 Discord에 "수동 조치 필요"가 오고, 서버는 멈춘 채로 자동 교체도 멈춘다. 공개 조회·관리는 쓸 수 없고 수집기 자료는 각 PC에 보존된다.
+되돌림도 실패하면 Discord에 "수동 조치 필요"가 오고, 서버는 멈춘 채로 자동 교체도 멈춘다. 공개 조회·관리는 쓸 수 없고 수집기 자료는 각 PC에 보존된다. 아래는 **운영 DB를 덮어쓸 수 있는 작업**이므로 실행 전에 담당자와 함께 진행 여부를 정한다. 복원은 자동 되돌림 실패 뒤의 명시적인 수동 작업이며, 백업 파일은 지우지 않는다. `docker compose down -v`와 볼륨 삭제는 하지 않는다. 명령은 배포 폴더의 PowerShell에서 실행한다.
 
-1. `docker compose logs --tail 100 updater postgres server`로 실패한 단계를 확인한다. `backups\` 폴더의 백업 파일(`pg_dump -Fc`)이 남아 있는지 본다. 백업 파일을 지우지 않는다.
-2. 원인을 고친다. DB 복원이 필요하면 이 문서에는 복원 명령이 아직 없다. 복원은 명세의 기준대로 별도의 명시적 실행으로 제한되는 수동 작업이며, 백업을 만드는 방법만 [쓰기 중단과 백업](#1-쓰기-중단과-백업)에 있다. 복원 전에 담당자와 함께 진행 여부를 정하고 서버를 직접 시작한다. `docker compose down -v`와 볼륨 삭제는 하지 않는다.
-3. 서버가 정상 상태(`healthy`)인 것을 확인한 뒤 멈춤을 푼다. 교체가 진행 중인 상태에서는 초기화를 거부한다.
+1. 실패한 단계(`step`)는 Discord 알림이나 `docker compose logs --tail 80 updater`에서 읽고, `backupFile`·`previousId`·`candidateId`는 `backups\updater-state.json`에서 읽는다.
 
    ```powershell
+   Get-Content backups\updater-state.json
+   ```
+
+2. 터널과 서버를 멈춘 채로 둔다.
+
+   ```powershell
+   docker compose stop cloudflared server
+   ```
+
+3. `step`이 `stop` 또는 `tag`이면 `:current`가 실패한 새 이미지를 가리킬 수 있으므로 이전 이미지로 돌린다. 다른 단계면 건너뛴다.
+
+   ```powershell
+   docker tag civil-war-server:previous civil-war-server:current
+   ```
+
+4. `step`이 `stop`·`tag`·`restore`이고 `backupFile`이 있으면 그 백업으로 DB를 복원한다. `start-previous`이거나 `backupFile`이 `null`이면 복원할 것이 없으므로 건너뛴다. 복원은 교체 담당 이미지의 `--restore` 명령을 쓴다. 이 명령은 상태가 멈춤(`halted`)일 때만 실행되고, 백업을 임시 파일로 변환한 뒤에만 기존 DB의 `public` 스키마를 지우고 한 트랜잭션으로 복원하므로 깨진 백업은 DB를 건드리지 않고 실패한다. `<backupFile>`은 `20261121-030405-abcdef1.dump` 같은 파일 이름만 쓴다(경로 없이 `backups\` 폴더의 자동 백업 이름만 허용).
+
+   ```powershell
+   docker compose up -d --wait postgres
+   docker compose run --rm updater --restore <backupFile>
+   ```
+
+   `복원 완료` 줄이 나오고 종료 코드가 0일 때만 다음으로 간다. 실패하면 서버를 시작하지 말고 로그를 담당자와 확인한다.
+
+5. 서버를 시작하고 `healthy`인지 확인한 뒤 터널을 켠다. 마지막으로 멈춤을 푼다.
+
+   ```powershell
+   docker compose up -d --no-deps --force-recreate --wait server
+   docker compose ps
+   docker compose start cloudflared
    docker compose run --rm updater --reset
    ```
 
-   푼 뒤에는 `:master`가 다른 이미지로 바뀔 때 다음 교체가 진행된다. 실패한 이미지는 같은 것을 다시 시도하지 않는다.
+   교체가 진행 중인 상태에서는 `--reset`·`--retry`가 거부된다(종료 코드 1).
+
+`상태 파일을 읽을 수 없어 교체를 멈춥니다` 로그와 `state-file` 알림이 온 경우는 위 단계가 아니라 `backups\updater-state.json`이 깨진 것이다. 서버가 정상(`healthy`)인지 먼저 확인하고, 교체 중에 깨진 것은 아닌지 담당자와 확인한 뒤 `--reset`을 실행하면 상태 파일이 기본값으로 다시 만들어진다.
+
+#### `--reset`과 `--retry`
+
+- `--reset`: 수동 조치를 마친 뒤 멈춤(`halted`)만 푼다. 실패한 이미지는 계속 막아 두므로 `:master`가 같은 이미지인 동안은 다시 시도하지 않는다.
+- `--retry`: 실패한 이미지의 재시도를 허용한다. 상태가 멈춤이어도 함께 풀리므로 서버가 `healthy`인 것을 확인한 뒤에만 쓴다. 이미 같은 `:master`를 다시 시도하고 싶을 때 쓰며, "백업 실패(교체 안 함)"나 "실패 후 되돌림" 알림 뒤에 원인을 해결하고 같은 이미지를 다시 시도할 때도 이 명령이다.
+
+```powershell
+docker compose run --rm updater --retry
+```
+
+두 명령은 `docker compose run --rm updater` 한 번 실행으로 끝나며 교체 반복을 새로 시작하지 않는다. `updater` 서비스는 주기마다 상태 파일을 다시 읽으므로 다음 주기(약 2분 이내)에 반영된다. 알 수 없는 인자는 사용법을 출력하고 종료 코드 2로 끝난다.
 
 ### 교체 담당의 수동 갱신
 
@@ -186,6 +258,8 @@ JAR 후보가 여러 개라면 현재 빌드 설정의 실행 JAR 하나를 명�
 ## 새 계정·코드 계약 적용 순서
 
 수동 대체 절차다. 자동 교체 전환 전의 PC에서 쓰며, 전환 후에는 서버 교체 대신 1단계 백업과 3단계 수집기 연결만 쓴다.
+
+자동 교체 담당(`updater`)이 이미 실행 중인 PC에서 이 절차를 쓰면 교체 담당이 GHCR 이미지로 서버를 다시 바꿀 수 있으므로, **먼저 `docker compose stop updater`로 멈추고** 절차를 마친 뒤 `docker compose start updater`로 다시 켠다.
 
 이 절차는 기존 Windows·Docker 서버와 수집기를 교체할 때 사용한다. ZIP은 새 폴더에 풀어 실행 파일을 준비한다. 기존 서버의 Compose 프로젝트·DB·볼륨·환경 설정과 각 PC의 수집기 자료 경로를 유지한다. 새 서버 구축은 앞의 최초 환경 설정 절차를 따른다.
 
