@@ -119,6 +119,26 @@ function serverImage() {
   return r.code === 0 ? r.out : null;
 }
 
+// 이미지 ID만이 아니라 컨테이너가 실행 중이고 healthy인지도 확인한다.
+function serverHealthy() {
+  const id = serverContainer();
+  if (!id) return false;
+  const r = docker([
+    "inspect",
+    "--format",
+    "{{.State.Running}} {{if .State.Health}}{{.State.Health.Status}}{{end}}",
+    id,
+  ]);
+  return r.code === 0 && r.out === "true healthy";
+}
+
+const serverIsOn = (id) => serverImage() === id && serverHealthy();
+
+const countLogs = (pattern) =>
+  updaterLogs()
+    .split("\n")
+    .filter((line) => pattern.test(line)).length;
+
 function updaterLogs(tail = "all") {
   const r = compose(["logs", "--no-color", "--tail", String(tail), "updater"]);
   return `${r.out}\n${r.err}`;
@@ -183,7 +203,7 @@ function preflight() {
   for (const ref of [CURRENT, PREVIOUS]) {
     if (imageId(ref)) {
       throw new Error(
-        `${ref} 이미지가 이미 있어 시작하지 않습니다. 다른 환경과 이름표가 겹칩니다.`,
+        `${ref} 이미지가 이미 있어 시작하지 않습니다. 다른 환경과 이름표가 겹칩니다. 이전 모의 시험이 중단된 흔적이라면 직접 정리하세요: 그 시험의 임시 폴더(cw-updater-sim-*)에서 docker compose -p ${PROJECT} -f compose.yml -f compose.sim.yml down -v 를 실행하고 ${CURRENT}, ${PREVIOUS} 이름표를 docker rmi로 지웁니다. 이름표는 자동으로 지우지 않습니다.`,
       );
     }
   }
@@ -301,8 +321,8 @@ const scenarios = [
       ctx.idB = imageId(TAGS.b);
       tag(TAGS.b, MASTER);
       await waitFor(
-        "서버 이미지가 B로 바뀜",
-        () => serverImage() === ctx.idB,
+        "서버가 B로 바뀌고 healthy가 됨",
+        () => serverIsOn(ctx.idB),
         60_000 + 30_000,
       );
       await waitFor(
@@ -334,8 +354,8 @@ const scenarios = [
         /alert skipped: rolled-back/.test(updaterLogs()),
       );
       await waitFor(
-        "서버 이미지가 B로 돌아옴",
-        () => serverImage() === ctx.idB,
+        "서버가 B로 돌아와 healthy가 됨",
+        () => serverIsOn(ctx.idB),
         90_000,
       );
       assert(!tableExists("sim_bad"), "복원 후 sim_bad 표가 없어야 합니다.");
@@ -380,6 +400,7 @@ const scenarios = [
   [
     "재시작 복구: 교체 도중 교체 담당이 죽어도 B로 돌아온다",
     async (ctx) => {
+      const rolledBackBefore = countLogs(/alert skipped: rolled-back/);
       tag(TAGS.c, MASTER);
       await waitFor(
         "상태가 starting-new",
@@ -395,8 +416,8 @@ const scenarios = [
       );
       mustCompose(["up", "-d", "updater"]);
       await waitFor(
-        "서버 이미지가 B로 돌아옴",
-        () => serverImage() === ctx.idB,
+        "서버가 B로 돌아와 healthy가 됨",
+        () => serverIsOn(ctx.idB),
         DEADLINE_MS,
       );
       await waitFor(
@@ -410,27 +431,44 @@ const scenarios = [
         "sim_keep 행이 남아야 합니다.",
       );
       assert(
-        /alert skipped: rolled-back/.test(updaterLogs()),
-        "복구 후 rolled-back 알림 로그가 있어야 합니다.",
+        countLogs(/alert skipped: rolled-back/) > rolledBackBefore,
+        "복구 후 rolled-back 알림 로그가 새로 늘어야 합니다.",
       );
     },
   ],
 ];
 
+let tmpDir = null;
+let cleanedUp = false;
 function cleanup() {
+  if (cleanedUp) return;
+  cleanedUp = true;
   if (deployDir) {
     compose(["down", "-v", "--remove-orphans"], { stdio: "ignore" });
   }
   for (const ref of [CURRENT, PREVIOUS, MASTER, ...Object.values(TAGS)]) {
     docker(["rmi", ref], { stdio: "ignore" });
   }
+  if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
+}
+
+let sawPreflight = false;
+for (const signal of ["SIGINT", "SIGTERM"]) {
+  process.on(signal, () => {
+    console.log(`${signal} 수신: 정리 후 종료합니다.`);
+    // 사전 점검 전에는 남의 이름표를 지우지 않도록 정리하지 않는다.
+    if (sawPreflight) cleanup();
+    process.exit(130);
+  });
 }
 
 async function main() {
   const started = Date.now();
   const jar = findJar();
   preflight();
+  sawPreflight = true;
   const dir = mkdtempSync(join(tmpdir(), "cw-updater-sim-"));
+  tmpDir = dir;
   let failed = false;
   try {
     buildImages(jar, dir);
@@ -459,11 +497,7 @@ async function main() {
     console.log("--- 교체 담당 로그 마지막 80줄 ---");
     console.log(updaterLogs(80));
   }
-  try {
-    cleanup();
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  cleanup();
   console.log(
     `${failed ? "실패" : "통과"} (${Math.round((Date.now() - started) / 1000)}s)`,
   );
@@ -476,7 +510,7 @@ try {
 } catch (error) {
   console.log(`FAIL 시작 전 점검: ${error.message}`);
   try {
-    if (deployDir) cleanup();
+    if (sawPreflight) cleanup();
   } catch {}
 }
 process.exit(code);
