@@ -1,0 +1,15 @@
+# 모의 시험 전용 덮어쓰기. 호스트에서 실행하는 명령에만 함께 넘기고, 교체 담당 컨테이너는 원본 compose.yml만 본다.
+services:
+  cloudflared:
+    image: busybox:1.37
+    command: ["sleep", "86400"]
+    secrets: !reset []
+  updater:
+    image: cw-updater:local
+    pull_policy: never
+    environment:
+      SOURCE_IMAGE: cw-sim/server:master
+      UPDATER_PULL: never
+      COMPOSE_PROJECT_NAME: cw-updater-sim
+      CHECK_INTERVAL_SECONDS: "5"
+      WAIT_TIMEOUT_SECONDS: "60"

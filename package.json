@@ -26,7 +26,8 @@
     "package:collector": "node scripts/package-collector.mjs",
     "verify:collector-release": "node scripts/package-collector.mjs --verify",
     "test:collector-release": "node --test scripts/collector-release.test.mjs scripts/nsis-integrity.test.mjs scripts/repair-uninstaller.test.mjs",
-    "test:updater": "node --test infra/home-server/updater/*.test.mjs"
+    "test:updater": "node --test infra/home-server/updater/*.test.mjs",
+    "test:updater-sim": "node scripts/updater-simulation.mjs"
   },
   "dependencies": {
     "react": "19.3.1",
