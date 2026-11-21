@@ -85,6 +85,15 @@ function makeOps(options = {}) {
 
 const effectful = (ops) => ops.calls.filter(([name]) => MUTATING.has(name));
 const names = (ops) => effectful(ops).map(([name]) => name);
+// 부수 효과 호출을 순서대로 단순화한다. saveState는 단계, alert는 종류·단계로 줄인다.
+const trace = (ops) =>
+  effectful(ops).map(([n, ...a]) => {
+    if (n === "saveState") return ["saveState", a[0].phase];
+    if (n === "alert") return ["alert", a[0], a[1].step];
+    return [n, ...a];
+  });
+const after = (items, name) =>
+  items.slice(items.findIndex(([n]) => n === name));
 const saved = (ops) =>
   ops.calls.filter(([n]) => n === "saveState").map(([, s]) => s);
 
@@ -127,6 +136,7 @@ test("runCycle — current 이름표가 없으면 교체하지 않는다", async
   await runCycle({ ...DEFAULT_STATE }, ops, CONFIG);
   assert.ok(ops.calls.some(([n]) => n === "log"));
   assert.ok(!ops.calls.some(([n]) => n === "stop"));
+  assert.deepEqual(saved(ops), []);
 });
 
 test("runCycle — 성공 순서", async () => {
@@ -147,8 +157,8 @@ test("runCycle — 성공 순서", async () => {
       ["tag", "sha256:new", CONFIG.currentRef],
       ["recreateServer"],
       ["start", ["cloudflared"]],
-      ["pruneBackups", 10],
       ["saveState", "idle"],
+      ["pruneBackups", 10],
     ],
   );
   const [first, second, last] = saved(ops);
@@ -165,14 +175,20 @@ test("runCycle — 성공 순서", async () => {
 test("runCycle — 백업 실패", async () => {
   const ops = makeOps({ images: IMAGES, failOn: { backup: true } });
   const result = await runCycle({ ...DEFAULT_STATE }, ops, CONFIG);
-  const after = names(ops).slice(names(ops).indexOf("backup") + 1);
   assert.ok(!names(ops).includes("tag"));
-  assert.deepEqual(after.slice(0, 3), ["recreateServer", "start", "alert"]);
-  const start = effectful(ops).find(([n]) => n === "start");
-  assert.deepEqual(start[1], ["cloudflared"]);
-  const alert = effectful(ops).find(([n]) => n === "alert");
-  assert.equal(alert[1], "backup-failed");
-  assert.equal(alert[2].step, "backup");
+  assert.deepEqual(after(trace(ops), "backup"), [
+    ["backup", BACKUP],
+    ["recreateServer"],
+    ["start", ["cloudflared"]],
+    ["saveState", "idle"],
+    ["alert", "backup-failed", "backup"],
+  ]);
+  const states = saved(ops);
+  assert.equal(states.length, 2);
+  assert.equal(states[0].phase, "backing-up");
+  assert.equal(states[1].phase, "idle");
+  assert.equal(states[1].failedImageId, "sha256:new");
+  assert.equal(states[1].candidateId, null);
   assert.equal(result.phase, "idle");
   assert.equal(result.failedImageId, "sha256:new");
 });
@@ -180,12 +196,37 @@ test("runCycle — 백업 실패", async () => {
 test("runCycle — stop이 실패해도 백업 실패 경로로 복구한다", async () => {
   const ops = makeOps({ images: IMAGES, failOn: { stop: true } });
   const result = await runCycle({ ...DEFAULT_STATE }, ops, CONFIG);
-  const alert = effectful(ops).find(([n]) => n === "alert");
-  assert.equal(alert[1], "backup-failed");
-  assert.equal(alert[2].step, "stop");
   assert.ok(!names(ops).includes("tag"));
+  assert.deepEqual(after(trace(ops), "stop"), [
+    ["stop", ["cloudflared", "server"]],
+    ["recreateServer"],
+    ["start", ["cloudflared"]],
+    ["saveState", "idle"],
+    ["alert", "backup-failed", "stop"],
+  ]);
+  const states = saved(ops);
+  assert.deepEqual(
+    states.map((x) => x.phase),
+    ["backing-up", "idle"],
+  );
+  assert.equal(states[1].failedImageId, "sha256:new");
   assert.equal(result.phase, "idle");
   assert.equal(result.failedImageId, "sha256:new");
+});
+
+test("runCycle — 백업 실패 뒤 기존 서버도 못 살리면 멈춤", async () => {
+  const ops = makeOps({
+    images: IMAGES,
+    failOn: { backup: true, recreateServer: true },
+  });
+  const result = await runCycle({ ...DEFAULT_STATE }, ops, CONFIG);
+  assert.deepEqual(after(trace(ops), "recreateServer"), [
+    ["recreateServer"],
+    ["alert", "rollback-failed", "start-previous"],
+    ["saveState", "halted"],
+  ]);
+  assert.equal(result.phase, "halted");
+  assert.equal(saved(ops).at(-1).phase, "halted");
 });
 
 const ROLLBACK_TAIL = [
@@ -202,14 +243,20 @@ test("runCycle — 새 버전 실패 후 되돌림", async () => {
     failOn: { recreateServer: (n) => n === 1 },
   });
   const result = await runCycle({ ...DEFAULT_STATE }, ops, CONFIG);
-  const seq = effectful(ops);
+  const seq = trace(ops);
   const at = seq.findIndex(([n]) => n === "recreateServer");
-  const tail = seq.slice(at + 1, at + 1 + 6);
-  assert.deepEqual(tail.slice(0, 5), ROLLBACK_TAIL);
-  assert.equal(tail[5][0], "alert");
-  assert.equal(tail[5][1], "rolled-back");
-  assert.equal(tail[5][2].revision, "abcdef1234567890");
-  assert.equal(tail[5][2].step, "health");
+  assert.deepEqual(seq.slice(at + 1), [
+    ...ROLLBACK_TAIL,
+    ["saveState", "idle"],
+    ["alert", "rolled-back", "health"],
+  ]);
+  const alert = effectful(ops).find(([n]) => n === "alert");
+  assert.equal(alert[2].revision, "abcdef1234567890");
+  assert.deepEqual(
+    saved(ops).map((x) => x.phase),
+    ["backing-up", "starting-new", "idle"],
+  );
+  assert.equal(saved(ops).at(-1).failedImageId, "sha256:new");
   assert.equal(result.phase, "idle");
   assert.equal(result.failedImageId, "sha256:new");
   assert.equal(result.backupFile, null);
@@ -221,8 +268,11 @@ test("runCycle — tag 실패도 되돌림 경로를 탄다", async () => {
     failOn: { tag: (n) => n === 2 },
   });
   const result = await runCycle({ ...DEFAULT_STATE }, ops, CONFIG);
-  const alert = effectful(ops).find(([n]) => n === "alert");
-  assert.equal(alert[1], "rolled-back");
+  const seq = trace(ops);
+  assert.deepEqual(seq.slice(-2), [
+    ["saveState", "idle"],
+    ["alert", "rolled-back", "health"],
+  ]);
   assert.equal(result.phase, "idle");
 });
 
@@ -243,7 +293,13 @@ test("runCycle — 되돌림 실패", async () => {
   assert.equal(result.phase, "halted");
   assert.equal(result.previousId, "sha256:old");
   assert.equal(result.backupFile, BACKUP);
+  assert.deepEqual(trace(ops).slice(-3), [
+    ["restore", BACKUP],
+    ["alert", "rollback-failed", "restore"],
+    ["saveState", "halted"],
+  ]);
   assert.equal(saved(ops).at(-1).phase, "halted");
+  assert.equal(saved(ops).at(-1).failedImageId, "sha256:new");
 });
 
 test("runCycle — 알림 실패가 되돌림을 막지 않는다", async () => {
@@ -256,6 +312,10 @@ test("runCycle — 알림 실패가 되돌림을 막지 않는다", async () => 
   assert.equal(result.phase, "idle");
   assert.equal(result.failedImageId, "sha256:new");
   assert.equal(saved(ops).at(-1).phase, "idle");
+  assert.deepEqual(trace(ops).slice(-2), [
+    ["saveState", "idle"],
+    ["alert", "rolled-back", "health"],
+  ]);
 });
 
 test("runCycle — GHCR 접속 실패 알림 간격", async () => {
@@ -279,6 +339,16 @@ test("runCycle — GHCR 접속 실패 알림 간격", async () => {
   }
   assert.deepEqual(alertsAt, [60, 120]);
   assert.ok(!names(ops).includes("stop"));
+  const at = (m) => new Date(T0.getTime() + m * 60000).toISOString();
+  const failing = saved(ops).map((x) => [
+    x.pullFailingSince,
+    x.lastRegistryAlertAt,
+  ]);
+  assert.deepEqual(failing, [
+    [at(0), null],
+    [at(0), at(60)],
+    [at(0), at(120)],
+  ]);
 
   ops.pullSource = async () => {
     ops.calls.push(["pullSource"]);
@@ -286,6 +356,9 @@ test("runCycle — GHCR 접속 실패 알림 간격", async () => {
   state = await runCycle(state, makeOpsWithPullOk(ops), CONFIG);
   assert.equal(state.pullFailingSince, null);
   assert.equal(state.lastRegistryAlertAt, null);
+  assert.equal(saved(ops).length, 4);
+  assert.equal(saved(ops).at(-1).pullFailingSince, null);
+  assert.equal(saved(ops).at(-1).lastRegistryAlertAt, null);
 });
 
 function makeOpsWithPullOk(ops) {
@@ -306,10 +379,13 @@ test("recover — 백업 중 재시작", async () => {
   const result = await recover(state, ops, CONFIG);
   assert.ok(!names(ops).includes("restore"));
   assert.ok(!names(ops).includes("tag"));
-  assert.deepEqual(
-    effectful(ops).filter(([n]) => n !== "saveState"),
-    [["recreateServer"], ["start", ["cloudflared"]]],
-  );
+  assert.deepEqual(trace(ops), [
+    ["recreateServer"],
+    ["start", ["cloudflared"]],
+    ["saveState", "idle"],
+  ]);
+  assert.equal(saved(ops).at(-1).failedImageId, null);
+  assert.equal(saved(ops).at(-1).candidateId, null);
   assert.equal(result.phase, "idle");
   assert.equal(result.failedImageId, null);
 });
@@ -326,10 +402,12 @@ const STARTING_NEW = {
 test("recover — 새 버전 시작 중 재시작", async () => {
   const ops = makeOps();
   const result = await recover(STARTING_NEW, ops, CONFIG);
-  const seq = effectful(ops).filter(([n]) => n !== "saveState");
-  assert.deepEqual(seq.slice(0, 5), ROLLBACK_TAIL);
-  assert.equal(seq[5][1], "rolled-back");
-  assert.equal(seq[5][2].step, "restart");
+  assert.deepEqual(trace(ops), [
+    ...ROLLBACK_TAIL,
+    ["saveState", "idle"],
+    ["alert", "rolled-back", "restart"],
+  ]);
+  assert.equal(saved(ops).at(-1).failedImageId, "sha256:new");
   assert.equal(result.phase, "idle");
   assert.equal(result.failedImageId, "sha256:new");
 });

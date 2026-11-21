@@ -43,14 +43,15 @@ async function abortBeforeSwitch(state, ops, kind, step) {
     await ops.saveState(halted);
     return halted;
   }
-  if (kind) await safeAlert(ops, kind, state, step);
   const next = {
     ...state,
     ...CLEARED,
     phase: "idle",
     failedImageId: failedImageId ?? state.failedImageId,
   };
+  // idle 결과는 알림보다 먼저 저장한다. 알림 도중 재시작돼도 복원을 다시 하지 않도록.
   await ops.saveState(next);
+  if (kind) await safeAlert(ops, kind, state, step);
   return next;
 }
 
@@ -86,9 +87,9 @@ async function rollBack(state, ops, config, step) {
     await ops.saveState(halted);
     return halted;
   }
-  await safeAlert(ops, "rolled-back", state, step);
   const next = { ...state, ...CLEARED, phase: "idle", failedImageId };
   await ops.saveState(next);
+  await safeAlert(ops, "rolled-back", state, step);
   return next;
 }
 
@@ -183,13 +184,14 @@ export async function runCycle(state, ops, config) {
     return rollBack(current, ops, config, "health");
   }
 
+  // 정상 확인 직후 idle을 먼저 저장한다. 이후 재시작돼도 정상 서버 위에 백업을 복원하지 않는다.
+  const done = { ...current, ...CLEARED, phase: "idle" };
+  await ops.saveState(done);
   try {
     await ops.pruneBackups(config.keepBackups);
   } catch (error) {
     ops.log(`오래된 백업 정리 실패(무시): ${error?.message ?? error}`);
   }
-  const done = { ...current, ...CLEARED, phase: "idle" };
-  await ops.saveState(done);
   return done;
 }
 
