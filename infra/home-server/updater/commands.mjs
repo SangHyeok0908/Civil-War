@@ -8,8 +8,9 @@ import { selectBackupsToDelete } from "./backups.mjs";
 import { saveState } from "./state.mjs";
 
 const BACKUP_SCRIPT = 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc';
-// 스키마 삭제와 복원이 psql 한 트랜잭션 안에서 실행돼 중간에 실패하면 원래 DB가 남는다.
-const RESTORE_SCRIPT = `{ printf 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;\\n'; pg_restore --no-owner -f -; } | psql -v ON_ERROR_STOP=1 --single-transaction -U "$POSTGRES_USER" -d "$POSTGRES_DB"`;
+// 변환을 먼저 끝낸 뒤에만 스키마를 지운다. 덤프가 깨졌으면 DB를 건드리지 않고 실패한다.
+// 스키마 삭제와 복원은 psql 한 트랜잭션이라 중간에 실패하면 원래 DB가 남는다.
+const RESTORE_SCRIPT = `f=$(mktemp) || exit 1; if pg_restore --no-owner -f "$f"; then { printf 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;\\n'; cat "$f"; } | psql -v ON_ERROR_STOP=1 --single-transaction -U "$POSTGRES_USER" -d "$POSTGRES_DB"; rc=$?; else rc=1; fi; rm -f "$f"; exit $rc`;
 const REVISION_FORMAT =
   '{{ index .Config.Labels "org.opencontainers.image.revision" }}';
 

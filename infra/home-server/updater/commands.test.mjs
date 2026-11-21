@@ -124,7 +124,7 @@ test("restore는 한 트랜잭션으로 스키마를 지우고 복원한다", as
     "postgres",
     "sh",
     "-c",
-    `{ printf 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;\\n'; pg_restore --no-owner -f -; } | psql -v ON_ERROR_STOP=1 --single-transaction -U "$POSTGRES_USER" -d "$POSTGRES_DB"`,
+    `f=$(mktemp) || exit 1; if pg_restore --no-owner -f "$f"; then { printf 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;\\n'; cat "$f"; } | psql -v ON_ERROR_STOP=1 --single-transaction -U "$POSTGRES_USER" -d "$POSTGRES_DB"; rc=$?; else rc=1; fi; rm -f "$f"; exit $rc`,
   ]);
   assert.equal(calls[0].io.stdinFile, join(dir, "x.dump"));
 });

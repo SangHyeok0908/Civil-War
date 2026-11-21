@@ -118,6 +118,47 @@ function createStopper() {
   };
 }
 
+// 주기마다 상태 파일을 다시 읽는다. 다른 컨테이너의 --reset이나 복구된 파일이 바로 반영된다.
+// runCycle과 recover는 돌려주는 상태를 스스로 저장하므로 여기서 다시 저장하지 않는다.
+export function createLoop({ ops, cycleConfig, statePath, load = loadState }) {
+  let alerted = false;
+  return {
+    async tick() {
+      let state;
+      try {
+        state = await load(statePath);
+      } catch (error) {
+        if (error?.message !== "STATE_UNREADABLE") {
+          ops.log(`상태 파일 읽기 오류: ${error?.message ?? error}`);
+          return;
+        }
+        if (!alerted) {
+          alerted = true;
+          ops.log(
+            "상태 파일을 읽을 수 없어 교체를 멈춥니다. 수동 확인 후 --reset이 필요합니다.",
+          );
+          await ops.alert("rollback-failed", {
+            revision: null,
+            at: ops.now(),
+            step: "state-file",
+          });
+        }
+        return;
+      }
+      alerted = false;
+      try {
+        if (state.phase === "backing-up" || state.phase === "starting-new") {
+          await recover(state, ops, cycleConfig);
+        } else {
+          await runCycle(state, ops, cycleConfig);
+        }
+      } catch (error) {
+        ops.log(`주기 실행 중 오류: ${error?.message ?? error}`);
+      }
+    },
+  };
+}
+
 async function main(argv, env) {
   const config = readConfig(env);
   const log = (message) =>
@@ -138,38 +179,15 @@ async function main(argv, env) {
   }
 
   const stopper = createStopper();
-  let state;
-  try {
-    state = await loadState(config.statePath);
-  } catch (error) {
-    if (error?.message !== "STATE_UNREADABLE") throw error;
-    log(
-      "상태 파일을 읽을 수 없어 교체를 멈춥니다. 수동 확인 후 --reset이 필요합니다.",
-    );
-    await ops.alert("rollback-failed", {
-      revision: null,
-      at: ops.now(),
-      step: "state-file",
-    });
-    // 종료하면 Compose가 계속 재시작하므로 살아서 아무것도 하지 않는다.
-    while (!stopper.stopping) await stopper.sleep(3600 * 1000);
-    return 0;
-  }
-
   const cycleConfig = {
     sourceRef: config.sourceRef,
     currentRef: CURRENT_REF,
     previousRef: PREVIOUS_REF,
     keepBackups: config.keepBackups,
   };
-  // runCycle과 recover는 돌려주는 상태를 스스로 저장한다.
-  state = await recover(state, ops, cycleConfig);
+  const loop = createLoop({ ops, cycleConfig, statePath: config.statePath });
   while (!stopper.stopping) {
-    try {
-      state = await runCycle(state, ops, cycleConfig);
-    } catch (error) {
-      ops.log(`주기 실행 중 오류: ${error?.message ?? error}`);
-    }
+    await loop.tick();
     await stopper.sleep(config.intervalSeconds * 1000);
   }
   ops.log("종료 신호를 받아 마칩니다.");
