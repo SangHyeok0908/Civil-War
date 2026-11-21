@@ -41,7 +41,7 @@ macOS arm64, OpenJDK 25.0.1, Node.js 23.11.0(저장소 지정 24.22.1과 다름,
 
 ## 원격 서버 검사 실패와 수정
 
-PR #8의 원격 서버 검사(Ubuntu)는 이번 변경 전 커밋 `68d61ad`부터 이미 실패하고 있었다. 실패한 시험은 등급 보관 검사 2개(`failedRefreshKeepsLastSuccess`, `accountMergeRetainsKnownRankWhenNextLookupFails`)였다.
+PR #8의 원격 서버 검사(Ubuntu)는 이번 변경 전 커밋 `8d36f23`부터 이미 실패하고 있었다. 당시 원격 실행은 메시지에서 공동 작성자 줄을 지우기 전의 같은 내용 커밋 `68d61ad`에 연결돼 있다. 실패한 시험은 등급 보관 검사 2개(`failedRefreshKeepsLastSuccess`, `accountMergeRetainsKnownRankWhenNextLookupFails`)였다.
 
 - **원인**: Linux의 Java 시계는 나노초 단위 시각을 주고, PostgreSQL은 마이크로초까지만 저장한다. 첫 등급 갱신 응답은 나노초 시각을 그대로 돌려주는데, 나중에 DB에서 읽은 시각은 잘려 있어 두 값이 달랐다. macOS 시계는 마이크로초 단위라 로컬 검사에서는 드러나지 않았다.
 - **수정**: [등급 서비스](../../apps/server/src/main/java/cw/riot/SoloRankService.java)가 저장 전에 시각을 마이크로초로 자른다.
