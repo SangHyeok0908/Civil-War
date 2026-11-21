@@ -183,10 +183,10 @@ docker inspect --format '{{ json .Config.Labels }}' (docker compose ps -q server
    docker compose stop cloudflared server
    ```
 
-3. `step`이 `stop` 또는 `tag`이면 `:current`가 실패한 새 이미지를 가리킬 수 있으므로 이전 이미지로 돌린다. 다른 단계면 건너뛴다.
+3. `step`이 `stop` 또는 `tag`이면 `:current`가 실패한 새 이미지를 가리킬 수 있으므로 이전 이미지로 돌린다. 다른 단계면 건너뛴다. `:previous` 이름표는 되돌림이 이름표를 다시 붙이기 전에 실패했다면 옛 값일 수 있으므로 쓰지 않고, 1단계에서 읽은 `previousId`(이미지 ID)를 그대로 쓴다.
 
    ```powershell
-   docker tag civil-war-server:previous civil-war-server:current
+   docker tag <previousId> civil-war-server:current
    ```
 
 4. `step`이 `stop`·`tag`·`restore`이고 `backupFile`이 있으면 그 백업으로 DB를 복원한다. `start-previous`이거나 `backupFile`이 `null`이면 복원할 것이 없으므로 건너뛴다. 복원은 교체 담당 이미지의 `--restore` 명령을 쓴다. 이 명령은 상태가 멈춤(`halted`)일 때만 실행되고, 백업을 임시 파일로 변환한 뒤에만 기존 DB의 `public` 스키마를 지우고 한 트랜잭션으로 복원하므로 깨진 백업은 DB를 건드리지 않고 실패한다. `<backupFile>`은 `20261121-030405-abcdef1.dump` 같은 파일 이름만 쓴다(경로 없이 `backups\` 폴더의 자동 백업 이름만 허용).
