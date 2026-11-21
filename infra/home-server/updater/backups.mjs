@@ -1,5 +1,9 @@
 const BACKUP_NAME = /^\d{8}-\d{6}-[0-9a-z]+\.dump$/;
 
+export function isBackupName(name) {
+  return BACKUP_NAME.test(name);
+}
+
 function pad(value) {
   return String(value).padStart(2, "0");
 }
