@@ -159,7 +159,7 @@ test("fixedCodeNewBrowser and collectorDeviceRevocation", async ({
   const context = await browser.newContext();
   const newPage = await context.newPage();
   await newPage.goto("http://localhost:18080/admin");
-  await newPage.getByLabel("운영자 로그인 코드").fill("2005");
+  await newPage.getByLabel("운영자 로그인 코드").fill(state().adminCode);
   await newPage.getByRole("button", { name: "운영자 인증" }).click();
   await expect(
     newPage.getByRole("heading", { name: "운영 관리" }),

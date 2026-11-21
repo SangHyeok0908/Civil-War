@@ -18,9 +18,9 @@ class AdminCodeFormatTest extends DatabaseTestSupport {
     @Autowired MockMvc mvc;
 
     @Test
-    void fixedCodeCanCreateIndependentSessionsRepeatedly() {
-        AuthService.LoginReply first = auth.login("2005");
-        AuthService.LoginReply second = auth.login("2005");
+    void configuredCodeCanCreateIndependentSessionsRepeatedly() {
+        AuthService.LoginReply first = auth.login(ADMIN_CODE);
+        AuthService.LoginReply second = auth.login(ADMIN_CODE);
         assertThat(first.token()).hasSize(43).isNotEqualTo(second.token());
         assertThat(auth.requireAdmin(first.token()).sessionId()).isEqualTo(first.sessionId());
         assertThat(jdbc.queryForObject("select count(*) from enrollment_codes", Integer.class))
@@ -33,17 +33,24 @@ class AdminCodeFormatTest extends DatabaseTestSupport {
                 "insert into enrollment_codes(id,secret_hash,scope,expires_at,consumed,revoked) values('old-code',?,'admin',now()+interval '30 minutes',false,false)",
                 AuthService.hash("123456"));
         assertThatThrownBy(() -> auth.login("123456")).isInstanceOf(ApiException.class);
-        assertThat(auth.login("2005").sessionId()).isNotBlank();
+        assertThat(auth.login(ADMIN_CODE).sessionId()).isNotBlank();
         assertThat(jdbc.queryForObject("select count(*) from enrollment_codes", Integer.class))
                 .isEqualTo(1);
-        for (String value : java.util.List.of("", "200", "20050", "000005", "2005 ")) {
+        for (String value :
+                java.util.List.of(
+                        "",
+                        "2005",
+                        ADMIN_CODE.substring(1),
+                        ADMIN_CODE + "x",
+                        ADMIN_CODE.toUpperCase(java.util.Locale.ROOT),
+                        ADMIN_CODE + " ")) {
             assertThatThrownBy(() -> auth.login(value)).isInstanceOf(ApiException.class);
         }
     }
 
     @Test
     void codeManagementEndpointsAreRemovedButSessionsRemainManageable() throws Exception {
-        AuthService.LoginReply session = auth.login("2005");
+        AuthService.LoginReply session = auth.login(ADMIN_CODE);
         Cookie cookie = new Cookie("cw-admin-dev", session.token());
         for (org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request :
                 java.util.List.of(

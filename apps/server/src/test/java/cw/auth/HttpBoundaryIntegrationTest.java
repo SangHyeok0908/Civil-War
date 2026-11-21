@@ -33,7 +33,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
     Login login() throws Exception {
         limiter.succeeded("collector", "127.0.0.1");
 
-        String code = "2005";
+        String code = ADMIN_CODE;
         MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/admin/session")
@@ -121,8 +121,8 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
                 List.of(
                         "{}",
                         "{\"code\":null}",
-                        "{\"code\":\"2005\",\"unexpected\":\"private-sentinel\"}",
-                        "{\"code\":\"2005\",\"code\":\"collector\"}")) {
+                        "{\"code\":\"" + ADMIN_CODE + "\",\"unexpected\":\"private-sentinel\"}",
+                        "{\"code\":\"" + ADMIN_CODE + "\",\"code\":\"collector\"}")) {
             MockHttpServletResponse response =
                     mvc.perform(
                                     post("/api/admin/session")

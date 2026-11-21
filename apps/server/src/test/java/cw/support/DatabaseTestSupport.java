@@ -36,6 +36,9 @@ import tools.jackson.databind.node.ObjectNode;
 @SpringBootTest
 @ActiveProfiles("test")
 public abstract class DatabaseTestSupport {
+    /** Operator login code from application-test.yml; never a production value. */
+    protected static final String ADMIN_CODE = "test-admin-login-code";
+
     @Autowired protected JdbcTemplate jdbc;
     @Autowired protected GroupCodeService groups;
     private String groupSecret;

@@ -37,7 +37,7 @@ class StrictJsonIntegrationTest extends DatabaseTestSupport {
     }
 
     private Login login() throws Exception {
-        String code = "2005";
+        String code = ADMIN_CODE;
         MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/admin/session")

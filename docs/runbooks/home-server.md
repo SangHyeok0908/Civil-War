@@ -23,14 +23,21 @@ if ($cwOrigin -notmatch '^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?$') {
     throw 'https://시험호스트 형식의 주소만 입력하세요. 경로·포트·계정 정보는 넣지 마세요.'
 }
 $cwPassword = [Guid]::NewGuid().ToString('N') + [Guid]::NewGuid().ToString('N')
-[IO.File]::WriteAllLines((Join-Path $PWD '.env'), @("SERVER_ORIGIN=$cwOrigin", "POSTGRES_PASSWORD=$cwPassword"), [Text.UTF8Encoding]::new($false))
-Remove-Variable cwPassword
+$cwAdminSecure = Read-Host '새 운영자 로그인 코드를 입력하세요(영문·숫자·-_. 8–128자)' -AsSecureString
+$cwAdmin = [PSCredential]::new('admin', $cwAdminSecure).GetNetworkCredential().Password
+if ($cwAdmin -notmatch '^[A-Za-z0-9._-]{8,128}$' -or $cwAdmin.StartsWith('replace-with-')) {
+    throw '운영자 로그인 코드는 영문·숫자·-_. 로만 8–128자로 새로 정하세요.'
+}
+[IO.File]::WriteAllLines((Join-Path $PWD '.env'), @("SERVER_ORIGIN=$cwOrigin", "POSTGRES_PASSWORD=$cwPassword", "ADMIN_LOGIN_CODE=$cwAdmin"), [Text.UTF8Encoding]::new($false))
+Remove-Variable cwPassword, cwAdmin, cwAdminSecure
 New-Item -ItemType Directory -Force secrets | Out-Null
 $cwToken = Read-Host 'Cloudflare Tunnel 토큰만 붙여넣으세요' -AsSecureString
 $cwCredential = [PSCredential]::new('tunnel', $cwToken)
 [IO.File]::WriteAllText((Join-Path $PWD 'secrets\cloudflare-tunnel-token.txt'), $cwCredential.GetNetworkCredential().Password.Trim(), [Text.UTF8Encoding]::new($false))
 Remove-Variable cwToken, cwCredential
 ```
+
+운영자 로그인 코드는 이 PC의 `.env`에만 저장되며 서버는 값이 없거나 8자보다 짧으면 시작하지 않는다. 코드·문서·공개 저장소에 적힌 값은 쓰지 않는다. `.env`의 값 해석 차이를 피하려고 이 절차는 영문·숫자·`-`·`_`·`.`만 허용한다.
 
 토큰은 Cloudflare 설치 명령 중 `--token` 다음의 값이다. 설치 명령 전체를 넣지 않는다. `.env`와 `secrets`는 해당 PC에서만 보관하고 공유 ZIP·공개 저장소·시험 결과에 넣지 않는다. 토큰 파일 전달은 [Cloudflare 공식 실행 옵션](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/run-parameters/#token-file)을 따른다.
 
@@ -62,11 +69,11 @@ Invoke-RestMethod "$cwOrigin/api/members"
 
 처음 회원 목록은 빈 배열이다. PowerShell에서 아무 항목도 출력되지 않더라도 HTTP 오류가 없어야 한다. 브라우저에서 같은 주소의 `/admin`을 열어 로그인 화면도 확인한다. Cloudflare Tunnel 상태가 연결됨인지 확인하며, 화면 메뉴가 바뀌면 [공식 배포 안내](https://developers.cloudflare.com/tunnel/get-started/)의 공개 호스트 연결 절차를 따른다.
 
-시험 호스트에 별도의 브라우저 로그인·보안 확인 화면을 적용하면 수집기 요청이 JSON 대신 HTML이나 리다이렉트를 받을 수 있다. `/api/collector/*`에 그런 응답이 없는지 확인한다. 이 서버의 관리자 인증은 자체 고정 코드로 로그인한다. 외부 HTTPS만 사용하며 서버의 개발용 HTTP 프로필을 켜지 않는다.
+시험 호스트에 별도의 브라우저 로그인·보안 확인 화면을 적용하면 수집기 요청이 JSON 대신 HTML이나 리다이렉트를 받을 수 있다. `/api/collector/*`에 그런 응답이 없는지 확인한다. 이 서버의 관리자 인증은 `.env`의 운영자 로그인 코드로 한다. 외부 HTTPS만 사용하며 서버의 개발용 HTTP 프로필을 켜지 않는다.
 
 ## 4. 최초 관리자 코드와 모임 코드
 
-기존 서버 웹 주소의 `/admin`에서 고정 운영자 코드로 로그인한다. 현재 값은 [서버 인증 설정](../../apps/server/src/main/java/cw/auth/AuthService.java), 형식과 세션은 [인증 계약](../contracts/api.md#인증과-권한)을 따른다. 코드 발급 명령은 사용하지 않는다.
+기존 서버 웹 주소의 `/admin`에서 최초 환경 설정 때 `.env`의 `ADMIN_LOGIN_CODE`에 넣은 운영자 로그인 코드로 로그인한다. 형식과 세션은 [인증 계약](../contracts/api.md#인증과-권한)을 따른다. 코드 발급 명령은 사용하지 않는다. 코드를 바꾸려면 `.env` 값을 고친 뒤 `docker compose up -d --wait server`로 서버를 다시 만들고, 관리자 화면에서 기존 브라우저 세션을 폐기한다.
 
 1. **참가자 관리 → 참가자 추가**에서 실제 Riot ID를 입력한다. 기존 참가자는 같은 프로필을 사용한다. 가능한 포지션은 팀 추천용 별도 설정이다.
 2. **코드·인증 → 모임 코드 발급**으로 공통 코드를 한 번 표시하고 수집자에게 전달한다. 수집자별 코드는 만들지 않는다.
@@ -124,6 +131,23 @@ ZIP의 `home-server/server.jar`를 기존 배포 폴더의 `server.jar`에 복�
 RIOT_API_KEY: ${RIOT_API_KEY:-}
 ```
 
+새 서버는 운영자 로그인 코드를 `.env`의 `ADMIN_LOGIN_CODE`에서 읽으며 값이 없으면 시작하지 않는다. 기존 `.env`에 이 값이 없으면 아래 블록으로 추가하고, 기존 `compose.yml`의 `server.environment`에도 다음 항목을 넣는다. 이전 고정값처럼 공개된 값은 쓰지 않는다.
+
+```powershell
+if (Select-String -LiteralPath .env -Pattern '^ADMIN_LOGIN_CODE=' -Quiet) { throw '이미 ADMIN_LOGIN_CODE가 있습니다. 기존 값을 유지하세요.' }
+$cwAdminSecure = Read-Host '새 운영자 로그인 코드를 입력하세요(영문·숫자·-_. 8–128자)' -AsSecureString
+$cwAdmin = [PSCredential]::new('admin', $cwAdminSecure).GetNetworkCredential().Password
+if ($cwAdmin -notmatch '^[A-Za-z0-9._-]{8,128}$' -or $cwAdmin.StartsWith('replace-with-')) {
+    throw '운영자 로그인 코드는 영문·숫자·-_. 로만 8–128자로 새로 정하세요.'
+}
+[IO.File]::AppendAllText((Join-Path $PWD '.env'), "ADMIN_LOGIN_CODE=$cwAdmin`n", [Text.UTF8Encoding]::new($false))
+Remove-Variable cwAdmin, cwAdminSecure
+```
+
+```yaml
+ADMIN_LOGIN_CODE: ${ADMIN_LOGIN_CODE:?Set ADMIN_LOGIN_CODE in .env}
+```
+
 기존 서버 폴더에서 실행한다. Docker Desktop은 Linux 컨테이너 모드여야 한다.
 
 ```powershell
@@ -136,7 +160,7 @@ docker compose ps
 
 ### 3. 모임 코드와 새 수집기 연결
 
-서버가 `healthy`이면 `docker compose start cloudflared`로 기존 외부 연결을 시작한다. 기존 웹 주소에서 고정 운영자 코드로 로그인해 모임 코드를 발급한다. 이전 43자리 코드도 새 수집기의 입력 팝업에서 사용할 수 있다. 6자리 코드로 바꾸려면 재발급한다. 재발급은 기존 모든 수집기를 해제하므로 새 코드를 배포할 시점에 수행한다. 서버 버전 교체만으로 기존 기기·브라우저 세션을 해제하지 않는다.
+서버가 `healthy`이면 `docker compose start cloudflared`로 기존 외부 연결을 시작한다. 기존 웹 주소에서 `.env`의 운영자 로그인 코드로 로그인해 모임 코드를 발급한다. 이전 43자리 코드도 새 수집기의 입력 팝업에서 사용할 수 있다. 6자리 코드로 바꾸려면 재발급한다. 재발급은 기존 모든 수집기를 해제하므로 새 코드를 배포할 시점에 수행한다. 서버 버전 교체만으로 기존 기기·브라우저 세션을 해제하지 않는다.
 
 ZIP의 `collector` 폴더에 있는 새 설치 파일을 같은 Windows 사용자로 더블클릭한다. 설치를 마치면 바로가기가 생성되고 앱이 실행된다. 이후 바탕화면 아이콘으로 실행하며 서버 주소를 입력하지 않는다. 기존 수집기 자료 폴더와 참가자 프로필을 그대로 사용한다. 롤에 로그인한 상태에서 팝업에 새 모임 코드를 입력하면 같은 참가자·계정의 저장 요청을 자동으로 이어 보낸다. 정상 연결 후에는 코드 입력 폼을 숨긴다.
 

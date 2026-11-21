@@ -310,6 +310,12 @@
       "role": "historical",
       "date": "2026-10-29",
       "current": "docs/status.md"
+    },
+    {
+      "path": "docs/validation/2026-11-21-admin-login-setting-report.md",
+      "role": "historical",
+      "date": "2026-11-21",
+      "current": "docs/status.md"
     }
   ],
   "topics": [

@@ -23,6 +23,8 @@ const env = {
   DATABASE_USER: "cw_test",
   DATABASE_PASSWORD: "cw_test_only",
   SERVER_ORIGIN: origin,
+  // Test-only operator code; production reads ADMIN_LOGIN_CODE from the server .env.
+  ADMIN_LOGIN_CODE: "web-test-admin-code",
 };
 const args = [
   "-jar",
@@ -69,7 +71,7 @@ if (sql("select current_database()") !== "cw_web_test")
 sql(
   "TRUNCATE auth_attempts, solo_rank_snapshots, account_identity_evidence, player_accounts, role_reference_samples,member_reference_links,evaluation_generations,scoring_versions,audit_log,recalculation_jobs,match_participants,matches,collector_credentials,admin_sessions,enrollment_codes,members CASCADE; UPDATE service_state SET source_revision=0,desired_scoring_version=null,active_generation_id=null; UPDATE group_collector_code SET secret_hash=null,generation=1,issued_at=null",
 );
-const firstCode = "2005";
+const firstCode = env.ADMIN_LOGIN_CODE;
 let child;
 let log = createWriteStream("test-results/web-server.log", { flags: "a" });
 async function waitFor(check) {
@@ -236,7 +238,7 @@ for (let i = 0; i < 12; i++) {
 await waitFor(
   async () => (await fetch(origin + "/api/rankings")).status === 200,
 );
-const adminCode = "2005";
+const adminCode = env.ADMIN_LOGIN_CODE;
 const nextCollectorCode = collectorCode;
 writeFileSync(
   "test-results/web-state.json",

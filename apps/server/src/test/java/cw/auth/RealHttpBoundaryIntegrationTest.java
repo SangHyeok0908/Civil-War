@@ -145,7 +145,7 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void productionCookieHasHostProtection() throws Exception {
-        String code = "2005";
+        String code = ADMIN_CODE;
 
         try (HttpClient client = HttpClient.newHttpClient()) {
             HttpRequest req =

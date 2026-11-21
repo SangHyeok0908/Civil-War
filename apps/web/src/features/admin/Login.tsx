@@ -35,11 +35,9 @@ export function Login() {
           운영자 로그인 코드
           <input
             type="password"
-            inputMode="numeric"
-            pattern="[0-9]{4}"
-            minLength={4}
-            maxLength={4}
-            autoComplete="off"
+            minLength={8}
+            maxLength={128}
+            autoComplete="current-password"
             value={code}
             required
             onChange={(e) => setCode(e.target.value)}

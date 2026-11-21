@@ -52,6 +52,7 @@ macOS 설치 환경에서 JDK 선택이 필요하면 `JAVA_HOME`을 빌드 설�
 export DATABASE_URL=jdbc:postgresql://localhost:55432/cw_test
 export DATABASE_USER=cw_test
 export DATABASE_PASSWORD=cw_test_only
+export ADMIN_LOGIN_CODE=local-admin-code
 export SERVER_ORIGIN=http://localhost:8080
 ./apps/server/gradlew -p apps/server bootRun --args='--spring.profiles.active=dev'
 ```
@@ -64,7 +65,7 @@ JAR(자바 실행 묶음)의 파일명에 넣을 버전은 서버 빌드 설정�
 
 ## 최초 관리자와 복구
 
-브라우저 `/admin`에서 고정 운영자 코드로 로그인한다. 값과 요청 형식의 원본은 [인증 서비스](../../apps/server/src/main/java/cw/auth/AuthService.java)와 [인증 계약](../contracts/api.md#인증과-권한)이다. 예전 `admin:code`·`--revoke-all` 발급 명령과 웹 발급 기능은 제거했다. 기존 브라우저 세션을 폐기해야 하면 인증된 관리자 화면에서 해당 세션을 개별 폐기한다.
+브라우저 `/admin`에서 실행 환경의 `ADMIN_LOGIN_CODE` 값으로 로그인한다. 위 값은 로컬 개발 전용이며 운영 서버에 쓰지 않는다. 검사 규칙은 [운영자 코드 설정](../../apps/server/src/main/java/cw/auth/AdminLoginCode.java), 요청 형식은 [인증 계약](../contracts/api.md#인증과-권한)이 원본이다. 서버 테스트는 [테스트 설정](../../apps/server/src/test/resources/application-test.yml), 웹 테스트는 [시험 서버 실행기](../../scripts/web-test-server.mjs)의 공개 시험용 값을 쓴다. 예전 `admin:code`·`--revoke-all` 발급 명령과 웹 발급 기능은 제거했다. 기존 브라우저 세션을 폐기해야 하면 인증된 관리자 화면에서 해당 세션을 개별 폐기한다.
 
 로그인 뒤 Riot ID로 참가자를 추가하고 ‘코드·인증’에서 모임 공통 코드를 발급한다. 설치판의 사용자 실행은 [설치 안내](../runbooks/collector-install.md)를 따르며 위 개발용 환경 변수 설정을 요구하지 않는다.
 

@@ -102,7 +102,7 @@ class GroupCodeIntegrationTest extends DatabaseTestSupport {
                 AuthService.hash(legacy));
         assertThat(auth.requireCollector(existing.token()).memberId()).isEqualTo("member-1");
         assertThat(auth.enroll(legacy, current(2)).token()).hasSize(43);
-        assertThat(auth.login("2005").sessionId()).isNotBlank();
+        assertThat(auth.login(ADMIN_CODE).sessionId()).isNotBlank();
         assertThat(auth.requireCollector(existing.token()).memberId()).isEqualTo("member-1");
         groups.rotate();
         assertThatThrownBy(() -> auth.requireCollector(existing.token()))

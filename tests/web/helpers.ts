@@ -65,7 +65,7 @@ export async function login(
   request: APIRequestContext,
 ) {
   await page.goto("/admin");
-  await page.getByLabel("운영자 로그인 코드").fill("2005");
+  await page.getByLabel("운영자 로그인 코드").fill(state().adminCode);
   await page.getByRole("button", { name: "운영자 인증" }).click();
   await page.waitForURL("**/admin/members");
 }

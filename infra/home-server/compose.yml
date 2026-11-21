@@ -27,6 +27,7 @@ services:
       DATABASE_USER: cw_collector_acceptance
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       RIOT_API_KEY: ${RIOT_API_KEY:-}
+      ADMIN_LOGIN_CODE: ${ADMIN_LOGIN_CODE:?Set ADMIN_LOGIN_CODE in .env}
       SERVER_ORIGIN: ${SERVER_ORIGIN:?Set the public HTTPS origin in .env}
     depends_on:
       postgres:

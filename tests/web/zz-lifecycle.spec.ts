@@ -57,6 +57,7 @@ test("activeWorkerCrash rollsBackPublication nonWebStartup neverClaims restartRe
         DATABASE_USER: "cw_test",
         DATABASE_PASSWORD: "cw_test_only",
         SERVER_ORIGIN: origin,
+        ADMIN_LOGIN_CODE: state().adminCode,
       },
       encoding: "utf8",
       timeout: 30000,

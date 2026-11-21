@@ -33,6 +33,7 @@ public class AuthService {
     private final Clock clock;
     private final GroupCodeService groups;
     private final AccountLinkService links;
+    private final AdminLoginCode adminCode;
     private final SecureRandom random = new SecureRandom();
 
     public AuthService(
@@ -40,12 +41,14 @@ public class AuthService {
             MemberRepository members,
             Clock clock,
             GroupCodeService groups,
-            AccountLinkService links) {
+            AccountLinkService links,
+            AdminLoginCode adminCode) {
         this.mutations = mutations;
         this.members = members;
         this.clock = clock;
         this.groups = groups;
         this.links = links;
+        this.adminCode = adminCode;
     }
 
     public record EnrollmentReply(
@@ -90,7 +93,7 @@ public class AuthService {
     public LoginReply login(String code) {
         mutations.lock();
 
-        if (!matchesHash(code, hash("2005"))) {
+        if (!adminCode.matches(code)) {
             throw new ApiException(401, "AUTH_REVOKED");
         }
         String token = secret();

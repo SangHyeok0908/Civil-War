@@ -14,7 +14,7 @@ class LocalRecoveryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void removedIssuanceCommandExitsBeforeTouchingExistingSessionsOrRecords() throws Exception {
-        AuthService.LoginReply session = auth.login("2005");
+        AuthService.LoginReply session = auth.login(ADMIN_CODE);
         Path output = Files.createTempFile("cw-removed-cli-", ".log");
         try {
             Process process =

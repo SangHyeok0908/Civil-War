@@ -23,7 +23,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
     record Login(Cookie cookie, String csrf) {}
 
     Login login() throws Exception {
-        String code = "2005";
+        String code = ADMIN_CODE;
         MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/admin/session")
@@ -130,7 +130,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void fixedAdminCodeSupportsConcurrentSessions() throws Exception {
-        String code = "2005";
+        String code = ADMIN_CODE;
         String body = json.writeValueAsString(Map.of("code", code));
         List<Integer> results =
                 concurrent(
@@ -245,7 +245,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                 .getStatus())
                 .isEqualTo(401);
 
-        String adminCode = "2005";
+        String adminCode = ADMIN_CODE;
         assertThat(
                         mvc.perform(
                                         post("/api/collector/enroll")
@@ -341,7 +341,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                         post("/api/admin/session")
                                                 .header("Origin", "http://localhost:8080")
                                                 .contentType("application/json")
-                                                .content("{\"code\":\"2005\"}"))
+                                                .content("{\"code\":\"" + ADMIN_CODE + "\"}"))
                                 .andReturn()
                                 .getResponse()
                                 .getStatus())

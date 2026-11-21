@@ -21,6 +21,8 @@ server:
     include-stacktrace: never
 cw:
   origin: ${SERVER_ORIGIN:https://localhost}
+  admin:
+    login-code: ${ADMIN_LOGIN_CODE:}
   dev-http: false
 logging:
   level:
