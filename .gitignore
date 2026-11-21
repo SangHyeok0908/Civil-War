@@ -14,3 +14,4 @@ test-results/
 playwright-report/
 .pnpm-store/
 infra/home-server/backups/
+infra/home-server/secrets/
