@@ -2,11 +2,17 @@
 
 설치 파일로 수집기를 실행하면 Node.js·pnpm 같은 개발 도구를 사용자 PC에 설치할 필요가 없다. 설치·업데이트의 자료 보존 기준은 [제품 명세](../spec.md#설치운영-설계), 실제로 확인한 범위는 [현재 상태](../status.md)를 따른다.
 
-기록일: 2026-10-26. 편집·보완일: 2026-10-28.
+기록일: 2026-10-26. 편집·보완일: 2026-10-28, 2026-11-21(Release 다운로드·공개 절차 추가).
+
+## 설치 파일 받기와 확인
+
+설치 파일은 저장소의 GitHub Releases에서 `collector-v<버전>` 이름의 Release(예: `collector-v0.5.0-provisional`)를 열어 받는다. 같은 Release의 `Civil-War-Collector-Setup-<버전>-x64.exe`와 `SHA256SUMS.txt`를 받고, 아래 [파일 확인](#파일-확인과-재생성)의 방법으로 해시를 대조한다. Release는 누구나 받을 수 있고 코드 서명이 없어 Windows 경고가 나올 수 있다. 앱은 자동으로 업데이트되지 않으므로 새 Release가 올라오면 직접 받아 설치한다.
+
+실제 Release로 올린 설치 파일을 Windows에서 설치해 본 결과는 아직 없다([검증 보고서](../validation/2026-11-21-auto-deploy-report.md)).
 
 ## 설치와 실행
 
-1. Windows x64 PC에서 전달받은 `Civil-War-Collector-Setup-<버전>-x64.exe`를 실행한다. ARM용 설치 파일은 현재 제공하지 않는다.
+1. Windows x64 PC에서 위에서 받은 `Civil-War-Collector-Setup-<버전>-x64.exe`를 실행한다. ARM용 설치 파일은 현재 제공하지 않는다.
 2. 설치 안내를 마치면 현재 Windows 사용자에게 설치되고 바탕화면 바로가기가 생성된다. 마지막 화면에서는 앱 실행이 기본 선택된다. 이후에는 시작 메뉴 또는 바탕화면의 `Civil War Collector` 아이콘으로 실행한다.
 3. 롤 클라이언트에 로그인하고 운영자가 발급한 모임 코드를 입력해 모임에 연결한다. 서버가 준비되지 않았으면 인증·경기 등록은 할 수 없다.
 
@@ -50,7 +56,7 @@
 
 ## 파일 확인과 재생성
 
-설치 파일 옆의 `SHA256SUMS.txt`는 SHA-256 해시 목록이고 `release.json`은 버전·크기·런타임 정보다. 받은 파일의 해시는 PowerShell의 `Get-FileHash -Algorithm SHA256 -LiteralPath <설치파일경로>`로 구해 목록과 대조한다. 파일과 확인값은 신뢰할 수 있는 동일 배포 경로에서 받아야 한다. 해시 일치는 코드 서명이나 동작 검증을 대신하지 않는다.
+Release에서 받은 `SHA256SUMS.txt`(Release의 첨부 파일)는 SHA-256 해시 목록이고 `release.json`은 버전·크기·런타임 정보다. 받은 파일의 해시는 PowerShell의 `Get-FileHash -Algorithm SHA256 -LiteralPath <설치파일경로>`로 구해 목록과 대조한다. 파일과 확인값은 같은 Release에서 받아야 한다. 해시 일치는 코드 서명이나 동작 검증을 대신하지 않는다.
 
 배포 생성과 재검증은 설치 파일 자체와 그 안의 제거 프로그램에 대해 NSIS 내부 CRC(순환 중복 검사)도 확인한다. 무결성 검사가 꺼져 있거나 저장된 값과 실제 바이트가 다르면 배포를 실패시킨다. 해당 도구 수정은 [버전 한정 패치](../../patches/app-builder-lib@26.18.0.patch)와 [잠금 설정](../../pnpm-workspace.yaml)에 고정했다.
 
@@ -70,3 +76,7 @@ pnpm verify:collector-release
 ```
 
 출력은 저장소의 `dist/collector/`에 생성한다. 배포할 파일은 설치 실행 파일·`SHA256SUMS.txt`·`release.json`이다. `win-unpacked`와 디버그 파일을 전달할 필요는 없다. `package:collector`는 게시·업로드 없이 기존 수집기를 다시 빌드하며 사용자 자료 저장소를 열지 않는다.
+
+## 새 버전 공개(개발자)
+
+master에 병합된 변경이 수집기 검사를 통과하면, 그 검사에서 만든 설치 파일·`SHA256SUMS.txt`·`release.json`이 `collector-v<버전>` Release로 자동 공개된다. 버전의 원본은 [수집기 package.json](../../apps/collector/package.json)의 `version`이다. 공개하려면 이 버전을 올린다. 같은 버전의 Release가 이미 있으면 아무것도 올리지 않고 기존 파일을 덮어쓰거나 지우지 않으므로, 버전을 올리지 않은 수집기 변경은 공개되지 않는다. 공개가 실패하면 GitHub 작업이 실패로 표시되며 Discord 알림은 없다. 공개 절차의 코드는 [공개 스크립트](../../scripts/collector-release-publish.mjs)가 원본이고, 이 자동 공개는 아직 GitHub에서 실행되지 않았다.

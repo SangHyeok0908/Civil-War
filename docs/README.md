@@ -114,6 +114,7 @@
 - [docs/superpowers/decisions/2026-10-29-light-ui.md](superpowers/decisions/2026-10-29-light-ui.md) — 2026-10-29, 현재: [docs/spec.md](spec.md)
 - [docs/validation/2026-10-29-light-ui-report.md](validation/2026-10-29-light-ui-report.md) — 2026-10-29, 현재: [docs/status.md](status.md)
 - [docs/validation/2026-11-21-admin-login-setting-report.md](validation/2026-11-21-admin-login-setting-report.md) — 2026-11-21, 현재: [docs/status.md](status.md)
+- [docs/validation/2026-11-21-auto-deploy-report.md](validation/2026-11-21-auto-deploy-report.md) — 2026-11-21, 현재: [docs/status.md](status.md)
 
 ## 보존한 과거 기록 구간
 

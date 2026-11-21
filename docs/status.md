@@ -56,6 +56,16 @@
 | 위임받은 선택 · 구현 담당자 | `.env` 환경 변수, 8–128자, 누락 시 시작 거부 | 운영 적용 때 `.env`·`compose.yml`에 값 추가 필요 |
 | 미확인 | 실제 집 서버에 새 설정 적용, 이전 고정값 거부의 운영 확인 | 운영 적용 시 확인 |
 
+## 2026-11-21 서버 자동 교체와 수집기 Release 공개
+
+master 병합마다 집 서버가 GHCR의 새 이미지로 스스로 교체(교체 전 백업·자동 되돌림·실패만 Discord 알림)되고, 새 수집기 버전은 설치 파일이 GitHub Release로 자동 공개되도록 구현했다. 두 기능은 로컬 단위 시험과 실제 로컬 Docker 모의 시험까지만 확인했다. 실제 GitHub Actions 실행·GHCR 게시·집 PC 전환·Discord 전송·Release 설치 파일의 Windows 설치는 미확인이다. 환경·결과·미확인 목록은 [검증 보고서](validation/2026-11-21-auto-deploy-report.md), 절차는 [집 서버 운영 절차](runbooks/home-server.md#자동-교체)와 [수집기 설치 안내](runbooks/collector-install.md#설치-파일-받기와-확인), 설계 결정은 [설계 기록](superpowers/specs/2026-11-21-ghcr-auto-deploy-design.md)을 따른다.
+
+| 분류·주체 | 현재 상태 | 지금 판단할 사항 |
+| --- | --- | --- |
+| 사용자 확정 · 사용자 | 설계 기록의 확정 항목 | 없음 |
+| 임시 선택 · 개발 담당자 | 이미지 이름표·2분 주기·백업 10개·Release 이름·수집기 버전 `0.5.0-provisional` 구현 | 바꾸고 싶은 값이 있으면 알림 |
+| 미확인 | 실제 Actions·GHCR·집 PC·Discord·Release 설치 | PR 병합 후 확인, 집 PC 전환은 사용자 실행 |
+
 ## 단계별 확인 범위
 
 | 영역 | 구현·기존 증거 | 남은 확인 |

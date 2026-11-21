@@ -1,8 +1,8 @@
 # Windows Docker 서버 설치·교체
 
-집 Windows 데스크톱의 Docker Desktop에서 서버·데이터베이스를 실행하고 Cloudflare Tunnel로 수집기를 연결한다. 사용자는 이 절차의 실제 배포를 맡는다. 기존 서버의 새 버전 교체는 아래 [교체 절차](#새-계정코드-계약-적용-순서)를 따른다. 새 시험 환경은 기존 운영 DB와 분리한다. 기기 등록 이후의 확인은 [Windows 실기 절차](collector-acceptance.md)를 따른다.
+집 Windows 데스크톱의 Docker Desktop에서 서버·데이터베이스를 실행하고 Cloudflare Tunnel로 수집기를 연결한다. 사용자는 이 절차의 실제 배포를 맡는다. 기존 서버의 새 버전 교체는 아래 [자동 교체](#자동-교체)를 쓰며, 자동 교체가 실제 집 PC에서 확인될 때까지 [ZIP 교체 절차](#새-계정코드-계약-적용-순서)는 수동 대체 절차로 남긴다. 새 시험 환경은 기존 운영 DB와 분리한다. 기기 등록 이후의 확인은 [Windows 실기 절차](collector-acceptance.md)를 따른다.
 
-기록일: 2026-10-26. 편집·보완일: 2026-10-28. 제품의 운영 기준은 [명세](../spec.md#설치운영-설계), 실행 결과는 [준비 검증 보고서](../validation/2026-10-26-collector-acceptance-preparation.md)에 있다.
+기록일: 2026-10-26. 편집·보완일: 2026-10-28, 2026-11-21(자동 교체 절차 추가, ZIP 절차를 수동 대체 절차로 표시). 제품의 운영 기준은 [명세](../spec.md#설치운영-설계), 실행 결과는 [준비 검증 보고서](../validation/2026-10-26-collector-acceptance-preparation.md)에 있다.
 
 ## 준비할 것
 
@@ -86,7 +86,89 @@ Invoke-RestMethod "$cwOrigin/api/members"
 
 컨테이너에는 재시작 정책이 있으나 Docker Desktop 자체가 실행되지 않으면 시작되지 않는다. Docker Desktop 자동 시작·Windows 절전 설정·PC 재부팅 후 복구, 외부 회선에서의 접속, PC 밖 DB 백업·복원과 프록시의 요청 제한은 별도 운영 확인이다. 이번 시험 서버 실행만으로 완료 처리하지 않는다. 프록시 뒤의 코드 교환 실패 제한은 [현재 인증 계약](../contracts/api.md#인증과-권한)의 한계를 따른다.
 
+## 자동 교체
+
+집 PC가 GHCR(GitHub 컨테이너 이미지 저장소)을 약 2분마다 직접 확인해, master에 병합되어 검사를 통과한 새 서버 이미지로 스스로 교체한다. 바깥에서 집 PC로 들어오는 경로는 없다. 교체 직전에 DB를 백업하고, 새 버전이 정상 상태(`healthy`)가 되지 않으면 백업과 이전 이미지로 되돌린다. 이 기준은 사용자가 확정했고([설계 기록](../superpowers/specs/2026-11-21-ghcr-auto-deploy-design.md)) 제품 기준은 [명세](../spec.md#설치운영-설계)에 있다. 이 절의 절차는 아직 실제 집 PC에서 실행·확인하지 않았다([검증 보고서](../validation/2026-11-21-auto-deploy-report.md)).
+
+알림은 실패 후 되돌림·되돌림 실패(수동 조치 필요)·백업 실패(교체 안 함)·GHCR 접속 지속 실패만 Discord로 온다. **교체 성공은 알리지 않는다.** 그러므로 알림이 없다는 것만으로 교체됐다고 믿지 말고 아래 평소 확인을 한다.
+
+### 최초 전환(한 번, 사람이 실행)
+
+자동 교체는 새 `compose.yml`이 집 PC에 있어야 시작되므로 첫 전환은 손으로 한다. 이 전환 중 서버가 몇 분 멈추며 수집기 전송은 지연된다(기록 손실은 아님). 명령은 **기존 배포 폴더**의 PowerShell에서 실행한다.
+
+1. GitHub의 패키지 설정에서 `civil-war-server`와 `civil-war-updater` 이미지가 공개인지 확인하고, 비공개면 공개로 바꾼다. 처음 만들어진 패키지의 기본 공개 여부는 확인하지 않았다. 공개가 아니면 아래 `docker pull`이 로그인을 요구한다.
+2. Discord 서버 설정에서 웹훅을 만들고 주소를 `secrets\discord-webhook-url.txt`에 저장한다. 이 파일은 `.env`·`secrets`처럼 공유 ZIP·저장소에 넣지 않는다.
+3. 서버·Tunnel을 멈추고 백업한다. [쓰기 중단과 백업](#1-쓰기-중단과-백업) 절차를 그대로 따른다.
+4. 새 `compose.yml`을 저장소 master에서 받아 기존 폴더에 덮어쓴다(위 3번 백업에 기존 파일이 들어 있다). `.env`·`secrets`·프로젝트 이름(`cw-collector-acceptance`)은 바꾸지 않는다. 기존 `compose.yml`에 직접 추가했던 설정이 있으면 백업본과 비교한다.
+
+   ```powershell
+   Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/SangHyeok0908/Civil-War/master/infra/home-server/compose.yml' -OutFile compose.yml
+   docker compose config --quiet
+   ```
+
+5. 서버 이미지를 받아 실행용 이름표를 붙이고 전체를 시작한다. 새 `compose.yml`의 서버는 `civil-war-server:current` 이름표를 쓰며 집 PC에서 빌드하지 않는다.
+
+   ```powershell
+   docker pull ghcr.io/sanghyeok0908/civil-war-server:master
+   docker tag ghcr.io/sanghyeok0908/civil-war-server:master civil-war-server:current
+   docker compose up -d --wait
+   docker compose ps
+   ```
+
+6. 웹훅 주소가 맞는지 시험 알림을 한 번 보낸다. Discord에 시험 메시지가 오면 정상이다.
+
+   ```powershell
+   docker compose run --rm updater --test-alert
+   ```
+
+   로그에 `alert failed: test`가 나오고 종료 코드가 0이 아니면 웹훅 파일이 없거나 주소가 틀린 것이다.
+
+### 평소 확인
+
+성공 알림이 없으므로 병합 후 반영 여부는 직접 본다. 비밀값이 섞일 수 있는 `docker inspect` 전체 출력은 쓰지 않고, 아래처럼 라벨만 출력한다.
+
+```powershell
+docker compose logs --tail 50 updater
+docker inspect --format '{{ json .Config.Labels }}' (docker compose ps -q server)
+```
+
+출력의 `org.opencontainers.image.revision` 값이 실행 중 서버 이미지의 원본 커밋이다. GitHub의 master 커밋과 대조한다. 교체 담당 로그에는 교체 시작·정상 확인·되돌림과 `이전에 되돌린 이미지라 다시 시도하지 않습니다` 같은 줄이 남는다. 로그가 멈춰 있거나 `updater`가 `docker compose ps`에 없으면 교체 담당이 멈춘 것이며, 이때도 알림은 오지 않는다.
+
+### 멈춤 상태의 수동 조치
+
+되돌림도 실패하면 Discord에 "수동 조치 필요"가 오고, 서버는 멈춘 채로 자동 교체도 멈춘다. 공개 조회·관리는 쓸 수 없고 수집기 자료는 각 PC에 보존된다.
+
+1. `docker compose logs --tail 100 updater postgres server`로 실패한 단계를 확인한다. `backups\` 폴더의 백업 파일(`pg_dump -Fc`)이 남아 있는지 본다. 백업 파일을 지우지 않는다.
+2. 원인을 고친다. 필요하면 [쓰기 중단과 백업](#1-쓰기-중단과-백업)의 백업 기준으로 DB를 되돌리고 서버를 직접 시작한다. `docker compose down -v`와 볼륨 삭제는 하지 않는다.
+3. 서버가 정상 상태(`healthy`)인 것을 확인한 뒤 멈춤을 푼다. 교체가 진행 중인 상태에서는 초기화를 거부한다.
+
+   ```powershell
+   docker compose run --rm updater --reset
+   ```
+
+   푼 뒤에는 `:master`가 다른 이미지로 바뀔 때 다음 교체가 진행된다. 실패한 이미지는 같은 것을 다시 시도하지 않는다.
+
+### 교체 담당의 수동 갱신
+
+교체 담당 이미지는 자동 교체 대상이 아니다. 바꿀 때만 직접 갱신한다.
+
+```powershell
+docker compose pull updater
+docker compose up -d updater
+```
+
+### 알려진 제한
+
+- 성공 알림이 없어서, 교체 담당이나 Docker Desktop이 멈추면 아무 알림 없이 병합한 변경이 반영되지 않은 채 남는다.
+- 교체마다 서버가 몇 분 멈춘다. 공개 조회·관리는 쓸 수 없고 수집기 전송은 지연된다.
+- 서버 검사의 경로 조건에 걸리지 않는 변경(문서·수집기만 변경 등)은 이미지를 만들지 않으므로 집 서버도 교체되지 않는다. 이미지는 서버 검사 작업이 통과한 master 푸시에서만 올라가며, 다른 검사 작업의 결과는 이미지 게시 조건이 아니다.
+- 교체 담당 컨테이너는 Docker 제어 통로(`/var/run/docker.sock`)를 쓴다. 이는 이 PC의 Docker 전체 제어권이므로 저장소에서 만든 이미지만 쓰고 수동으로 갱신한다.
+- `backups\`(교체 직전 백업, 최근 10개 보관)와 `secrets\`는 공유 ZIP·저장소에 넣지 않는다.
+- PostgreSQL·Tunnel 이미지는 자동 갱신하지 않고 고정 버전을 수동으로 올린다.
+
 ## 개발 환경에서 묶음 재생성
+
+이 절과 아래 ZIP 교체 절차는 [자동 교체](#자동-교체)가 집 PC에서 확인되기 전까지의 수동 대체 절차다. 자동 교체로 전환한 PC의 `compose.yml`에는 `build`가 없으므로 아래 `up -d --build`·`server.jar` 복사를 그대로 쓸 수 없다.
 
 저장소의 고정 도구로 서버를 빌드한 뒤 아래 허용 파일만 새 폴더에 복사해 ZIP으로 묶는다. 실제 `.env`·토큰·DB·사용자 자료는 포함하지 않는다.
 
@@ -100,6 +182,8 @@ cp apps/server/build/libs/civil-war-server-*-provisional.jar dist/home-server/se
 JAR 후보가 여러 개라면 현재 빌드 설정의 실행 JAR 하나를 명시한다. `-plain.jar`는 사용하지 않는다. 배포 ZIP에는 `home-server/` 아래 위 설정 4개와 `server.jar`만 넣는다. ZIP 해시는 파일 생성 후 별도로 계산한다.
 
 ## 새 계정·코드 계약 적용 순서
+
+수동 대체 절차다. 자동 교체 전환 전의 PC에서 쓰며, 전환 후에는 서버 교체 대신 1단계 백업과 3단계 수집기 연결만 쓴다.
 
 이 절차는 기존 Windows·Docker 서버와 수집기를 교체할 때 사용한다. ZIP은 새 폴더에 풀어 실행 파일을 준비한다. 기존 서버의 Compose 프로젝트·DB·볼륨·환경 설정과 각 PC의 수집기 자료 경로를 유지한다. 새 서버 구축은 앞의 최초 환경 설정 절차를 따른다.
 
