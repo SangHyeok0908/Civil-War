@@ -113,6 +113,12 @@
       "current": "docs/spec.md"
     },
     {
+      "path": "docs/superpowers/specs/2026-11-21-ghcr-auto-deploy-design.md",
+      "role": "historical",
+      "date": "2026-11-21",
+      "current": "docs/spec.md"
+    },
+    {
       "path": "docs/validation/lcu-candidate-contract.md",
       "role": "historical",
       "date": "2026-10-22",
@@ -297,6 +303,10 @@
     },
     {
       "path": "docs/superpowers/plans/2026-10-29-light-ui-profile-icons.md",
+      "role": "reference"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-11-21-ghcr-auto-deploy.md",
       "role": "reference"
     },
     {
