@@ -10,9 +10,26 @@ import cw.riot.SoloRankService;
 import cw.support.DatabaseTestSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 class SoloRankIntegrationTest extends DatabaseTestSupport {
+    /**
+     * Linux clocks return nanoseconds while PostgreSQL stores microseconds; macOS clocks hide this.
+     * Adding one nanosecond reproduces the Linux case on every host.
+     */
+    @TestConfiguration
+    static class NanosecondClock {
+        @Bean
+        @Primary
+        java.time.Clock nanosecondClock() {
+            return java.time.Clock.offset(
+                    java.time.Clock.systemUTC(), java.time.Duration.ofNanos(1));
+        }
+    }
+
     @MockitoBean RiotGateway gateway;
     @Autowired SoloRankService ranks;
     @Autowired MemberService profiles;

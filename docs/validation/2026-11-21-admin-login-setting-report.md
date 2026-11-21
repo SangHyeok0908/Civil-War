@@ -39,6 +39,14 @@ macOS arm64, OpenJDK 25.0.1, Node.js 23.11.0(저장소 지정 24.22.1과 다름,
 
 서버 테스트의 운영자 코드는 [테스트 설정](../../apps/server/src/test/resources/application-test.yml), 웹 테스트의 값은 [시험 서버 실행기](../../scripts/web-test-server.mjs)에 있는 공개 시험용 값이다. 운영 값이 아니다.
 
+## 원격 서버 검사 실패와 수정
+
+PR #8의 원격 서버 검사(Ubuntu)는 이번 변경 전 커밋 `68d61ad`부터 이미 실패하고 있었다. 실패한 시험은 등급 보관 검사 2개(`failedRefreshKeepsLastSuccess`, `accountMergeRetainsKnownRankWhenNextLookupFails`)였다.
+
+- **원인**: Linux의 Java 시계는 나노초 단위 시각을 주고, PostgreSQL은 마이크로초까지만 저장한다. 첫 등급 갱신 응답은 나노초 시각을 그대로 돌려주는데, 나중에 DB에서 읽은 시각은 잘려 있어 두 값이 달랐다. macOS 시계는 마이크로초 단위라 로컬 검사에서는 드러나지 않았다.
+- **수정**: [등급 서비스](../../apps/server/src/main/java/cw/riot/SoloRankService.java)가 저장 전에 시각을 마이크로초로 자른다.
+- **재현과 회귀 확인**: [등급 보관 검사](../../apps/server/src/test/java/cw/members/SoloRankIntegrationTest.java)에 1나노초를 더한 시계를 넣어 Linux 조건을 만들었다. 수정 전에는 같은 2개 시험이 실패했고, 수정 후 서버 전체 174개 사례가 통과했다. 원격 결과는 PR의 Checks를 따른다.
+
 ## 남은 확인과 한계
 
 - 실제 집 서버의 `.env`·`compose.yml`에 값을 추가하고 새 서버를 띄우는 작업은 하지 않았다. 절차는 [서버 안내](../runbooks/home-server.md#2-기존-설정으로-서버-교체)에 있다.

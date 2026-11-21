@@ -11,6 +11,8 @@ import cw.domain.RankSeedPolicy;
 import cw.members.MemberEntity;
 import cw.members.MemberRepository;
 import java.time.Clock;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -97,7 +99,10 @@ public class SoloRankService {
                                                 return value;
                                             });
                     double before = saved.seedValue;
-                    saved.attemptedAt = clock.instant();
+                    // PostgreSQL keeps microseconds; Linux clocks return nanoseconds. Truncate
+                    // so the returned snapshot equals what a later read returns.
+                    Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
+                    saved.attemptedAt = now;
                     saved.status = lookup.status();
                     if (official != null && "verified".equals(official.status())) {
                         if (account.officialPuuid != null
@@ -117,16 +122,14 @@ public class SoloRankService {
                                         : RankSeedPolicy.neutral();
                         saved.tier = lookup.tier();
                         saved.division = lookup.division();
-                        saved.observedAt = clock.instant();
-                        saved.nextAttemptAt =
-                                clock.instant().plusSeconds(RankSeedPolicy.successCacheSeconds());
+                        saved.observedAt = now;
+                        saved.nextAttemptAt = now.plusSeconds(RankSeedPolicy.successCacheSeconds());
                     } else {
                         saved.nextAttemptAt =
-                                clock.instant()
-                                        .plusMillis(
-                                                Math.max(
-                                                        RankSeedPolicy.failureBackoffMillis(),
-                                                        lookup.retryAfterMillis()));
+                                now.plusMillis(
+                                        Math.max(
+                                                RankSeedPolicy.failureBackoffMillis(),
+                                                lookup.retryAfterMillis()));
                     }
                     snapshots.save(saved);
                     if (Double.compare(before, saved.seedValue) != 0) {
