@@ -6,15 +6,7 @@ import {
 } from "../../../../packages/contracts/src/index";
 export const CHANNEL = "collector:command";
 export type Command =
-  | "account"
-  | "snapshot"
-  | "enroll"
-  | "query"
-  | "pending"
-  | "confirm"
-  | "resume"
-  | "references"
-  | "draft";
+  "account" | "snapshot" | "enroll" | "query" | "pending" | "confirm" | "draft";
 export function validSender(
   event: { senderId: number; frameUrl: string; isMainFrame: boolean },
   expectedId: number,
@@ -39,8 +31,6 @@ export function validateCommand(
       "query",
       "pending",
       "confirm",
-      "resume",
-      "references",
       "draft",
     ].includes(command)
   )
@@ -53,9 +43,7 @@ export function validateCommand(
         ? ["matchKey", "rolesByPuuid", "inhouse"]
         : command === "draft"
           ? ["matchKey", "rolesByPuuid"]
-          : command === "references"
-            ? ["selection"]
-            : [];
+          : [];
   if (
     Object.keys(p).some((k) => !allowed.includes(k)) ||
     Object.keys(p).length !== allowed.length
@@ -74,17 +62,12 @@ export function validateCommand(
         ? Object.keys(roles).length !== 10
         : Object.keys(roles).length > 10) ||
       Object.entries(roles).some(
-        ([k, v]) => k.length > 255 || !ROLES.includes(v),
+        ([k, v]) =>
+          k.length > 255 ||
+          (!(command === "draft" && v === null) && !ROLES.includes(v)),
       )
     )
       throw new ClientError("INVALID_ROLES");
   }
-  if (
-    command === "references" &&
-    (!Array.isArray(p.selection) ||
-      p.selection.length > 30 ||
-      p.selection.some((x: unknown) => typeof x !== "string" || x.length > 255))
-  )
-    throw new ClientError("INVALID_IPC");
   return { command: command as Command, payload: p };
 }

@@ -15,13 +15,16 @@ public class RoleSkillCalculator {
             for (Role role : Role.values()) {
                 List<GameScore> selected =
                         scores.stream()
-                                .filter(s -> s.memberId().equals(m.id()) && s.role() == role)
+                                .filter(s -> m.id().equals(s.memberId()) && s.role() == role)
                                 .toList();
                 result.add(
                         new RoleSkill(
                                 m.id(),
                                 role,
-                                (5. * m.seedSkill()
+                                (5.
+                                                        * (m.teamSeed() == null
+                                                                ? RankSeedPolicy.neutral()
+                                                                : m.teamSeed())
                                                 + selected.stream()
                                                         .mapToDouble(GameScore::score)
                                                         .sum())

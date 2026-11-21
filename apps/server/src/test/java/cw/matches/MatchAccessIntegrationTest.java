@@ -4,10 +4,10 @@ import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 
 import cw.auth.AuthService;
-import cw.auth.AuthService.CodeReply;
 import cw.contracts.MatchContracts.ConfirmationInput;
 import cw.contracts.MatchContracts.IngestMatchInput;
 import cw.support.DatabaseTestSupport;
+import cw.support.DatabaseTestSupport.CodeReply;
 import jakarta.servlet.http.Cookie;
 import java.util.HashSet;
 import java.util.Map;
@@ -29,15 +29,13 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
     record Login(Cookie cookie, String csrf) {}
 
     Login login() throws Exception {
-        CodeReply code = auth.issueCode("admin", null, "test");
+        String code = ADMIN_CODE;
         MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/admin/session")
                                         .header("Origin", "http://localhost:8080")
                                         .contentType("application/json")
-                                        .content(
-                                                json.writeValueAsString(
-                                                        Map.of("code", code.code()))))
+                                        .content(json.writeValueAsString(Map.of("code", code))))
                         .andReturn()
                         .getResponse();
 
@@ -89,11 +87,12 @@ class MatchAccessIntegrationTest extends DatabaseTestSupport {
     void onlyOwnerEdits() throws Exception {
         registered();
 
-        CodeReply code = auth.issueCode("collector", "member-1", "test");
+        CodeReply code = collectorCode();
         String token = auth.enroll(code.code(), actor(1).puuid()).token();
         assertThat(
                         mvc.perform(
                                         patch("/api/admin/matches/" + KEY + "/roles")
+                                                .header("X-CW-Collector-Protocol", "2")
                                                 .header("Authorization", "Bearer " + token)
                                                 .header("Origin", "http://localhost:8080")
                                                 .contentType("application/json")

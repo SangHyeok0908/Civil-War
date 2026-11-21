@@ -23,7 +23,12 @@ test("actualStage2OutboxToSpring pending lostConfirmAck roleCorrection cancellat
     return response;
   };
   const api = new HttpServerApi(origin, transport);
-  const credential = await api.enroll(s.collectorCode, s.members[0].puuid);
+  const credential = await api.enroll(s.collectorCode, {
+    puuid: s.members[0].puuid,
+    riotId: s.members[0].riotId,
+    source: "current_summoner",
+    observedAt: new Date().toISOString(),
+  });
   const source = JSON.parse(
     readFileSync("fixtures/lcu/candidates/h2-20261021/G1.json", "utf8"),
   );
@@ -110,10 +115,10 @@ test("actualStage2OutboxToSpring pending lostConfirmAck roleCorrection cancellat
     "0.12345678901234567890123456789",
   );
   await page
-    .getByLabel("여울 실제 포지션", { exact: true })
+    .getByLabel(s.members[0].displayName + " 실제 포지션", { exact: true })
     .selectOption("JUNGLE");
   await page
-    .getByLabel("바람 실제 포지션", { exact: true })
+    .getByLabel(s.members[1].displayName + " 실제 포지션", { exact: true })
     .selectOption("TOP");
   await page.getByRole("button", { name: "포지션 정정 저장" }).click();
   await expect(

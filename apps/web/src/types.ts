@@ -7,21 +7,29 @@ export interface PublicMember {
   primaryRole: Role | null;
   secondaryRole: Role | null;
   allowedRoles: Role[];
+  profileIconId?: number | null;
 }
 export interface AdminMember extends PublicMember {
-  puuid: string;
+  puuid: string | null;
   riotId: string;
   seedSkill: number;
   profileRevision: number;
+  teamSeed: number;
+  rankStatus: string;
+  rankTier: string | null;
+  rankDivision: string | null;
+  rankObservedAt: string | null;
 }
 export interface PublicParticipant extends Omit<Participant, "puuid"> {
-  memberId: string;
+  playerId: string;
+  memberId: string | null;
   displayName: string;
   role: Role;
 }
 export interface Score {
   matchKey: string;
-  memberId: string;
+  playerId: string;
+  memberId: string | null;
   role: Role;
   scoringVersion: string;
   score: number;

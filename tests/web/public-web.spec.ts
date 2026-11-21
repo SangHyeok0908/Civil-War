@@ -34,7 +34,7 @@ test("confirmedObjectiveRulesDescribePerMinuteMetrics", async ({
   await page.locator(".rule-note summary").click();
   await expect(page.locator(".rule-note caption")).toBeVisible();
   await page.locator(".rule-note").screenshot({
-    path: "docs/validation/assets/confirmed-objective-rules.png",
+    path: "docs/validation/assets/2026-10-28-ux-ease-objective-rules.png",
   });
 });
 test("tenPlayerComparison and missingAssetFallback", async ({ page }) => {
@@ -52,7 +52,7 @@ test("tenPlayerComparison and missingAssetFallback", async ({ page }) => {
     page.getByTestId("player-row").first().getByText("사망 보정"),
   ).toBeVisible();
   await page.screenshot({
-    path: "docs/validation/assets/stage3-match-desktop.png",
+    path: "docs/validation/assets/2026-10-28-ux-ease-match-desktop.png",
     fullPage: true,
   });
 });
@@ -75,10 +75,10 @@ test("aggregateKdaFromTotals and provisionalVisible", async ({
   await page.goto("/rankings");
   await expect(page.getByText("평가 중")).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "다온", exact: true }),
+    page.getByRole("link", { name: s.members[10].displayName, exact: true }),
   ).toBeVisible();
   await page.screenshot({
-    path: "docs/validation/assets/stage3-rankings.png",
+    path: "docs/validation/assets/2026-10-28-ux-rankings.png",
     fullPage: true,
   });
 });
@@ -93,7 +93,7 @@ test("anonymousTeamChoices and keyboard selection", async ({ page }) => {
   await expect(page.locator(".candidate")).toHaveCount(3);
   await expect(page.locator(".team-seat")).toHaveCount(30);
   await page.screenshot({
-    path: "docs/validation/assets/stage3-teams.png",
+    path: "docs/validation/assets/2026-10-28-ux-ease-teams.png",
     fullPage: true,
   });
 });
@@ -110,9 +110,15 @@ test("paginationAndSameParticipantFilters", async ({ page, request }) => {
     .getByRole("combobox", { name: "참가자", exact: true })
     .selectOption(state().members[10].id);
   await expect(page.locator(".match-card")).toHaveCount(1);
+  const selected = await (
+    await request.get("/api/matches?memberId=" + state().members[10].id)
+  ).json();
+  const other = selected.items[0].participants.find(
+    (p: any) => p.memberId !== state().members[10].id,
+  );
   await page
-    .getByRole("combobox", { name: "포지션", exact: true })
-    .selectOption("TOP");
+    .getByRole("combobox", { name: "챔피언", exact: true })
+    .fill(String(other.championId));
   await expect(page.getByText("아직 등록된 기록이 없습니다.")).toBeVisible();
   const bad = await request.get("/api/no-such-route");
   expect(bad.status()).toBe(404);
@@ -134,7 +140,7 @@ test("mobileReadableTablesAndNavigation", async ({ page }) => {
       .evaluate((e) => e.scrollWidth > e.clientWidth),
   ).toBe(true);
   await page.screenshot({
-    path: "docs/validation/assets/stage3-mobile.png",
+    path: "docs/validation/assets/2026-10-28-ux-ease-mobile.png",
     fullPage: true,
   });
   await page.getByRole("link", { name: "팀 추천", exact: true }).click();

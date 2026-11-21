@@ -3,8 +3,8 @@ package cw.auth;
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 
-import cw.auth.AuthService.CodeReply;
 import cw.support.DatabaseTestSupport;
+import cw.support.DatabaseTestSupport.CodeReply;
 import jakarta.servlet.http.Cookie;
 import java.util.List;
 import java.util.Map;
@@ -23,15 +23,13 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
     record Login(Cookie cookie, String csrf) {}
 
     Login login() throws Exception {
-        CodeReply code = auth.issueCode("admin", null, "test");
+        String code = ADMIN_CODE;
         MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/admin/session")
                                         .header("Origin", "http://localhost:8080")
                                         .contentType("application/json")
-                                        .content(
-                                                json.writeValueAsString(
-                                                        Map.of("code", code.code()))))
+                                        .content(json.writeValueAsString(Map.of("code", code))))
                         .andReturn()
                         .getResponse();
         assertThat(response.getStatus()).isEqualTo(200);
@@ -42,18 +40,15 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
     }
 
     String enroll(int member) throws Exception {
-        CodeReply code = auth.issueCode("collector", "member-" + member, "test");
+        CodeReply code = collectorCode();
         MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/collector/enroll")
+                                        .header("X-CW-Collector-Protocol", "2")
                                         .contentType("application/json")
                                         .content(
                                                 json.writeValueAsString(
-                                                        Map.of(
-                                                                "code",
-                                                                code.code(),
-                                                                "currentPuuid",
-                                                                actor(member).puuid()))))
+                                                        enrollmentBody(code.code(), member))))
                         .andReturn()
                         .getResponse();
         assertThat(response.getStatus()).isEqualTo(200);
@@ -62,16 +57,58 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
     }
 
     @Test
-    void oneUseAtomic() throws Exception {
-        CodeReply code = auth.issueCode("collector", "member-1", "test");
-        String body =
-                json.writeValueAsString(
-                        Map.of("code", code.code(), "currentPuuid", actor(1).puuid()));
+    void concurrentGuessesCannotExceedFiveAttempts() throws Exception {
+        try (java.util.concurrent.ExecutorService pool =
+                java.util.concurrent.Executors.newFixedThreadPool(8)) {
+            java.util.concurrent.CyclicBarrier barrier = new java.util.concurrent.CyclicBarrier(8);
+            java.util.List<java.util.concurrent.Callable<Integer>> requests =
+                    new java.util.ArrayList<>();
+            for (int i = 0; i < 8; i++) {
+                requests.add(
+                        () -> {
+                            barrier.await();
+                            return mvc.perform(
+                                            post("/api/admin/session")
+                                                    .header("Origin", "http://localhost:8080")
+                                                    .contentType("application/json")
+                                                    .content("{\"code\":\"999999\"}"))
+                                    .andReturn()
+                                    .getResponse()
+                                    .getStatus();
+                        });
+            }
+            java.util.List<Integer> statuses = new java.util.ArrayList<>();
+            for (java.util.concurrent.Future<Integer> result : pool.invokeAll(requests)) {
+                statuses.add(result.get());
+            }
+            assertThat(statuses.stream().filter(code -> code == 401).count()).isEqualTo(5);
+            assertThat(statuses.stream().filter(code -> code == 429).count()).isEqualTo(3);
+        }
+    }
+
+    @Test
+    void protocolOneRequiresUpdateBeforeDecoding() throws Exception {
+        assertThat(
+                        mvc.perform(
+                                        post("/api/collector/enroll")
+                                                .contentType("application/json")
+                                                .content("{\"currentPuuid\":\"old\"}"))
+                                .andReturn()
+                                .getResponse()
+                                .getStatus())
+                .isEqualTo(426);
+    }
+
+    @Test
+    void commonCodeSupportsConcurrentDevices() throws Exception {
+        CodeReply code = collectorCode();
+        String body = json.writeValueAsString(enrollmentBody(code.code(), 1));
         List<Integer> result =
                 concurrent(
                         () ->
                                 mvc.perform(
                                                 post("/api/collector/enroll")
+                                                        .header("X-CW-Collector-Protocol", "2")
                                                         .contentType("application/json")
                                                         .content(body))
                                         .andReturn()
@@ -80,20 +117,21 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                         () ->
                                 mvc.perform(
                                                 post("/api/collector/enroll")
+                                                        .header("X-CW-Collector-Protocol", "2")
                                                         .contentType("application/json")
                                                         .content(body))
                                         .andReturn()
                                         .getResponse()
                                         .getStatus());
-        assertThat(result).containsExactlyInAnyOrder(200, 401);
+        assertThat(result).containsExactlyInAnyOrder(200, 200);
         assertThat(jdbc.queryForObject("select count(*) from collector_credentials", Integer.class))
-                .isEqualTo(1);
+                .isEqualTo(2);
     }
 
     @Test
-    void adminCodeOneUseAtomic() throws Exception {
-        CodeReply code = auth.issueCode("admin", null, "test");
-        String body = json.writeValueAsString(Map.of("code", code.code()));
+    void fixedAdminCodeSupportsConcurrentSessions() throws Exception {
+        String code = ADMIN_CODE;
+        String body = json.writeValueAsString(Map.of("code", code));
         List<Integer> results =
                 concurrent(
                         () ->
@@ -114,15 +152,15 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                         .andReturn()
                                         .getResponse()
                                         .getStatus());
-        assertThat(results).containsExactlyInAnyOrder(200, 401);
+        assertThat(results).containsExactlyInAnyOrder(200, 200);
         assertThat(jdbc.queryForObject("select count(*) from admin_sessions", Integer.class))
-                .isEqualTo(1);
+                .isEqualTo(2);
     }
 
     @Test
     void ownerCanRevokeCredentialAndUnusedCodeOverHttp() throws Exception {
         String token = enroll(1);
-        CodeReply code = auth.issueCode("collector", "member-2", "test");
+        CodeReply code = collectorCode();
         Login login = login();
         String credential =
                 jdbc.queryForObject("select id from collector_credentials limit 1", String.class);
@@ -130,7 +168,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
         for (String path :
                 List.of(
                         "/api/admin/collector-credentials/" + credential,
-                        "/api/admin/codes/" + code.id())) {
+                        "/api/admin/collector-code")) {
             assertThat(
                             mvc.perform(
                                             delete(path)
@@ -146,6 +184,8 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
         assertThat(
                         mvc.perform(
                                         get("/api/collector/members")
+                                                .header("X-CW-Collector-Protocol", "2")
+                                                .header("X-CW-Collector-Protocol", "2")
                                                 .header("Authorization", "Bearer " + token))
                                 .andReturn()
                                 .getResponse()
@@ -154,14 +194,11 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
         assertThat(
                         mvc.perform(
                                         post("/api/collector/enroll")
+                                                .header("X-CW-Collector-Protocol", "2")
                                                 .contentType("application/json")
                                                 .content(
                                                         json.writeValueAsString(
-                                                                Map.of(
-                                                                        "code",
-                                                                        code.code(),
-                                                                        "currentPuuid",
-                                                                        actor(2).puuid()))))
+                                                                enrollmentBody(code.code(), 2))))
                                 .andReturn()
                                 .getResponse()
                                 .getStatus())
@@ -187,13 +224,14 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
         assertThat(
                         mvc.perform(
                                         get("/api/admin/members")
+                                                .header("X-CW-Collector-Protocol", "2")
                                                 .header("Authorization", "Bearer " + token))
                                 .andReturn()
                                 .getResponse()
                                 .getStatus())
                 .isEqualTo(403);
 
-        CodeReply code = auth.issueCode("collector", "member-1", "test");
+        CodeReply code = collectorCode();
         assertThat(
                         mvc.perform(
                                         post("/api/admin/session")
@@ -207,18 +245,15 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                 .getStatus())
                 .isEqualTo(401);
 
-        CodeReply adminCode = auth.issueCode("admin", null, "test");
+        String adminCode = ADMIN_CODE;
         assertThat(
                         mvc.perform(
                                         post("/api/collector/enroll")
+                                                .header("X-CW-Collector-Protocol", "2")
                                                 .contentType("application/json")
                                                 .content(
                                                         json.writeValueAsString(
-                                                                Map.of(
-                                                                        "code",
-                                                                        adminCode.code(),
-                                                                        "currentPuuid",
-                                                                        actor(1).puuid()))))
+                                                                enrollmentBody(adminCode, 1))))
                                 .andReturn()
                                 .getResponse()
                                 .getStatus())
@@ -227,31 +262,13 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void expiredAndRevoked() throws Exception {
-        CodeReply code = auth.issueCode("collector", "member-1", "test");
-        jdbc.update(
-                "update enrollment_codes set expires_at=now()-interval '1 second' where id=?",
-                code.id());
-        assertThat(
-                        mvc.perform(
-                                        post("/api/collector/enroll")
-                                                .contentType("application/json")
-                                                .content(
-                                                        json.writeValueAsString(
-                                                                Map.of(
-                                                                        "code",
-                                                                        code.code(),
-                                                                        "currentPuuid",
-                                                                        actor(1).puuid()))))
-                                .andReturn()
-                                .getResponse()
-                                .getStatus())
-                .isEqualTo(401);
-
         String token = enroll(1);
         jdbc.update("update collector_credentials set revoked=true");
         assertThat(
                         mvc.perform(
                                         get("/api/collector/members")
+                                                .header("X-CW-Collector-Protocol", "2")
+                                                .header("X-CW-Collector-Protocol", "2")
                                                 .header("Authorization", "Bearer " + token))
                                 .andReturn()
                                 .getResponse()
@@ -271,10 +288,10 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
     @Test
     void csrfAndOrigin() throws Exception {
         Login login = login();
-        String body = "{\"scope\":\"admin\"}";
+        String body = "{}";
         assertThat(
                         mvc.perform(
-                                        post("/api/admin/codes")
+                                        post("/api/admin/collector-code")
                                                 .cookie(login.cookie())
                                                 .header("Origin", "http://evil.invalid")
                                                 .header("X-CSRF-Token", login.csrf())
@@ -286,7 +303,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                 .isEqualTo(403);
         assertThat(
                         mvc.perform(
-                                        post("/api/admin/codes")
+                                        post("/api/admin/collector-code")
                                                 .cookie(login.cookie())
                                                 .header("Origin", "http://localhost:8080")
                                                 .contentType("application/json")
@@ -297,7 +314,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                 .isEqualTo(403);
         assertThat(
                         mvc.perform(
-                                        post("/api/admin/codes")
+                                        post("/api/admin/collector-code")
                                                 .cookie(login.cookie())
                                                 .header("Origin", "http://localhost:8080")
                                                 .header("X-CSRF-Token", login.csrf())
@@ -310,10 +327,9 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
     }
 
     @Test
-    void localRecovery() throws Exception {
+    void revokedBrowserSessionDoesNotDisableFixedLogin() throws Exception {
         Login login = login();
-        CodeReply old = auth.issueCode("admin", null, "test");
-        auth.recoverAdmin(true);
+        jdbc.update("update admin_sessions set revoked=true");
         assertThat(
                         mvc.perform(get("/api/admin/members").cookie(login.cookie()))
                                 .andReturn()
@@ -325,18 +341,13 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                         post("/api/admin/session")
                                                 .header("Origin", "http://localhost:8080")
                                                 .contentType("application/json")
-                                                .content(
-                                                        json.writeValueAsString(
-                                                                Map.of("code", old.code()))))
+                                                .content("{\"code\":\"" + ADMIN_CODE + "\"}"))
                                 .andReturn()
                                 .getResponse()
                                 .getStatus())
-                .isEqualTo(401);
-        assertThat(
-                        jdbc.queryForObject(
-                                "select count(*) from enrollment_codes where scope='admin' and not revoked and not consumed",
-                                Integer.class))
-                .isEqualTo(1);
+                .isEqualTo(200);
+        assertThat(jdbc.queryForObject("select count(*) from enrollment_codes", Integer.class))
+                .isZero();
     }
 
     @Test
@@ -349,8 +360,7 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                         .header("Origin", "http://localhost:8080")
                                         .header("X-CSRF-Token", login.csrf())
                                         .contentType("application/json")
-                                        .content(
-                                                "{\"displayName\":\"New Name\",\"riotId\":\"Renamed#KR\"}"))
+                                        .content("{\"riotId\":\"Renamed#KR\"}"))
                         .andReturn()
                         .getResponse();
         assertThat(response.getStatus()).isEqualTo(200);
@@ -371,31 +381,35 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
     }
 
     @Test
-    void accountMismatchDoesNotConsumeCode() throws Exception {
-        CodeReply code = auth.issueCode("collector", "member-1", "test");
+    void unknownCollectorCannotJoinAndCodeRemainsUsable() throws Exception {
+        CodeReply code = collectorCode();
+        Map<String, Object> body =
+                Map.of(
+                        "code",
+                        code.code(),
+                        "protocolVersion",
+                        2,
+                        "currentAccount",
+                        Map.of(
+                                "puuid",
+                                "unregistered-current-player",
+                                "riotId",
+                                "Unknown#test",
+                                "source",
+                                "current_summoner",
+                                "observedAt",
+                                java.time.Instant.now().toString()));
         MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/collector/enroll")
+                                        .header("X-CW-Collector-Protocol", "2")
                                         .contentType("application/json")
-                                        .content(
-                                                json.writeValueAsString(
-                                                        Map.of(
-                                                                "code",
-                                                                code.code(),
-                                                                "currentPuuid",
-                                                                actor(2).puuid()))))
+                                        .content(json.writeValueAsString(body)))
                         .andReturn()
                         .getResponse();
         assertThat(response.getStatus()).isEqualTo(403);
-        assertThat(response.getContentAsString())
-                .contains("ACCOUNT_MISMATCH")
-                .doesNotContain(actor(1).puuid());
-        assertThat(
-                        jdbc.queryForObject(
-                                "select consumed from enrollment_codes where id=?",
-                                Boolean.class,
-                                code.id()))
-                .isFalse();
+        assertThat(response.getContentAsString()).contains("UNREGISTERED_COLLECTOR");
+        assertThat(auth.enroll(code.code(), actor(1).puuid()).token()).hasSize(43);
     }
 
     @Test

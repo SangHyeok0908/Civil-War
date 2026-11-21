@@ -21,9 +21,14 @@ public class MemberController {
         return members.publicList();
     }
 
-    @GetMapping({"/api/admin/members", "/api/collector/members"})
+    @GetMapping("/api/admin/members")
     public Object internalList() {
         return members.list();
+    }
+
+    @GetMapping("/api/collector/members")
+    public Object collectorList() {
+        return members.list().stream().filter(m -> m.puuid() != null).toList();
     }
 
     @GetMapping("/api/admin/members/{id}")

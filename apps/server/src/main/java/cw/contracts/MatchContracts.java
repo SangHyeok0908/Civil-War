@@ -51,13 +51,21 @@ public final class MatchContracts {
 
     public record RegistrationAck(String matchKey, String disposition, long sourceRevision) {}
 
+    public record RoleSuggestion(String puuid, Role role, String source, String reason) {}
+
     public record CollectorMatch(
             String matchKey,
             String state,
             NormalizedMatch match,
-            Map<String, Role> confirmedRoles) {}
+            Map<String, Role> confirmedRoles,
+            List<RoleSuggestion> roleSuggestions) {}
 
-    public record CollectorPrincipal(String memberId, String credentialId, String puuid) {}
+    public record CollectorPrincipal(
+            String memberId, String credentialId, String puuid, long codeGeneration) {
+        public CollectorPrincipal(String memberId, String credentialId, String puuid) {
+            this(memberId, credentialId, puuid, 0);
+        }
+    }
 
     public record Issue(String path, String code) {}
 

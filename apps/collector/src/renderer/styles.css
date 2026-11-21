@@ -1,39 +1,10 @@
-:root {
-  font-family:
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    sans-serif;
-  color: #e8edf5;
-  background: #0e1522;
-  font-synthesis: none;
-  color-scheme: dark;
-}
+@import "../../../../packages/ui/tokens.css";
+
 * {
   box-sizing: border-box;
 }
 body {
   margin: 0;
-}
-main {
-  max-width: 1320px;
-  margin: auto;
-  padding: 32px;
-}
-h1 {
-  font-size: 32px;
-  margin: 6px 0;
-}
-h2 {
-  font-size: 18px;
-  margin: 6px 0;
-}
-p {
-  line-height: 1.6;
-}
-small {
-  color: #91a3ba;
-  font-size: 12px;
 }
 button,
 input,
@@ -41,184 +12,445 @@ select {
   font: inherit;
 }
 button {
-  background: #75d8bc;
-  color: #0e2721;
-  border: 0;
-  border-radius: 7px;
+  color: var(--on-primary);
+  background: var(--primary);
+  border: 1px solid transparent;
+  border-radius: var(--control-radius);
+  min-height: 44px;
   padding: 12px 18px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
+}
+button:hover {
+  background: var(--primary-hover);
 }
 button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
 .secondary {
-  background: #27364a;
-  color: #e8edf5;
+  color: var(--secondary-text);
+  background: #e9edf3;
 }
-input,
-select {
-  background: #101c2c;
-  border: 1px solid #496079;
-  border-radius: 5px;
-  padding: 8px;
-  color: inherit;
-}
-input[type="checkbox"] {
-  accent-color: #75d8bc;
+.secondary:hover {
+  background: #dfe5ed;
 }
 button:focus-visible,
 input:focus-visible,
-select:focus-visible {
-  outline: 3px solid #8edbff;
-  outline-offset: 2px;
+select:focus-visible,
+.teams > section:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
 }
-.title,
-.account,
-.match header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 24px;
+input,
+select {
+  color: var(--text);
+  background: var(--input);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  min-height: 42px;
+  padding: 10px;
+  min-width: 0;
 }
-.provisional {
+select {
+  width: 100%;
+}
+input[type="checkbox"] {
+  accent-color: var(--primary);
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+h1 {
+  font-size: 30px;
+  letter-spacing: -1px;
+  line-height: 1.35;
+}
+h2 {
+  font-size: 18px;
+  letter-spacing: -0.4px;
+}
+h3 {
+  font-size: 14px;
+}
+small {
+  color: var(--muted);
   font-size: 12px;
-  color: #e4c385;
-  border: 1px solid #665a41;
-  padding: 8px;
-  border-radius: 5px;
+}
+.app-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.app-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 1160px;
+  margin: auto;
+  padding: 20px 32px;
+}
+.app-header-inner > strong {
+  font-size: 18px;
+  letter-spacing: -0.5px;
+}
+.app-header-inner > span:last-child {
+  color: var(--muted);
+  font-size: 13px;
+  margin-left: 3px;
+}
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  color: var(--on-primary);
+  background: var(--primary);
+  font-size: 13px;
+  font-weight: 800;
+}
+main {
+  max-width: 1160px;
+  margin: auto;
+  padding: 36px 32px 48px;
+}
+.eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 9px;
+}
+.title {
+  margin-bottom: 26px;
+}
+.title h1 {
+  margin-bottom: 8px;
+}
+.title p:last-child {
+  color: var(--secondary-text);
+  font-size: 14px;
 }
 .account,
 .match {
-  margin-top: 24px;
-  background: #182438;
-  border: 1px solid #2b3b52;
-  border-radius: 12px;
   padding: 24px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  min-width: 0;
 }
-.account form {
+.account {
   display: flex;
-  align-items: flex-end;
-  gap: 10px;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
 }
-.account label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 12px;
+.account h2 {
+  margin-top: 4px;
+  overflow-wrap: anywhere;
 }
 .account p {
-  margin: 6px 0;
+  color: var(--secondary-text);
+  margin-top: 9px;
+  font-size: 13px;
 }
 .actions {
   display: flex;
-  gap: 12px;
-  margin-top: 24px;
   flex-wrap: wrap;
+  gap: 10px;
+  margin: 20px 0 12px;
 }
 .help {
-  color: #a7b8cd;
-  font-size: 14px;
+  color: var(--muted);
+  font-size: 12px;
+  margin: 8px 0;
 }
 .warning {
-  padding: 12px;
-  border-left: 3px solid #e3ba79;
-  background: #302a24;
-  color: #f5dba9;
+  color: var(--amber);
+  background: var(--amber-soft);
+  padding: 14px 16px;
+  border-radius: 12px;
+  margin: 14px 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
 }
 .queue-summary {
   display: flex;
-  gap: 20px;
-  padding: 16px 0;
   flex-wrap: wrap;
-  color: #9fb1c8;
-  font-size: 14px;
+  gap: 5px;
+  margin: 25px 0 14px;
+}
+.queue-summary button {
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 9px 11px;
+  min-height: 42px;
+}
+.queue-summary button[aria-pressed="true"] {
+  background: var(--primary-soft);
+  color: var(--primary);
 }
 .queue-summary strong {
-  color: #fff;
+  margin-left: 4px;
+}
+.match-list-region {
+  scroll-margin-top: 22px;
+  outline: none;
+}
+.match-list-region > .match + .match {
+  margin-top: 16px;
+}
+.match > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.match > header > div {
+  min-width: 0;
+}
+.match > header h2 {
+  font-size: 16px;
 }
 .badge {
-  background: #33455f;
-  padding: 8px 12px;
-  border-radius: 6px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  padding: 6px 9px;
+  border-radius: 7px;
+  font-size: 12px;
   white-space: nowrap;
 }
 .badge.done {
-  background: #245c4d;
-  color: #a2f2d8;
+  background: var(--success-soft);
+  color: var(--success);
+}
+.match-progress {
+  color: var(--secondary-text);
+  background: #f7f8fa;
+  border-radius: 10px;
+  margin: 15px 0 0;
+  padding: 11px 13px;
+  font-size: 12px;
+}
+.match-progress:empty {
+  display: none;
+}
+.match-progress small {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
 }
 .teams {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
   gap: 24px;
-  margin-top: 20px;
+  margin-top: 21px;
+}
+.teams > section {
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: 4px;
 }
 .teams h3 {
-  font-size: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
 }
-.teams section:first-child h3 {
-  color: #88c8ff;
+.teams > section:first-child h3 {
+  color: var(--primary);
 }
-.teams section:last-child h3 {
-  color: #f8a0a7;
+.teams > section:last-child h3 {
+  color: var(--danger);
 }
 table {
   width: 100%;
+  min-width: 320px;
+  table-layout: fixed;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 12px;
 }
 th {
-  text-align: left;
-  color: #9fb1c8;
+  color: var(--muted);
+  font-size: 11px;
   font-weight: 500;
+  text-align: left;
+  padding: 11px 5px;
 }
-td,
-th {
-  padding: 12px 5px;
-  border-bottom: 1px solid #2e3e55;
+th:first-child {
+  width: 45%;
+}
+th:nth-child(2) {
+  width: 23%;
+}
+th:last-child {
+  width: 32%;
+}
+td {
+  padding: 13px 5px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+th:first-child,
+td:first-child {
+  padding-left: 0;
+}
+th:last-child,
+td:last-child {
+  padding-right: 0;
+}
+td:nth-child(2) {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--secondary-text);
+  font-size: 12px;
+}
+td:last-child select {
+  padding: 9px 5px;
+  font-size: 12px;
 }
 td small {
   display: block;
   margin-top: 4px;
-}
-details {
   font-size: 11px;
-  color: #9fb1c8;
-  margin-top: 5px;
 }
-details p {
-  max-width: 240px;
+.participant-identity {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.participant-identity > span {
+  min-width: 0;
+}
+.participant-name {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.champion-portrait,
+.champion-placeholder {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--input);
+}
+.champion-placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
 }
 .match footer {
-  border-top: 1px solid #304158;
-  margin-top: 24px;
-  padding-top: 24px;
-}
-.match footer p {
-  font-size: 13px;
-  color: #9fb1c8;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
 }
 .empty {
-  border: 1px dashed #425570;
-  border-radius: 12px;
-  padding: 60px;
   text-align: center;
-  color: #9fb1c8;
+  padding: 50px 24px;
+  color: var(--muted);
+  background: var(--surface);
+  border-radius: var(--radius);
+}
+.modal {
+  width: min(460px, calc(100vw - 32px));
+  padding: 28px;
+  border: 0;
+  border-radius: 24px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 24px 80px #17243730;
+}
+.modal::backdrop {
+  background: #17243752;
+}
+.modal h2 {
+  font-size: 23px;
+  margin-bottom: 12px;
+}
+.modal p {
+  color: var(--secondary-text);
+  font-size: 14px;
+  margin: 12px 0;
+}
+.modal form {
+  margin-top: 22px;
+}
+.modal label {
+  display: grid;
+  gap: 9px;
+  font-size: 13px;
+  color: var(--secondary-text);
+}
+.modal input {
+  width: 100%;
+  min-height: 48px;
+  font-size: 16px;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 23px;
 }
 @media (max-width: 1000px) {
   main {
+    padding: 28px 20px 38px;
+  }
+  .app-header-inner {
+    padding: 18px 20px;
+  }
+  .match {
     padding: 20px;
+  }
+  .teams {
+    gap: 18px;
+  }
+}
+@media (max-width: 600px) {
+  main {
+    padding: 26px 13px;
+  }
+  .app-header-inner {
+    padding: 16px;
+  }
+  h1 {
+    font-size: 27px;
   }
   .account {
     align-items: flex-start;
-    flex-direction: column;
+    flex-wrap: wrap;
+    padding: 20px;
+  }
+  .actions {
+    display: grid;
+  }
+  .match {
+    padding: 18px 14px;
   }
   .teams {
     gap: 12px;
   }
-  .match {
-    padding: 16px;
+  .teams h3 {
+    font-size: 13px;
+  }
+  .queue-summary {
+    gap: 2px;
+  }
+  .queue-summary button {
+    padding: 9px;
+  }
+  .pagination {
+    gap: 10px;
+  }
+  .pagination button {
+    font-size: 12px;
+    padding: 10px 12px;
   }
 }

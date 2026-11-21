@@ -1,5 +1,7 @@
 package cw.matches;
 
+import cw.accounts.AccountLinkService;
+import cw.auth.GroupCodeService;
 import cw.contracts.ApiException;
 import cw.contracts.MatchContracts.CollectorPrincipal;
 import cw.contracts.MatchContracts.IngestMatchAck;
@@ -10,6 +12,7 @@ import cw.db.MutationCoordinator;
 import cw.members.MemberEntity;
 import cw.members.MemberRepository;
 import java.time.Clock;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -23,8 +26,10 @@ public class IngestService {
     private final MemberRepository members;
     private final MutationCoordinator mutations;
     private final MatchViews views;
+    private final GroupCodeService groups;
     private final JsonMapper json;
     private final Clock clock;
+    private final AccountLinkService accounts;
 
     public IngestService(
             MatchInputValidator validator,
@@ -33,20 +38,25 @@ public class IngestService {
             MutationCoordinator mutations,
             MatchViews views,
             JsonMapper json,
-            Clock clock) {
+            Clock clock,
+            AccountLinkService accounts,
+            GroupCodeService groups) {
         this.validator = validator;
         this.matches = matches;
         this.members = members;
         this.mutations = mutations;
         this.views = views;
+        this.groups = groups;
         this.json = json;
         this.clock = clock;
+        this.accounts = accounts;
     }
 
     @Transactional
     public IngestMatchAck ingestMatch(IngestMatchInput input, CollectorPrincipal actor) {
         NormalizedMatch normalized = validator.normalize(input);
         mutations.lock();
+        groups.requireCurrentGeneration(actor);
 
         Optional<MatchEntity> existing = matches.findById(normalized.matchKey());
 
@@ -58,6 +68,15 @@ public class IngestService {
 
         MatchEntity match = createPendingMatch(input, normalized);
         views.requireParticipant(match, actor);
+        long registered =
+                match.participants.stream()
+                        .map(p -> p.memberId)
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .count();
+        if (registered < 6) {
+            throw new ApiException(422, "INSUFFICIENT_REGISTERED_PARTICIPANTS");
+        }
         matches.save(match);
         mutations.audit("match_ingested", actor.memberId(), match.id, "{}");
 
@@ -83,14 +102,13 @@ public class IngestService {
     }
 
     private MatchParticipantEntity createParticipant(ParticipantRecord record, MatchEntity match) {
-        MemberEntity member =
-                members.findByPuuid(record.puuid())
-                        .orElseThrow(() -> new ApiException(422, "UNREGISTERED_PARTICIPANT"));
+        MemberEntity member = members.findByPuuid(record.puuid()).orElse(null);
 
         MatchParticipantEntity participant = new MatchParticipantEntity();
         participant.id = UUID.randomUUID().toString();
         participant.match = match;
-        participant.memberId = member.id;
+        participant.playerId = accounts.accountForPuuid(record.puuid()).id;
+        participant.memberId = member == null ? null : member.id;
         participant.puuid = record.puuid();
         participant.teamId = record.teamId();
         participant.championId = record.championId();

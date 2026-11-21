@@ -28,8 +28,27 @@ test("설치용 빌드에는 개발용 경기 응답과 시험 서비스가 들�
     /fixture-player-01|fixture-main-only|fixtureService/,
   );
   assert.match(main, /node:sqlite/);
+  assert.ok(
+    main.includes("https://ensharp.cloud"),
+    "설치판 고정 서버 주소가 없다",
+  );
+  assert.ok(
+    !/CW_SERVER_ORIGIN|http:\/\/127\.0\.0\.1:8080/.test(main),
+    "설치판에 개발 서버 설정이 남아 있다",
+  );
   assert.ok(existsSync("apps/collector/build/release/preload.cjs"));
   assert.ok(existsSync("apps/collector/build/release/renderer/index.html"));
+  const catalog = JSON.parse(
+    await readFile("packages/game-assets/catalog.json", "utf8"),
+  );
+  assert.equal(catalog.champions[67].name, "베인");
+  for (const champion of Object.values(catalog.champions)) {
+    const bytes = await readFile(
+      "apps/collector/build/release/renderer/assets/champions/" +
+        champion.image,
+    );
+    assert.equal(bytes.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
+  }
 });
 
 async function withRelease(run) {

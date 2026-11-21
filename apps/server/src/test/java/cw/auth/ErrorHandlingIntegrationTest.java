@@ -49,6 +49,7 @@ class ErrorHandlingIntegrationTest extends DatabaseTestSupport {
         MockHttpServletResponse type =
                 mvc.perform(
                                 post("/api/collector/enroll")
+                                        .header("X-CW-Collector-Protocol", "2")
                                         .contentType("text/plain")
                                         .content("private-input-sentinel"))
                         .andReturn()

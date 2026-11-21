@@ -16,7 +16,6 @@ import { HttpServerApi } from "./server-api";
 import { Outbox } from "./outbox";
 import { CollectorService } from "./history-sync";
 import { validSender, validateCommand, CHANNEL } from "./ipc";
-import { exportMemberReferences } from "./reference-export";
 declare const __CW_COLLECTOR_RELEASE__: boolean;
 let box: Outbox | undefined;
 let timer: NodeJS.Timeout | undefined;
@@ -68,7 +67,9 @@ if (!app.requestSingleInstanceLock()) {
                   "C:\\Riot Games\\League of Legends\\lockfile",
               ),
               new HttpServerApi(
-                process.env.CW_SERVER_ORIGIN ?? "http://127.0.0.1:8080",
+                __CW_COLLECTOR_RELEASE__
+                  ? "https://ensharp.cloud"
+                  : (process.env.CW_SERVER_ORIGIN ?? "http://127.0.0.1:8080"),
               ),
               new CredentialStore(join(data, "credential.bin"), safeStorage),
               box,
@@ -130,11 +131,7 @@ if (!app.requestSingleInstanceLock()) {
                           p.rolesByPuuid,
                           p.inhouse,
                         )
-                      : c === "draft"
-                        ? service.saveDraft(p.matchKey, p.rolesByPuuid)
-                        : c === "resume"
-                          ? service.resumeOwnRequests()
-                          : exportMemberReferences(p.selection));
+                      : service.saveDraft(p.matchKey, p.rolesByPuuid));
           return { ok: true, value };
         } catch (e) {
           return {

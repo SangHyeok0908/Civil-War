@@ -17,6 +17,7 @@ import {
 } from "../../components/Common";
 import { MatchList } from "../matches/List";
 import { ChampionItemIcon } from "../../components/ChampionItemIcon";
+import { MemberAvatar } from "../../components/MemberAvatar";
 export function Members() {
   const r = useRemote<PublicMember[]>("/api/members");
   return (
@@ -32,7 +33,7 @@ export function Members() {
         <div className="member-grid">
           {r.data.map((m) => (
             <a className="member-card" key={m.id} href={"/members/" + m.id}>
-              <span className="avatar">{m.displayName.slice(0, 1)}</span>
+              <MemberAvatar member={m} />
               <div>
                 <h2>{m.displayName}</h2>
                 <p>
@@ -41,7 +42,7 @@ export function Members() {
                 </p>
               </div>
               <span className={"badge " + (m.active ? "cyan" : "")}>
-                {m.active ? "활성" : "비활성"}
+                {m.active ? "팀 추천 대상" : "팀 추천 제외"}
               </span>
             </a>
           ))}
@@ -65,6 +66,7 @@ export function Profile({ id }: { id: string }) {
   return (
     <>
       <Heading eyebrow="PLAYER PROFILE" title={m.displayName}>
+        <MemberAvatar member={m} />
         <Status status={s.status} />
       </Heading>
       <div className="stat-grid">

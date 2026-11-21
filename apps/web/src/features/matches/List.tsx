@@ -1,4 +1,5 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useRef } from "react";
+import { Pagination } from "../../../../../packages/ui/Pagination";
 import { useRemote } from "../../api";
 import type { MatchPage, PublicMember } from "../../types";
 import {
@@ -6,8 +7,6 @@ import {
   Loading,
   ErrorBox,
   Empty,
-  roles,
-  roleName,
   kst,
 } from "../../components/Common";
 import {
@@ -22,12 +21,15 @@ export function MatchList({
   embedded?: boolean;
 }) {
   const catalog = useContext(CatalogContext);
+  const start = useRef<HTMLElement>(null);
+  const showStart = () => {
+    start.current?.focus({ preventScroll: true });
+    start.current?.scrollIntoView({ block: "start" });
+  };
   const [championQuery, setChampionQuery] = useState("");
   const [filter, setFilter] = useState({
     memberId: memberId || "",
     championId: "",
-    role: "",
-    win: "",
   });
   const [cursor, setCursor] = useState("");
   const [previous, setPrevious] = useState<string[]>([]);
@@ -44,7 +46,11 @@ export function MatchList({
     setPrevious([]);
   };
   return (
-    <section>
+    <section
+      ref={start}
+      tabIndex={-1}
+      aria-label={embedded ? "참가 경기" : "경기 기록"}
+    >
       {!embedded && (
         <Heading eyebrow="MATCH HISTORY" title="경기 기록">
           <span className="subtle">확정된 내전만 공개됩니다</span>
@@ -89,31 +95,6 @@ export function MatchList({
                 <option value={c.name} key={c.name} />
               ))}
           </datalist>
-        </label>
-        <label>
-          포지션
-          <select
-            value={filter.role}
-            onChange={(e) => change("role", e.target.value)}
-          >
-            <option value="">모든 포지션</option>
-            {roles.map((r) => (
-              <option key={r} value={r}>
-                {roleName[r]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          승패
-          <select
-            value={filter.win}
-            onChange={(e) => change("win", e.target.value)}
-          >
-            <option value="">모든 결과</option>
-            <option value="true">승리</option>
-            <option value="false">패배</option>
-          </select>
         </label>
       </form>
       <p className="caption">
@@ -163,8 +144,10 @@ export function MatchList({
                       .filter((p) => p.teamId === team)
                       .map((p) => (
                         <a
-                          key={p.memberId}
-                          href={"/members/" + p.memberId}
+                          key={p.playerId}
+                          href={
+                            p.memberId ? "/members/" + p.memberId : undefined
+                          }
                           title={p.displayName}
                         >
                           <ChampionItemIcon id={p.championId} />
@@ -185,29 +168,22 @@ export function MatchList({
           ))}
         </div>
       )}
-      <div className="pagination">
-        <button
-          className="secondary"
-          disabled={!previous.length || result.loading}
-          onClick={() => {
-            setCursor(previous.at(-1) || "");
-            setPrevious(previous.slice(0, -1));
-          }}
-        >
-          이전 페이지
-        </button>
-        <span>{previous.length + 1} 페이지</span>
-        <button
-          className="secondary"
-          disabled={!result.data?.nextCursor || result.loading}
-          onClick={() => {
-            setPrevious([...previous, cursor]);
-            setCursor(result.data?.nextCursor || "");
-          }}
-        >
-          다음 페이지
-        </button>
-      </div>
+      <Pagination
+        page={previous.length + 1}
+        canPrevious={previous.length > 0}
+        canNext={!!result.data?.nextCursor}
+        busy={result.loading}
+        previous={() => {
+          showStart();
+          setCursor(previous.at(-1) || "");
+          setPrevious(previous.slice(0, -1));
+        }}
+        next={() => {
+          showStart();
+          setPrevious([...previous, cursor]);
+          setCursor(result.data?.nextCursor || "");
+        }}
+      />
     </section>
   );
 }

@@ -1,11 +1,17 @@
 package cw.members;
 
+import cw.accounts.AccountLinkService;
+import cw.accounts.PlayerAccountEntity;
+import cw.contracts.AccountContracts;
+import cw.contracts.AccountContracts.RankSeedSnapshot;
 import cw.contracts.ApiException;
 import cw.contracts.MemberContracts.Member;
 import cw.contracts.MemberContracts.PublicMember;
 import cw.contracts.Role;
 import cw.db.MutationCoordinator;
 import cw.db.ServiceState;
+import cw.riot.MemberProfileService;
+import cw.riot.SoloRankService;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -25,14 +31,30 @@ public class MemberService {
     private final MemberRepository members;
     private final MutationCoordinator mutations;
     private final JsonMapper json;
+    private final AccountLinkService links;
+    private final GuestPromotionService promotion;
+    private final SoloRankService ranks;
+    private final MemberProfileService profiles;
 
-    public MemberService(MemberRepository members, MutationCoordinator mutations, JsonMapper json) {
+    public MemberService(
+            MemberRepository members,
+            MutationCoordinator mutations,
+            JsonMapper json,
+            AccountLinkService links,
+            GuestPromotionService promotion,
+            SoloRankService ranks,
+            MemberProfileService profiles) {
         this.members = members;
         this.mutations = mutations;
         this.json = json;
+        this.links = links;
+        this.promotion = promotion;
+        this.ranks = ranks;
+        this.profiles = profiles;
     }
 
     public Member view(MemberEntity m) {
+        RankSeedSnapshot rank = ranks.snapshot(m.accountId);
         return new Member(
                 m.id,
                 m.puuid,
@@ -43,7 +65,13 @@ public class MemberService {
                 m.secondaryRole,
                 roles(m.allowedRoles),
                 m.seedSkill,
-                m.profileRevision);
+                m.profileRevision,
+                rank.teamSeed(),
+                rank.status(),
+                rank.tier(),
+                rank.division(),
+                rank.observedAt(),
+                profiles.icon(m.id, m.riotId));
     }
 
     public PublicMember publicView(MemberEntity m) {
@@ -53,7 +81,8 @@ public class MemberService {
                 m.active,
                 m.primaryRole,
                 m.secondaryRole,
-                roles(m.allowedRoles));
+                roles(m.allowedRoles),
+                profiles.icon(m.id, m.riotId));
     }
 
     public List<Member> list() {
@@ -75,22 +104,28 @@ public class MemberService {
 
         MemberEntity m = new MemberEntity();
         m.id = UUID.randomUUID().toString();
-        m.puuid = text(input, "puuid", 255);
-        m.riotId = text(input, "riotId", 255);
-        m.displayName = text(input, "displayName", 100);
+        m.riotId = AccountContracts.riotId(text(input, "riotId", 100));
+        if (!members.findByRiotIdIgnoreCase(m.riotId).isEmpty()) {
+            throw new ApiException(409, "CONFLICT");
+        }
+        PlayerAccountEntity account = links.prepareMember(m.riotId);
+        m.accountId = account.id;
+        m.puuid = account.lcuPuuid;
+        m.displayName = m.riotId;
         m.active = true;
         m.allowedRoles = "";
-        m.seedSkill = seed(input.get("seedSkill"));
+        m.seedSkill = 50;
 
         apply(m, input, true);
 
-        if (members.findByPuuid(m.puuid).isPresent()) {
+        if (m.puuid != null && members.findByPuuid(m.puuid).isPresent()) {
             throw new ApiException(409, "CONFLICT");
         }
 
         m.profileRevision = 1;
 
-        members.save(m);
+        members.saveAndFlush(m);
+        promotion.linkHistory(m.accountId, m.id);
         mutations.changed(state);
         mutations.audit("member_created", "owner", m.id, "{}");
 
@@ -133,11 +168,13 @@ public class MemberService {
 
     private void apply(MemberEntity m, JsonNode input, boolean create) {
         if (input.has("riotId")) {
-            m.riotId = text(input, "riotId", 255);
-        }
-
-        if (input.has("displayName")) {
-            m.displayName = text(input, "displayName", 100);
+            String nextRiotId = AccountContracts.riotId(text(input, "riotId", 100));
+            if (members.findByRiotIdIgnoreCase(nextRiotId).stream()
+                    .anyMatch(other -> !other.id.equals(m.id))) {
+                throw new ApiException(409, "CONFLICT");
+            }
+            m.riotId = nextRiotId;
+            m.displayName = m.riotId;
         }
 
         if (input.has("active")) {
@@ -146,10 +183,6 @@ public class MemberService {
             }
 
             m.active = input.get("active").asBoolean();
-        }
-
-        if (input.has("seedSkill")) {
-            m.seedSkill = seed(input.get("seedSkill"));
         }
 
         if (input.has("primaryRole")) {
@@ -211,18 +244,7 @@ public class MemberService {
 
         Set<String> allowed =
                 new HashSet<>(
-                        Set.of(
-                                "riotId",
-                                "displayName",
-                                "active",
-                                "primaryRole",
-                                "secondaryRole",
-                                "allowedRoles",
-                                "seedSkill"));
-
-        if (create) {
-            allowed.add("puuid");
-        }
+                        Set.of("riotId", "active", "primaryRole", "secondaryRole", "allowedRoles"));
 
         for (String name : input.propertyNames()) {
             if (!allowed.contains(name)) {

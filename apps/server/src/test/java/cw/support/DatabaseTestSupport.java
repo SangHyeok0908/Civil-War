@@ -1,5 +1,8 @@
 package cw.support;
 
+import cw.accounts.PlayerAccountEntity;
+import cw.accounts.PlayerAccountRepository;
+import cw.auth.GroupCodeService;
 import cw.contracts.MatchContracts.CollectorPrincipal;
 import cw.contracts.MatchContracts.ConfirmationInput;
 import cw.contracts.MatchContracts.IngestMatchInput;
@@ -12,6 +15,7 @@ import cw.members.MemberEntity;
 import cw.members.MemberRepository;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,9 +36,15 @@ import tools.jackson.databind.node.ObjectNode;
 @SpringBootTest
 @ActiveProfiles("test")
 public abstract class DatabaseTestSupport {
+    /** Operator login code from application-test.yml; never a production value. */
+    protected static final String ADMIN_CODE = "test-admin-login-code";
+
     @Autowired protected JdbcTemplate jdbc;
+    @Autowired protected GroupCodeService groups;
+    private String groupSecret;
     @Autowired protected JsonMapper json;
     @Autowired protected MemberRepository members;
+    @Autowired protected PlayerAccountRepository accounts;
     @Autowired protected MatchRepository matches;
     @Autowired protected IngestService ingest;
     @Autowired protected RegistrationService registration;
@@ -49,10 +59,13 @@ public abstract class DatabaseTestSupport {
         }
 
         jdbc.execute(
-                "TRUNCATE evaluation_generations, scoring_versions, audit_log, recalculation_jobs, match_participants, matches, collector_credentials, admin_sessions, enrollment_codes, members CASCADE");
+                "TRUNCATE auth_attempts, solo_rank_snapshots, account_identity_evidence, player_accounts, evaluation_generations, scoring_versions, audit_log, recalculation_jobs, match_participants, matches, collector_credentials, admin_sessions, enrollment_codes, members CASCADE");
         jdbc.update(
                 "update service_state set source_revision=0, desired_scoring_version=null, active_generation_id=null");
 
+        jdbc.update(
+                "update group_collector_code set secret_hash=null, generation=1, issued_at=null where id=1");
+        groupSecret = null;
         for (int i = 1; i <= 11; i++) {
             MemberEntity m = new MemberEntity();
             m.id = "member-" + i;
@@ -63,6 +76,14 @@ public abstract class DatabaseTestSupport {
             m.allowedRoles = "TOP,JUNGLE,MIDDLE,BOTTOM,UTILITY";
             m.seedSkill = 50;
 
+            PlayerAccountEntity account = new PlayerAccountEntity();
+            account.id = m.id;
+            account.lcuPuuid = m.puuid;
+            account.riotId = m.riotId;
+            account.linkStatus = "lcu_linked";
+            account.updatedAt = Instant.now();
+            accounts.save(account);
+            m.accountId = account.id;
             members.save(m);
         }
     }
@@ -82,9 +103,43 @@ public abstract class DatabaseTestSupport {
         return new IngestMatchInput(raw(), "submission-1", 1);
     }
 
-    protected CollectorPrincipal actor(int i) {
+    public record CodeReply(String id, String code, String scope, Instant expiresAt) {}
+
+    protected CodeReply collectorCode() {
+        if (!groups.status().active()) {
+            groupSecret = groups.issue().code();
+            jdbc.update("delete from audit_log where action='group_code_replaced'");
+        }
+        return new CodeReply("group", groupSecret, "collector", null);
+    }
+
+    protected Map<String, Object> enrollmentBody(String code, int i) {
+        return Map.of(
+                "code",
+                code,
+                "protocolVersion",
+                2,
+                "currentAccount",
+                Map.of(
+                        "puuid",
+                        String.format("fixture-player-%02d", i),
+                        "riotId",
+                        "Player" + i + "#test",
+                        "source",
+                        "current_summoner",
+                        "observedAt",
+                        Instant.now().toString()));
+    }
+
+    protected synchronized CollectorPrincipal actor(int i) {
+        if (!groups.status().active()) {
+            collectorCode();
+        }
         return new CollectorPrincipal(
-                "member-" + i, "credential-" + i, String.format("fixture-player-%02d", i));
+                "member-" + i,
+                "credential-" + i,
+                String.format("fixture-player-%02d", i),
+                groups.status().generation());
     }
 
     protected Map<String, Role> roles(boolean reverse) {

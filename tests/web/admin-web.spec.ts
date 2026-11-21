@@ -5,9 +5,9 @@ test("codeOnlyLogin csrf cookie restore and logout", async ({
   request,
 }) => {
   expect((await request.get("/api/admin/members")).status()).toBe(401);
-  const forged = await request.post("/api/admin/codes", {
+  const forged = await request.post("/api/admin/collector-code", {
     headers: { ...headers(), "X-CSRF-Token": "wrong" },
-    data: { scope: "admin" },
+    data: {},
   });
   expect(forged.status()).toBe(403);
   await login(page, request);
@@ -19,7 +19,7 @@ test("codeOnlyLogin csrf cookie restore and logout", async ({
   expect(cookie?.httpOnly).toBe(true);
   expect(cookie?.sameSite).toBe("Strict");
   await page.screenshot({
-    path: "docs/validation/assets/stage3-admin.png",
+    path: "docs/validation/assets/2026-10-28-ux-ease-admin.png",
     fullPage: true,
   });
   await page.getByRole("button", { name: "로그아웃" }).click();
@@ -35,7 +35,7 @@ test("referenceDoesNotOverwriteManual soloNeverEntersRanking explicitApply", asy
   await login(page, request);
   const panel = page.locator(".admin-members>.panel").filter({
     has: page.getByRole("heading", {
-      name: member.displayName + " 활성",
+      name: member.displayName + " 팀 추천 대상",
       exact: true,
     }),
   });
@@ -102,28 +102,28 @@ test("referenceDoesNotOverwriteManual soloNeverEntersRanking explicitApply", asy
     .poll(async () => (await request.get("/api/rankings")).status())
     .toBe(200);
 });
-test("newBrowserCode and collectorDeviceRevocation", async ({
+test("fixedCodeNewBrowser and collectorDeviceRevocation", async ({
   page,
   request,
   browser,
 }) => {
   await login(page, request);
   await page.getByRole("link", { name: "코드·인증" }).click();
-  await page
-    .getByRole("combobox", { name: "코드 종류", exact: true })
-    .selectOption("collector");
-  await page
-    .getByRole("combobox", { name: "연결할 참가자", exact: true })
-    .selectOption(state().members[1].id);
-  const issued = page.waitForResponse(
-    (r) =>
-      r.url().endsWith("/api/admin/codes") && r.request().method() === "POST",
-  );
-  await page.getByRole("button", { name: "코드 발급", exact: true }).click();
-  const code = await (await issued).json();
-  await expect(page.locator("output")).toContainText(code.code);
+  await expect(page.getByText("사용 중", { exact: true })).toBeVisible();
+  const code = { code: state().collectorCode };
+  const member = state().members[1];
   const enrolled = await request.post("/api/collector/enroll", {
-    data: { code: code.code, currentPuuid: state().members[1].puuid },
+    headers: { "X-CW-Collector-Protocol": "2" },
+    data: {
+      code: code.code,
+      protocolVersion: 2,
+      currentAccount: {
+        puuid: member.puuid,
+        riotId: member.riotId,
+        source: "current_summoner",
+        observedAt: new Date().toISOString(),
+      },
+    },
   });
   expect(enrolled.status()).toBe(200);
   const credential = await enrolled.json();
@@ -140,24 +140,26 @@ test("newBrowserCode and collectorDeviceRevocation", async ({
     .poll(async () =>
       (
         await request.get("/api/collector/members", {
-          headers: { Authorization: "Bearer " + credential.token },
+          headers: {
+            "X-CW-Collector-Protocol": "2",
+            Authorization: "Bearer " + credential.token,
+          },
         })
       ).status(),
     )
     .toBe(401);
-  await page
-    .getByRole("combobox", { name: "코드 종류", exact: true })
-    .selectOption("admin");
-  const newIssued = page.waitForResponse(
-    (r) =>
-      r.url().endsWith("/api/admin/codes") && r.request().method() === "POST",
-  );
-  await page.getByRole("button", { name: "코드 발급", exact: true }).click();
-  const next = await (await newIssued).json();
+  await expect(
+    page.getByRole("button", { name: "운영자 코드 발급", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "운영자 발급 코드", exact: true }),
+  ).toHaveCount(0);
+  const removed = await admin(request, "/sessions", undefined, "GET");
+  expect(removed.status()).toBe(200);
   const context = await browser.newContext();
   const newPage = await context.newPage();
   await newPage.goto("http://localhost:18080/admin");
-  await newPage.getByLabel("운영자 등록 코드").fill(next.code);
+  await newPage.getByLabel("운영자 로그인 코드").fill(state().adminCode);
   await newPage.getByRole("button", { name: "운영자 인증" }).click();
   await expect(
     newPage.getByRole("heading", { name: "운영 관리" }),

@@ -2,8 +2,8 @@ package cw.auth;
 
 import static org.assertj.core.api.Assertions.*;
 
-import cw.auth.AuthService.CodeReply;
 import cw.support.DatabaseTestSupport;
+import cw.support.DatabaseTestSupport.CodeReply;
 import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -42,6 +42,7 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
                                     URI.create(
                                             "http://localhost:" + port + "/api/collector/enroll"))
                             .timeout(Duration.ofSeconds(5))
+                            .header("X-CW-Collector-Protocol", "2")
                             .header("Content-Type", "application/json")
                             .POST(publisher)
                             .build();
@@ -77,6 +78,7 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
                 HttpRequest req =
                         HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
                                 .timeout(Duration.ofSeconds(5))
+                                .header("X-CW-Collector-Protocol", "2")
                                 .GET()
                                 .build();
                 HttpResponse<String> response =
@@ -91,7 +93,7 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
     void encodedMatchKeyColonWorksForCollectorAndPublicRequests() throws Exception {
         ingest.ingestMatch(input(), actor(1));
 
-        CodeReply code = auth.issueCode("collector", "member-1", "test");
+        CodeReply code = collectorCode();
         String token = auth.enroll(code.code(), actor(1).puuid()).token();
         String encodedKey = KEY.replace(":", "%3A");
 
@@ -105,6 +107,8 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
                                                     + encodedKey
                                                     + "/confirm"))
                             .timeout(Duration.ofSeconds(5))
+                            .header("X-CW-Collector-Protocol", "2")
+                            .header("X-CW-Collector-Protocol", "2")
                             .header("Authorization", "Bearer " + token)
                             .header("Content-Type", "application/json")
                             .POST(
@@ -125,6 +129,8 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
                                         URI.create(
                                                 "http://localhost:" + port + prefix + encodedKey))
                                 .timeout(Duration.ofSeconds(5))
+                                .header("X-CW-Collector-Protocol", "2")
+                                .header("X-CW-Collector-Protocol", "2")
                                 .header("Authorization", "Bearer " + token)
                                 .GET()
                                 .build();
@@ -139,18 +145,19 @@ class RealHttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void productionCookieHasHostProtection() throws Exception {
-        CodeReply code = auth.issueCode("admin", null, "test");
+        String code = ADMIN_CODE;
 
         try (HttpClient client = HttpClient.newHttpClient()) {
             HttpRequest req =
                     HttpRequest.newBuilder(
                                     URI.create("http://localhost:" + port + "/api/admin/session"))
                             .timeout(Duration.ofSeconds(5))
+                            .header("X-CW-Collector-Protocol", "2")
                             .header("Origin", "http://localhost:8080")
                             .header("Content-Type", "application/json")
                             .POST(
                                     HttpRequest.BodyPublishers.ofString(
-                                            json.writeValueAsString(Map.of("code", code.code()))))
+                                            json.writeValueAsString(Map.of("code", code))))
                             .build();
             HttpResponse<String> response = client.send(req, HttpResponse.BodyHandlers.ofString());
             assertThat(response.statusCode()).isEqualTo(200);

@@ -5,6 +5,7 @@ import cw.contracts.MatchContracts.CollectorMatch;
 import cw.contracts.MatchContracts.CollectorPrincipal;
 import cw.contracts.MatchContracts.NormalizedMatch;
 import cw.contracts.Role;
+import cw.lcu.MatchRoleHints;
 import java.util.Map;
 import java.util.TreeMap;
 import org.springframework.stereotype.Component;
@@ -27,7 +28,7 @@ public class MatchViews {
                 || entity.participants.stream()
                         .noneMatch(
                                 p ->
-                                        p.memberId.equals(actor.memberId())
+                                        actor.memberId().equals(p.memberId)
                                                 && p.puuid.equals(actor.puuid()))) {
             throw new ApiException(403, "FORBIDDEN");
         }
@@ -44,6 +45,11 @@ public class MatchViews {
             }
         }
 
-        return new CollectorMatch(entity.id, entity.state, normalized(entity), roles);
+        return new CollectorMatch(
+                entity.id,
+                entity.state,
+                normalized(entity),
+                roles,
+                new MatchRoleHints().suggest(json.readTree(entity.rawJson)));
     }
 }

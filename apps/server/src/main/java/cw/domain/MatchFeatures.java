@@ -43,8 +43,8 @@ public final class MatchFeatures {
             double minutes = game.match().durationSeconds() / 60.;
 
             for (EvaluableParticipant p : game.participants()) {
-                if (!ids.add(p.memberId())) {
-                    throw new IllegalArgumentException("Duplicate member");
+                if (p.playerId() == null || !ids.add(p.playerId())) {
+                    throw new IllegalArgumentException("Duplicate player");
                 }
 
                 ParticipantRecord r = p.record();

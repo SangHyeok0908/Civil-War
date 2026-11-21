@@ -2,6 +2,7 @@ package cw.auth;
 
 import cw.auth.AuthService.AdminPrincipal;
 import cw.auth.AuthService.EnrollmentReply;
+import cw.contracts.AccountContracts.IdentityObservation;
 import cw.contracts.ApiException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
@@ -30,20 +31,18 @@ public class AuthController {
 
     public record CodeInput(String code) {}
 
-    public record EnrollmentInput(String code, String currentPuuid) {}
-
-    public record IssueCodeInput(String scope, String memberId) {}
+    public record EnrollmentInput(
+            String code, IdentityObservation currentAccount, Integer protocolVersion) {}
 
     @PostMapping("/api/admin/session")
     public ResponseEntity<?> login(@RequestBody CodeInput input, HttpServletRequest req) {
-        limiter.check(req.getRemoteAddr());
+        limiter.attempt("admin", req.getRemoteAddr());
 
         AuthService.LoginReply reply;
 
         try {
             reply = auth.login(input.code());
         } catch (ApiException e) {
-            limiter.failed(req.getRemoteAddr());
             throw e;
         }
 
@@ -69,22 +68,17 @@ public class AuthController {
     @PostMapping("/api/collector/enroll")
     public AuthService.EnrollmentReply enroll(
             @RequestBody EnrollmentInput input, HttpServletRequest req) {
-        limiter.check(req.getRemoteAddr());
-
+        limiter.attempt("collector", req.getRemoteAddr());
         try {
-            EnrollmentReply reply = auth.enroll(input.code(), input.currentPuuid());
-            limiter.succeeded(req.getRemoteAddr());
-
+            if (input.protocolVersion() == null || input.protocolVersion() != 2) {
+                throw new ApiException(426, "COLLECTOR_UPDATE_REQUIRED");
+            }
+            EnrollmentReply reply = auth.enroll(input.code(), input.currentAccount());
+            limiter.succeeded("collector", req.getRemoteAddr());
             return reply;
-        } catch (ApiException e) {
-            limiter.failed(req.getRemoteAddr());
-            throw e;
+        } catch (ApiException error) {
+            throw error;
         }
-    }
-
-    @PostMapping("/api/admin/codes")
-    public AuthService.CodeReply code(@RequestBody IssueCodeInput input) {
-        return auth.issueCode(input.scope(), input.memberId(), "owner");
     }
 
     @GetMapping("/api/admin/sessions")
@@ -97,7 +91,7 @@ public class AuthController {
         return auth.credentials();
     }
 
-    @DeleteMapping("/api/admin/{kind:codes|sessions|collector-credentials}/{id}")
+    @DeleteMapping("/api/admin/{kind:sessions|collector-credentials}/{id}")
     public ResponseEntity<?> revoke(@PathVariable String kind, @PathVariable String id) {
         auth.revoke(kind, id);
         return ResponseEntity.noContent().build();

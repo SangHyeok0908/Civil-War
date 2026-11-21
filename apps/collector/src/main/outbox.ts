@@ -1,5 +1,6 @@
+import { rawRoleSuggestions } from "../../../../packages/lcu/src/role-hints";
 import { DatabaseSync } from "node:sqlite";
-import { migration } from "./outbox-migrations";
+import { migration, migration2 } from "./outbox-migrations";
 import {
   ClientError,
   validateRoles,
@@ -19,6 +20,8 @@ export interface OutboxItem extends CollectorPrincipal {
   attempts: number;
   nextAt: number;
   error: string | null;
+  lastAttemptAt?: number;
+  phase?: string;
 }
 export class Outbox {
   readonly db: DatabaseSync;
@@ -30,8 +33,11 @@ export class Outbox {
     );
     const version = (this.db.prepare("PRAGMA user_version").get() as any)
       .user_version;
-    if (version > 1) throw new ClientError("DATABASE_VERSION");
-    this.db.exec(migration);
+    if (version > 2) throw new ClientError("DATABASE_VERSION");
+    this.transaction(() => {
+      if (version < 1) this.db.exec(migration);
+      if (version < 2) this.db.exec(migration2);
+    });
     this.db.exec("UPDATE outbox SET state='pending' WHERE state='sending'");
   }
   close() {
@@ -80,6 +86,8 @@ export class Outbox {
       attempts: r.attempts,
       nextAt: r.next_at,
       error: r.error,
+      lastAttemptAt: r.last_attempt_at ?? undefined,
+      phase: r.phase ?? undefined,
     }));
   }
   matches(actor: CollectorPrincipal): CollectorMatch[] {
@@ -134,6 +142,7 @@ export class Outbox {
           state: "pending",
           match,
           confirmedRoles: null,
+          roleSuggestions: rawRoleSuggestions(input.rawMatch),
         });
       return this.enqueue("ingest", key, input, actor, null);
     });
@@ -199,9 +208,23 @@ export class Outbox {
   ) {
     this.db
       .prepare(
-        "UPDATE outbox SET state=?,error=?,next_at=?,attempts=attempts+CASE WHEN ?='sending' THEN 1 ELSE 0 END,finished_at=CASE WHEN ?='succeeded' THEN ? ELSE finished_at END WHERE id=?",
+        "UPDATE outbox SET last_attempt_at=CASE WHEN ?='sending' THEN ? ELSE last_attempt_at END,phase=?,state=?,error=?,next_at=?,attempts=attempts+CASE WHEN ?='sending' THEN 1 ELSE 0 END,finished_at=CASE WHEN ?='succeeded' THEN ? ELSE finished_at END WHERE id=?",
       )
-      .run(state, error, nextAt, state, state, Date.now(), id);
+      .run(
+        state,
+        Date.now(),
+        state === "sending" ? "sending" : null,
+        state,
+        error,
+        nextAt,
+        state,
+        state,
+        Date.now(),
+        id,
+      );
+  }
+  phase(id: number, phase: "sending" | "checking") {
+    this.db.prepare("UPDATE outbox SET phase=? WHERE id=?").run(phase, id);
   }
   allowed(item: OutboxItem, actor: CollectorPrincipal) {
     return (

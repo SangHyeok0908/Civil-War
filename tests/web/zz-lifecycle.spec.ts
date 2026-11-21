@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { state, sql, admin, origin } from "./helpers";
-test("activeWorkerCrash rollsBackPublication CLI neverClaims restartRecovers", async ({
+test("activeWorkerCrash rollsBackPublication nonWebStartup neverClaims restartRecovers", async ({
   page,
   request,
 }) => {
@@ -15,7 +15,7 @@ test("activeWorkerCrash rollsBackPublication CLI neverClaims restartRecovers", a
     await admin(
       request,
       "/members/" + s.members[0].id,
-      { seedSkill: 67 },
+      { active: false },
       "PATCH",
     );
     await expect
@@ -48,21 +48,22 @@ test("activeWorkerCrash rollsBackPublication CLI neverClaims restartRecovers", a
       "apps/server/build/libs/civil-war-server-0.1.0-provisional.jar",
       "--spring.profiles.active=dev",
       "--logging.level.root=WARN",
-      "admin:code",
+      "--spring.main.web-application-type=none",
     ],
     {
       env: {
         ...process.env,
-        DATABASE_URL: "jdbc:postgresql://localhost:55432/cw_web_test",
+        DATABASE_URL: `jdbc:postgresql://localhost:${process.env.CW_TEST_DB_PORT || 55432}/cw_web_test`,
         DATABASE_USER: "cw_test",
         DATABASE_PASSWORD: "cw_test_only",
         SERVER_ORIGIN: origin,
+        ADMIN_LOGIN_CODE: state().adminCode,
       },
       encoding: "utf8",
       timeout: 30000,
     },
   );
-  expect(output).toContain("ADMIN_CODE=");
+  expect(output).not.toContain("ADMIN_CODE=");
   expect(
     sql(
       "select status from recalculation_jobs order by source_revision desc limit 1",
@@ -91,5 +92,7 @@ test("activeWorkerCrash rollsBackPublication CLI neverClaims restartRecovers", a
   await expect(
     page.getByRole("heading", { name: "활약 랭킹", exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".rankings tbody tr")).toHaveCount(11);
+  await expect(page.locator(".rankings tbody tr")).toHaveCount(
+    (await (await request.get("/api/members")).json()).length,
+  );
 });

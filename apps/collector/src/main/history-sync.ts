@@ -6,6 +6,8 @@ import {
   ROLES,
   validateRoles,
   type Credential,
+  type EvaluationProgress,
+  type TransferProgress,
   type CollectorMatch,
   type Member,
   type Role,
@@ -15,11 +17,13 @@ import type { LcuClient, Account } from "./lcu-client";
 import type { HttpServerApi } from "./server-api";
 import { Outbox } from "./outbox";
 import { Uploader } from "./uploader";
-import type {
-  Snapshot,
-  SafeAccount,
-  HistorySyncResult,
-  MatchView,
+import {
+  DISPLAY_STATES,
+  type MatchCategory,
+  type Snapshot,
+  type SafeAccount,
+  type HistorySyncResult,
+  type MatchView,
 } from "../preload/collector-api";
 export class CollectorService {
   private credential: Credential | null = null;
@@ -29,12 +33,27 @@ export class CollectorService {
   private credentialError: string | null = null;
   private serverError: string | null = null;
   private querying = false;
+  private progressPoll: Promise<void> | null = null;
+  private nextProgressAt = 0;
+  private nextResumeAt = 0;
+  private resuming: Promise<void> | null = null;
+  private ticking: Promise<void> | null = null;
   readonly uploader: Uploader;
   constructor(
-    private lcu: Pick<LcuClient, "getAccount" | "listPastMatches" | "getMatch">,
+    private lcu: Pick<
+      LcuClient,
+      "getAccount" | "listPastMatches" | "getMatch" | "getIdentity"
+    >,
     private api: Pick<
       HttpServerApi,
-      "enroll" | "members" | "pending" | "get" | "ingest" | "confirm"
+      | "enroll"
+      | "members"
+      | "pending"
+      | "get"
+      | "ingest"
+      | "confirm"
+      | "observations"
+      | "progress"
     >,
     private store: {
       load(): Promise<Credential | null>;
@@ -42,11 +61,23 @@ export class CollectorService {
     },
     readonly box: Outbox,
   ) {
-    this.uploader = new Uploader(box, api, async () =>
-      this.credential &&
-      (!this.knownPuuid || this.knownPuuid === this.credential.puuid)
-        ? this.credential
-        : null,
+    this.uploader = new Uploader(
+      box,
+      api,
+      async () =>
+        this.credential &&
+        (!this.knownPuuid || this.knownPuuid === this.credential.puuid) &&
+        !["AUTH_REVOKED", "COLLECTOR_UPDATE_REQUIRED"].includes(
+          this.credentialError ?? "",
+        )
+          ? this.credential
+          : null,
+      Date.now,
+      Math.random,
+      (failedActor) => {
+        if (this.credential?.credentialId === failedActor.credentialId)
+          this.credentialError = "AUTH_REVOKED";
+      },
     );
   }
   async initialize() {
@@ -64,14 +95,24 @@ export class CollectorService {
     return this.snapshot();
   }
   async refreshRemote() {
-    if (this.credential) {
+    const actor = this.credential;
+    if (actor) {
       try {
         await this.refreshMembers();
         await this.loadPendingMatches();
       } catch (e) {
-        this.serverError = code(e);
+        if (this.credential === actor) {
+          this.serverError = code(e);
+          if (
+            e instanceof ClientError &&
+            ["AUTH_REVOKED", "COLLECTOR_UPDATE_REQUIRED"].includes(e.code)
+          )
+            this.credentialError = e.code;
+        }
       }
+      await this.resumeAutomatically();
       await this.uploader.drainOutbox();
+      await this.refreshProgress(true);
     }
     return this.snapshot();
   }
@@ -94,6 +135,11 @@ export class CollectorService {
     return {
       connected: !!this.account,
       displayName: this.account?.displayName ?? null,
+      expectedDisplayName: this.credential
+        ? (this.box
+            .cached<Member[]>("members:" + this.credential.memberId)
+            ?.find((m) => m.id === this.credential!.memberId)?.riotId ?? null)
+        : null,
       enrolled: !!this.credential,
       code:
         this.credential &&
@@ -123,10 +169,17 @@ export class CollectorService {
       if (!Array.isArray(members))
         throw new ClientError("INVALID_SERVER_RESPONSE");
       this.box.cache("members:" + actor.memberId, members);
-      this.serverError = null;
+      if (this.credential === actor) this.serverError = null;
       return members;
     } catch (e) {
-      this.serverError = code(e);
+      if (this.credential === actor) {
+        this.serverError = code(e);
+        if (
+          e instanceof ClientError &&
+          ["AUTH_REVOKED", "COLLECTOR_UPDATE_REQUIRED"].includes(e.code)
+        )
+          this.credentialError = e.code;
+      }
       if (
         e instanceof ClientError &&
         e.status > 0 &&
@@ -151,7 +204,8 @@ export class CollectorService {
         .some((i) => i.state !== "succeeded" && i.puuid !== account.puuid)
     )
       throw new ClientError("PENDING_OWNER_MISMATCH");
-    const c = await this.api.enroll(codeValue, account.puuid);
+    if (!account.identity) throw new ClientError("ACCOUNT_EVIDENCE_REQUIRED");
+    const c = await this.api.enroll(codeValue, account.identity);
     for (const key of ["token", "memberId", "credentialId", "puuid"] as const)
       text(c[key]);
     if (c.puuid !== account.puuid) throw new ClientError("ACCOUNT_MISMATCH");
@@ -171,19 +225,78 @@ export class CollectorService {
     this.accountError = null;
     await this.refreshMembers();
     await this.loadPendingMatches();
-    return this.snapshot();
-  }
-  async resumeOwnRequests() {
-    await this.getAccount();
-    const actor = this.actor();
-    const members = await this.api.members(actor);
-    if (
-      !members.some((m) => m.id === actor.memberId && m.puuid === actor.puuid)
-    )
-      throw new ClientError("ACCOUNT_MISMATCH");
-    this.box.resumeVerified(actor);
+    await this.resumeAutomatically(true);
     await this.uploader.drainOutbox();
     return this.snapshot();
+  }
+  private async resumeAutomatically(force = false): Promise<void> {
+    if (this.resuming) return this.resuming;
+    if (
+      !this.credential ||
+      !this.account ||
+      this.account.puuid !== this.credential.puuid ||
+      ["AUTH_REVOKED", "COLLECTOR_UPDATE_REQUIRED"].includes(
+        this.credentialError ?? "",
+      )
+    )
+      return;
+    const actor = this.credential;
+    const recoverable = [
+      "AUTH_REVOKED",
+      "ACCOUNT_MISMATCH",
+      "CREDENTIAL_CHANGED",
+    ];
+    const paused = this.box
+      .listOutbox()
+      .some(
+        (item) =>
+          item.memberId === actor.memberId &&
+          item.puuid === actor.puuid &&
+          item.state !== "succeeded" &&
+          (item.credentialId !== actor.credentialId ||
+            recoverable.includes(item.error ?? "")),
+      );
+    if (!paused || (!force && Date.now() < this.nextResumeAt)) return;
+    this.nextResumeAt = Date.now() + 15000;
+    this.resuming = (async () => {
+      try {
+        const members = await this.api.members(actor);
+        if (
+          !members.some(
+            (m) => m.id === actor.memberId && m.puuid === actor.puuid,
+          )
+        )
+          throw new ClientError("ACCOUNT_MISMATCH");
+        // Recheck after the remote await: an account/code change must not release another owner's jobs.
+        if (
+          this.credential !== actor ||
+          !this.account ||
+          this.account.puuid !== actor.puuid
+        )
+          return;
+        this.box.cache("members:" + actor.memberId, members);
+        this.box.resumeVerified(actor);
+        this.serverError = null;
+        if (this.credentialError === "ACCOUNT_MISMATCH")
+          this.credentialError = null;
+        this.nextResumeAt = 0;
+      } catch (e) {
+        if (this.credential !== actor) return;
+        const failure = code(e);
+        this.serverError = failure;
+        if (
+          [
+            "AUTH_REVOKED",
+            "COLLECTOR_UPDATE_REQUIRED",
+            "ACCOUNT_MISMATCH",
+          ].includes(failure)
+        )
+          this.credentialError = failure;
+      }
+    })().finally(() => {
+      this.resuming = null;
+    });
+    return this.resuming;
   }
   async loadPendingMatches(): Promise<Snapshot> {
     const actor = this.actor();
@@ -205,9 +318,16 @@ export class CollectorService {
           if (!(e instanceof ClientError && e.status === 404)) throw e;
         }
       }
-      this.serverError = null;
+      if (this.credential === actor) this.serverError = null;
     } catch (e) {
-      this.serverError = code(e);
+      if (this.credential === actor) {
+        this.serverError = code(e);
+        if (
+          e instanceof ClientError &&
+          ["AUTH_REVOKED", "COLLECTOR_UPDATE_REQUIRED"].includes(e.code)
+        )
+          this.credentialError = e.code;
+      }
       if (
         e instanceof ClientError &&
         e.status > 0 &&
@@ -224,7 +344,7 @@ export class CollectorService {
     try {
       const actor = await this.currentActor();
       // A healthy cached roster makes collection independent of remote latency.
-      const members =
+      let members =
         this.box.cached<Member[]>("members:" + actor.memberId) ??
         (await this.refreshMembers());
       void this.refreshMembers().catch(() => {});
@@ -239,31 +359,62 @@ export class CollectorService {
           if (match.gameId !== id) throw new ClientError("INVALID_MATCH");
           if (!match.participants.some((p) => p.puuid === actor.puuid))
             throw new ClientError("ACCOUNT_MISMATCH");
+          const cachedEligible =
+            new Set(
+              match.participants
+                .filter((p) => members.some((m) => m.puuid === p.puuid))
+                .map((p) => p.puuid),
+            ).size >= 6;
+          const stage = () => {
+            try {
+              this.box.enqueueCollected(
+                {
+                  schemaVersion: 1,
+                  ...capture,
+                  clientSubmissionId: randomUUID(),
+                },
+                actor,
+                match,
+              );
+            } catch {
+              throw new ClientError("LOCAL_SAVE_FAILED");
+            }
+          };
+          if (cachedEligible) {
+            const current = await this.currentActor();
+            if (
+              current.memberId !== actor.memberId ||
+              current.puuid !== actor.puuid
+            ) {
+              throw new ClientError("ACCOUNT_MISMATCH");
+            }
+            stage();
+          }
+          const identities = [];
+          for (const p of match.participants) {
+            try {
+              identities.push(await this.lcu.getIdentity(p.puuid));
+            } catch {}
+          }
+          if (identities.length) {
+            await this.api.observations(capture.rawMatch, identities, actor);
+            members = await this.refreshMembers();
+          }
           if (
-            match.participants.some(
-              (p) => !members.some((m) => m.puuid === p.puuid),
-            )
+            new Set(
+              match.participants
+                .filter((p) => members.some((m) => m.puuid === p.puuid))
+                .map((p) => p.puuid),
+            ).size < 6
           )
-            throw new ClientError("UNREGISTERED_PARTICIPANT");
+            throw new ClientError("INSUFFICIENT_REGISTERED_PARTICIPANTS");
           const current = await this.currentActor();
           if (
             current.memberId !== actor.memberId ||
             current.puuid !== actor.puuid
           )
             throw new ClientError("ACCOUNT_MISMATCH");
-          try {
-            this.box.enqueueCollected(
-              {
-                schemaVersion: 1,
-                ...capture,
-                clientSubmissionId: randomUUID(),
-              },
-              actor,
-              match,
-            );
-          } catch {
-            throw new ClientError("LOCAL_SAVE_FAILED");
-          }
+          if (!cachedEligible) stage();
           results.push({ matchKey, code: null });
         } catch (e) {
           results.push({ matchKey, code: code(e) });
@@ -280,7 +431,7 @@ export class CollectorService {
       this.querying = false;
     }
   }
-  async saveDraft(key: string, roles: Record<string, Role>) {
+  async saveDraft(key: string, roles: Record<string, Role | null>) {
     const actor = this.actor();
     const record = this.box.matches(actor).find((m) => m.matchKey === key);
     if (!record || record.state !== "pending")
@@ -291,11 +442,15 @@ export class CollectorService {
       Object.entries(values).some(
         ([puuid, role]) =>
           !record.match.participants.some((p) => p.puuid === puuid) ||
-          !ROLES.includes(role),
+          (role !== null && !ROLES.includes(role)),
       )
     )
       throw new ClientError("INVALID_ROLES");
-    this.box.cache("draft:" + actor.memberId + ":" + key, values);
+    const draftKey = "draft:" + actor.memberId + ":" + key;
+    this.box.cache(draftKey, {
+      ...this.box.cached<Record<string, Role | null>>(draftKey),
+      ...values,
+    });
     return this.snapshot();
   }
   async confirmRegistration(
@@ -320,11 +475,80 @@ export class CollectorService {
       throw new ClientError("LOCAL_SAVE_FAILED");
     }
     await this.uploader.drainOutbox();
+    await this.refreshProgress(true);
     return this.snapshot();
   }
-  async tick() {
-    await this.getAccount();
-    await this.uploader.drainOutbox();
+  async tick(): Promise<void> {
+    if (this.ticking) return this.ticking;
+    this.ticking = (async () => {
+      await this.getAccount();
+      if (
+        this.credential &&
+        this.knownPuuid &&
+        this.credential.puuid !== this.knownPuuid
+      )
+        return;
+      await this.resumeAutomatically();
+      await this.uploader.drainOutbox();
+      await this.refreshProgress();
+    })().finally(() => {
+      this.ticking = null;
+    });
+    return this.ticking;
+  }
+  async refreshProgress(force = false): Promise<void> {
+    if (this.progressPoll) return this.progressPoll;
+    if (
+      !this.credential ||
+      this.credentialError === "AUTH_REVOKED" ||
+      (!force && Date.now() < this.nextProgressAt)
+    )
+      return;
+    const actor = this.credential,
+      records = this.box.matches(actor).filter((m) => m.state === "registered");
+    this.nextProgressAt = Date.now() + 5000;
+    this.progressPoll = (async () => {
+      try {
+        for (let start = 0; start < records.length; start += 100) {
+          const results = await this.api.progress(
+            records.slice(start, start + 100).map((m) => m.matchKey),
+            actor,
+          );
+          for (const p of results) {
+            const local = this.box
+              .matches(actor)
+              .find((m) => m.matchKey === p.matchKey);
+            if (local && p.registrationState === "canceled") {
+              this.box.saveMatch(actor, { ...local, state: "canceled" });
+            }
+            this.box.cache(
+              "progress:" + actor.memberId + ":" + p.matchKey,
+              p.evaluation,
+            );
+          }
+        }
+      } catch (e) {
+        if (this.credential !== actor) return;
+        this.nextProgressAt = Date.now() + 15000;
+        for (const record of records) {
+          const key = "progress:" + actor.memberId + ":" + record.matchKey;
+          const old = this.box.cached<EvaluationProgress>(key);
+          if (old)
+            this.box.cache(key, {
+              ...old,
+              lastKnownStatus:
+                old.status === "unknown" ? old.lastKnownStatus : old.status,
+              status: "unknown",
+              unavailable: true,
+            });
+        }
+        if (e instanceof ClientError && e.code === "AUTH_REVOKED")
+          this.credentialError = e.code;
+      }
+    })().finally(() => {
+      this.progressPoll = null;
+    });
+    return this.progressPoll;
   }
   async snapshot(): Promise<Snapshot> {
     const actor = this.credential;
@@ -344,37 +568,92 @@ export class CollectorService {
       const failed = relevant.find((j) => j.state === "needs_attention");
       const confirmation = relevant.find((j) => j.kind === "confirm");
       const ingest = relevant.find((j) => j.kind === "ingest");
-      let status: MatchView["status"] =
+      const category: MatchCategory =
         record.state === "registered"
-          ? "등록 완료"
+          ? "registered"
           : record.state === "canceled"
-            ? "등록 취소"
+            ? "canceled"
             : failed
-              ? "확인 필요"
+              ? "action_required"
               : confirmation && confirmation.state !== "succeeded"
-                ? "등록 대기"
+                ? "registering"
                 : ingest && ingest.state !== "succeeded"
-                  ? "전송 대기"
-                  : "확인 대기";
-      const roles =
+                  ? "upload_pending"
+                  : "review_pending";
+      const status = DISPLAY_STATES[category];
+      const manualRoles =
+        this.box.cached<Record<string, Role | null>>(
+          "draft:" + actor.memberId + ":" + record.matchKey,
+        ) ?? {};
+      const suggested = Object.fromEntries(
+        (record.roleSuggestions ?? [])
+          .filter((s) => s.role !== null)
+          .map((s) => [s.puuid, s.role as Role]),
+      );
+      for (const [id, role] of Object.entries(manualRoles)) {
+        if (role === null) delete suggested[id];
+        else suggested[id] = role;
+      }
+      const roles: Record<string, Role> =
         record.state === "registered"
           ? (record.confirmedRoles ?? {})
-          : (confirmation?.payload.rolesByPuuid ??
-            this.box.cached<Record<string, Role>>(
-              "draft:" + actor.memberId + ":" + record.matchKey,
-            ) ??
-            {});
+          : (confirmation?.payload.rolesByPuuid ?? suggested);
+      const job =
+        confirmation && confirmation.state !== "succeeded"
+          ? confirmation
+          : ingest;
+      const transfer: TransferProgress | undefined = job
+        ? {
+            phase:
+              job.state === "succeeded"
+                ? "done"
+                : job.state === "needs_attention"
+                  ? "action_required"
+                  : job.state === "sending"
+                    ? job.phase === "checking"
+                      ? "checking"
+                      : "sending"
+                    : job.nextAt > Date.now()
+                      ? "retry_wait"
+                      : "queued",
+            attempt: job.attempts,
+            lastAttemptAt: job.lastAttemptAt,
+            nextRetryAt: job.nextAt || undefined,
+            errorCode: job.error ?? undefined,
+          }
+        : undefined;
+      const observed = this.box.cached<EvaluationProgress>(
+        "progress:" + actor.memberId + ":" + record.matchKey,
+      );
+      const evaluation =
+        record.state === "registered"
+          ? observed
+            ? Date.now() - Date.parse(observed.observedAt) > 15000
+              ? { ...observed, status: "unknown" as const, unavailable: true }
+              : observed
+            : {
+                status: "unknown" as const,
+                targetRevision: 0,
+                scoringVersion: null,
+                observedAt: "",
+                unavailable: true,
+              }
+          : undefined;
       return {
         matchKey: record.matchKey,
         state: record.state,
         status,
+        category,
         match: record.match,
         roles,
+        transfer,
+        evaluation,
+        manualRoles,
+        roleSuggestions: record.roleSuggestions ?? [],
         names: Object.fromEntries(
           record.match.participants.map((p) => [
             p.puuid,
-            members.find((m) => m.puuid === p.puuid)?.displayName ??
-              "회원 정보 없음",
+            members.find((m) => m.puuid === p.puuid)?.displayName ?? "게스트",
           ]),
         ),
         error: failed?.error ?? null,

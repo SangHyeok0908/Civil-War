@@ -1,11 +1,14 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ROLES,
   validateRoles,
   type Role,
 } from "../../../../packages/contracts/src/index";
 import type { MatchView } from "../preload/collector-api";
+import { ChampionPortrait, getChampionLabel } from "./ChampionPortrait";
+import { MatchProgress } from "./MatchProgress";
 import { message } from "./messages";
+import { Modal } from "./Modal";
 const labels = {
   TOP: "탑",
   JUNGLE: "정글",
@@ -21,26 +24,24 @@ export function MatchReview({
 }: {
   record: MatchView;
   busy: boolean;
-  save: (roles: Record<string, Role>) => void;
+  save: (roles: Record<string, Role | null>) => void;
   confirm: (roles: Record<string, Role>) => void;
 }) {
-  const [roles, setRoles] = useState(record.roles);
-  const [checked, setChecked] = useState(false);
-  useEffect(() => {
-    setRoles(record.roles);
-  }, [JSON.stringify(record.roles)]);
-  let valid = true;
-  try {
-    validateRoles(record.match, roles);
-  } catch {
-    valid = false;
+  const [edits, setEdits] = useState<Record<string, Role | null>>({});
+  const [positionError, setPositionError] = useState("");
+  const roles = { ...record.roles };
+  if (record.state === "pending") {
+    for (const [id, role] of Object.entries(edits)) {
+      if (role === null) delete roles[id];
+      else roles[id] = role;
+    }
   }
-  const editable = record.state === "pending" && record.status !== "등록 대기";
+  const editable =
+    record.state === "pending" && record.category !== "registering";
   return (
     <article className="match">
       <header>
         <div>
-          <small>{record.matchKey}</small>
           <h2>
             {new Date(record.match.startedAtUtc).toLocaleString("ko-KR")} ·{" "}
             {Math.floor(record.match.durationSeconds / 60)}분
@@ -52,10 +53,16 @@ export function MatchReview({
           {record.status}
         </span>
       </header>
+      <MatchProgress record={record} />
       {record.error && <p className="warning">{message(record.error)}</p>}
       <div className="teams">
         {([100, 200] as const).map((team) => (
-          <section key={team}>
+          <section
+            key={team}
+            tabIndex={0}
+            role="region"
+            aria-label={team === 100 ? "블루 팀 참가자" : "레드 팀 참가자"}
+          >
             <h3>
               {team === 100 ? "블루 팀" : "레드 팀"} ·{" "}
               {record.match.participants.find((p) => p.teamId === team)?.win
@@ -76,20 +83,15 @@ export function MatchReview({
                   .map((p) => (
                     <tr key={p.puuid}>
                       <td>
-                        {record.names[p.puuid]}
-                        <small>챔피언 #{p.championId}</small>
-                        <details>
-                          <summary>기록 보기</summary>
-                          <p>
-                            피해 {p.championDamage.toLocaleString()} · 받은 피해{" "}
-                            {p.damageTaken.toLocaleString()} · CS{" "}
-                            {p.laneCs + p.neutralCs} · 골드{" "}
-                            {p.goldEarned.toLocaleString()} · 시야{" "}
-                            {p.visionScore} · 오브젝트 {p.objectiveDamage} ·
-                            포탑 {p.turretDamage}
-                          </p>
-                          <p>아이템 {p.items.join(" / ")}</p>
-                        </details>
+                        <span className="participant-identity">
+                          <ChampionPortrait championId={p.championId} />
+                          <span>
+                            <span className="participant-name">
+                              {record.names[p.puuid]}
+                            </span>
+                            <small>{getChampionLabel(p.championId)}</small>
+                          </span>
+                        </span>
                       </td>
                       <td>
                         {p.kills}/{p.deaths}/{p.assists}
@@ -100,18 +102,18 @@ export function MatchReview({
                             aria-label={record.names[p.puuid] + " 실제 포지션"}
                             value={roles[p.puuid] ?? ""}
                             onChange={(e) => {
-                              const next = {
-                                ...roles,
-                                [p.puuid]: e.target.value as Role,
-                              };
-                              setRoles(next);
-                              save(next);
+                              const role = e.target.value
+                                ? (e.target.value as Role)
+                                : null;
+                              setEdits((previous) => ({
+                                ...previous,
+                                [p.puuid]: role,
+                              }));
+                              save({ [p.puuid]: role });
                             }}
                             disabled={busy}
                           >
-                            <option value="" disabled>
-                              선택
-                            </option>
+                            <option value="">직접 선택</option>
                             {ROLES.map((r) => (
                               <option key={r} value={r}>
                                 {labels[r]}
@@ -123,6 +125,16 @@ export function MatchReview({
                         ) : (
                           "미확정"
                         )}
+                        {editable &&
+                          record.roleSuggestions?.find(
+                            (s) => s.puuid === p.puuid && s.role,
+                          ) &&
+                          !Object.prototype.hasOwnProperty.call(
+                            { ...record.manualRoles, ...edits },
+                            p.puuid,
+                          ) && (
+                            <small>경기 기록으로 추정 · 역할 확인 필요</small>
+                          )}
                       </td>
                     </tr>
                   ))}
@@ -131,22 +143,37 @@ export function MatchReview({
           </section>
         ))}
       </div>
+      {positionError && (
+        <Modal
+          title="실제 포지션을 확정해주세요"
+          dismiss={() => setPositionError("")}
+        >
+          <p>{positionError}</p>
+          <div className="modal-actions">
+            <button onClick={() => setPositionError("")}>확인</button>
+          </div>
+        </Modal>
+      )}
       {editable && (
         <footer>
-          <label>
-            <input
-              type="checkbox"
-              checked={checked}
-              onChange={(e) => setChecked(e.target.checked)}
-            />{" "}
-            모임 내전이며 양 팀의 실제 포지션을 확인했습니다
-          </label>
-          <p>팀마다 다섯 포지션을 한 명씩 확인해야 등록할 수 있습니다.</p>
           <button
-            disabled={
-              busy || !checked || !valid || record.status === "확인 필요"
-            }
-            onClick={() => confirm(roles)}
+            disabled={busy || record.category === "action_required"}
+            onClick={() => {
+              try {
+                validateRoles(record.match, roles);
+              } catch {
+                const missing = record.match.participants.filter(
+                  (p) => !roles[p.puuid],
+                );
+                setPositionError(
+                  missing.length
+                    ? `${missing.map((p) => record.names[p.puuid]).join(", ")} 참가자의 실제 포지션을 선택해주세요.`
+                    : "같은 팀의 포지션이 중복되었습니다. 팀마다 탑·정글·미드·원딜·서포터를 한 명씩 지정해주세요.",
+                );
+                return;
+              }
+              confirm(roles);
+            }}
           >
             내전 등록
           </button>

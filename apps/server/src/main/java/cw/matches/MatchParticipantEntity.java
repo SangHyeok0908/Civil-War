@@ -19,6 +19,7 @@ public class MatchParticipantEntity {
     @JoinColumn(name = "match_id")
     public MatchEntity match;
 
+    public String playerId;
     public String memberId;
     public String puuid;
     public int teamId;

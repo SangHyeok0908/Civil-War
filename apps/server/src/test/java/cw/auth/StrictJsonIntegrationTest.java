@@ -3,10 +3,10 @@ package cw.auth;
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 
-import cw.auth.AuthService.CodeReply;
 import cw.contracts.EvaluationContracts.GameScore;
 import cw.contracts.MatchContracts.NormalizedMatch;
 import cw.support.DatabaseTestSupport;
+import cw.support.DatabaseTestSupport.CodeReply;
 import jakarta.servlet.http.Cookie;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -32,20 +32,18 @@ class StrictJsonIntegrationTest extends DatabaseTestSupport {
     record Login(Cookie cookie, String csrf) {}
 
     private String collectorToken() {
-        CodeReply code = auth.issueCode("collector", "member-1", "test");
+        CodeReply code = collectorCode();
         return auth.enroll(code.code(), actor(1).puuid()).token();
     }
 
     private Login login() throws Exception {
-        CodeReply code = auth.issueCode("admin", null, "test");
+        String code = ADMIN_CODE;
         MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/admin/session")
                                         .header("Origin", "http://localhost:8080")
                                         .contentType("application/json")
-                                        .content(
-                                                json.writeValueAsString(
-                                                        Map.of("code", code.code()))))
+                                        .content(json.writeValueAsString(Map.of("code", code))))
                         .andReturn()
                         .getResponse();
         assertThat(response.getStatus()).isEqualTo(200);
@@ -80,6 +78,8 @@ class StrictJsonIntegrationTest extends DatabaseTestSupport {
         MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/collector/matches/" + KEY + "/confirm")
+                                        .header("X-CW-Collector-Protocol", "2")
+                                        .header("X-CW-Collector-Protocol", "2")
                                         .header("Authorization", "Bearer " + token)
                                         .contentType("application/json")
                                         .content(
@@ -108,6 +108,8 @@ class StrictJsonIntegrationTest extends DatabaseTestSupport {
         assertThat(
                         mvc.perform(
                                         post("/api/collector/matches/" + KEY + "/confirm")
+                                                .header("X-CW-Collector-Protocol", "2")
+                                                .header("X-CW-Collector-Protocol", "2")
                                                 .header("Authorization", "Bearer " + token)
                                                 .contentType("application/json")
                                                 .content(
@@ -192,6 +194,8 @@ class StrictJsonIntegrationTest extends DatabaseTestSupport {
         assertThat(
                         mvc.perform(
                                         post("/api/collector/matches/ingest")
+                                                .header("X-CW-Collector-Protocol", "2")
+                                                .header("X-CW-Collector-Protocol", "2")
                                                 .header("Authorization", "Bearer " + token)
                                                 .contentType("application/json")
                                                 .content(
@@ -257,6 +261,8 @@ class StrictJsonIntegrationTest extends DatabaseTestSupport {
             MockHttpServletResponse response =
                     mvc.perform(
                                     post("/api/collector/matches/ingest")
+                                            .header("X-CW-Collector-Protocol", "2")
+                                            .header("X-CW-Collector-Protocol", "2")
                                             .header("Authorization", "Bearer " + token)
                                             .contentType("application/json")
                                             .content(

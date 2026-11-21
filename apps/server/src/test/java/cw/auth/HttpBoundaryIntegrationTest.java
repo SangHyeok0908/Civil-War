@@ -3,8 +3,8 @@ package cw.auth;
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 
-import cw.auth.AuthService.CodeReply;
 import cw.support.DatabaseTestSupport;
+import cw.support.DatabaseTestSupport.CodeReply;
 import jakarta.servlet.http.Cookie;
 import java.math.BigInteger;
 import java.net.URI;
@@ -31,17 +31,15 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
     record Login(Cookie cookie, String csrf) {}
 
     Login login() throws Exception {
-        limiter.succeeded("127.0.0.1");
+        limiter.succeeded("collector", "127.0.0.1");
 
-        CodeReply code = auth.issueCode("admin", null, "test");
+        String code = ADMIN_CODE;
         MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/admin/session")
                                         .header("Origin", "http://localhost:8080")
                                         .contentType("application/json")
-                                        .content(
-                                                json.writeValueAsString(
-                                                        Map.of("code", code.code()))))
+                                        .content(json.writeValueAsString(Map.of("code", code))))
                         .andReturn()
                         .getResponse();
         assertThat(response.getStatus()).isEqualTo(200);
@@ -53,25 +51,22 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void secretsNeverEnterApplicationLogs(CapturedOutput captured) throws Exception {
-        limiter.succeeded("127.0.0.1");
+        limiter.succeeded("collector", "127.0.0.1");
 
         String sentinel = "private-code-log-sentinel";
         MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/collector/enroll")
+                                        .header("X-CW-Collector-Protocol", "2")
                                         .contentType("application/json")
                                         .content(
                                                 json.writeValueAsString(
-                                                        Map.of(
-                                                                "code",
-                                                                sentinel,
-                                                                "currentPuuid",
-                                                                "private-account-sentinel"))))
+                                                        enrollmentBody(sentinel, 1))))
                         .andReturn()
                         .getResponse();
         assertThat(response.getStatus()).isEqualTo(401);
         assertThat(captured.getAll()).doesNotContain(sentinel, "private-account-sentinel");
-        limiter.succeeded("127.0.0.1");
+        limiter.succeeded("collector", "127.0.0.1");
     }
 
     @Test
@@ -83,7 +78,9 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
                         "/api/%61dmin/members",
                         "/api/%63ollector/members")) {
             MockHttpServletResponse response =
-                    mvc.perform(get(URI.create(path))).andReturn().getResponse();
+                    mvc.perform(get(URI.create(path)).header("X-CW-Collector-Protocol", "2"))
+                            .andReturn()
+                            .getResponse();
             assertThat(response.getStatus()).as(path).isIn(400, 401, 403, 404);
             assertThat(response.getContentAsString()).doesNotContain("fixture-player");
         }
@@ -123,12 +120,12 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
         for (String value :
                 List.of(
                         "{}",
-                        "{\"scope\":null}",
-                        "{\"scope\":\"admin\",\"unexpected\":\"private-sentinel\"}",
-                        "{\"scope\":\"admin\",\"scope\":\"collector\"}")) {
+                        "{\"code\":null}",
+                        "{\"code\":\"" + ADMIN_CODE + "\",\"unexpected\":\"private-sentinel\"}",
+                        "{\"code\":\"" + ADMIN_CODE + "\",\"code\":\"collector\"}")) {
             MockHttpServletResponse response =
                     mvc.perform(
-                                    post("/api/admin/codes")
+                                    post("/api/admin/session")
                                             .cookie(login.cookie())
                                             .header("Origin", "http://localhost:8080")
                                             .header("X-CSRF-Token", login.csrf())
@@ -148,6 +145,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
         MockHttpServletResponse response =
                 mvc.perform(
                                 post("/api/collector/enroll")
+                                        .header("X-CW-Collector-Protocol", "2")
                                         .contentType("application/json")
                                         .content("x".repeat(ApiSecurityFilter.MAX_BODY_BYTES + 1))
                                         .with(
@@ -163,16 +161,20 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void codeAttemptsLimitedAndSuccessfulLoginResets() throws Exception {
-        limiter.succeeded("127.0.0.1");
+        limiter.succeeded("collector", "127.0.0.1");
 
         try {
             for (int i = 0; i < 5; i++) {
                 assertThat(
                                 mvc.perform(
                                                 post("/api/collector/enroll")
+                                                        .header("X-CW-Collector-Protocol", "2")
                                                         .contentType("application/json")
                                                         .content(
-                                                                "{\"code\":\"invalid-private-code\",\"currentPuuid\":\"none\"}"))
+                                                                json.writeValueAsString(
+                                                                        enrollmentBody(
+                                                                                "invalid-private-code",
+                                                                                1))))
                                         .andReturn()
                                         .getResponse()
                                         .getStatus())
@@ -182,6 +184,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
             MockHttpServletResponse blocked =
                     mvc.perform(
                                     post("/api/collector/enroll")
+                                            .header("X-CW-Collector-Protocol", "2")
                                             .contentType("application/json")
                                             .content("{\"code\":\"invalid-private-code\"}"))
                             .andReturn()
@@ -189,26 +192,24 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
             assertThat(blocked.getStatus()).isEqualTo(429);
             assertThat(blocked.getHeader("Retry-After")).isEqualTo("600");
             assertThat(blocked.getContentAsString()).doesNotContain("invalid-private-code");
-            limiter.succeeded("127.0.0.1");
+            limiter.succeeded("collector", "127.0.0.1");
 
-            CodeReply code = auth.issueCode("collector", "member-1", "test");
+            CodeReply code = collectorCode();
             assertThat(
                             mvc.perform(
                                             post("/api/collector/enroll")
+                                                    .header("X-CW-Collector-Protocol", "2")
                                                     .contentType("application/json")
                                                     .content(
                                                             json.writeValueAsString(
-                                                                    Map.of(
-                                                                            "code",
-                                                                            code.code(),
-                                                                            "currentPuuid",
-                                                                            actor(1).puuid()))))
+                                                                    enrollmentBody(
+                                                                            code.code(), 1))))
                                     .andReturn()
                                     .getResponse()
                                     .getStatus())
                     .isEqualTo(200);
         } finally {
-            limiter.succeeded("127.0.0.1");
+            limiter.succeeded("collector", "127.0.0.1");
         }
     }
 
@@ -240,7 +241,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
     }
 
     @Test
-    void seedMutationOnlyCreatesWorkOnceAndIdentityCannotChange() throws Exception {
+    void teamSettingMutationOnlyCreatesWorkOnceAndIdentityCannotChange() throws Exception {
         Login login = login();
 
         for (int i = 0; i < 2; i++) {
@@ -251,7 +252,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
                                                     .header("Origin", "http://localhost:8080")
                                                     .header("X-CSRF-Token", login.csrf())
                                                     .contentType("application/json")
-                                                    .content("{\"seedSkill\":0}"))
+                                                    .content("{\"active\":false}"))
                                     .andReturn()
                                     .getResponse()
                                     .getStatus())
@@ -276,7 +277,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void schemaVersionAndUnknownEnvelopeFieldsNeverCoerce() throws Exception {
-        CodeReply code = auth.issueCode("collector", "member-1", "test");
+        CodeReply code = collectorCode();
         String token = auth.enroll(code.code(), actor(1).puuid()).token();
 
         for (String version : List.of("1.2", "\"1\"")) {
@@ -289,6 +290,8 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
             assertThat(
                             mvc.perform(
                                             post("/api/collector/matches/ingest")
+                                                    .header("X-CW-Collector-Protocol", "2")
+                                                    .header("X-CW-Collector-Protocol", "2")
                                                     .header("Authorization", "Bearer " + token)
                                                     .contentType("application/json")
                                                     .content(body))
@@ -303,7 +306,7 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
 
     @Test
     void collectorHttpRoundTripKeepsLargeNumericGameId() throws Exception {
-        CodeReply code = auth.issueCode("collector", "member-1", "test");
+        CodeReply code = collectorCode();
         String token = auth.enroll(code.code(), actor(1).puuid()).token();
         ObjectNode r = raw();
         r.put("gameId", new BigInteger("9000000000000000000001"));
@@ -320,6 +323,8 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
         assertThat(
                         mvc.perform(
                                         post("/api/collector/matches/ingest")
+                                                .header("X-CW-Collector-Protocol", "2")
+                                                .header("X-CW-Collector-Protocol", "2")
                                                 .header("Authorization", "Bearer " + token)
                                                 .contentType("application/json")
                                                 .content(request))
@@ -331,6 +336,8 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
         MockHttpServletResponse response =
                 mvc.perform(
                                 get("/api/collector/matches/" + KEY)
+                                        .header("X-CW-Collector-Protocol", "2")
+                                        .header("X-CW-Collector-Protocol", "2")
                                         .header("Authorization", "Bearer " + token))
                         .andReturn()
                         .getResponse();
@@ -339,6 +346,8 @@ class HttpBoundaryIntegrationTest extends DatabaseTestSupport {
         assertThat(
                         mvc.perform(
                                         post("/api/collector/matches/" + KEY + "/confirm")
+                                                .header("X-CW-Collector-Protocol", "2")
+                                                .header("X-CW-Collector-Protocol", "2")
                                                 .header("Authorization", "Bearer " + token)
                                                 .contentType("application/json")
                                                 .content(

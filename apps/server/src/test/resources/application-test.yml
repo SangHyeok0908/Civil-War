@@ -10,6 +10,10 @@ spring:
   flyway:
     locations: classpath:db/migrations
 cw:
+  admin:
+    login-code: test-admin-login-code
+  riot:
+    poll-enabled: false
   evaluation:
     enabled: false
   origin: http://localhost:8080

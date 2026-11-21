@@ -28,6 +28,7 @@ export class Uploader {
     private credential: () => Promise<Credential | null>,
     private now = Date.now,
     private random = Math.random,
+    private onRevoked: (actor: Credential) => void = () => {},
   ) {}
   drainOutbox(): Promise<void> {
     if (this.running) return this.running;
@@ -59,17 +60,21 @@ export class Uploader {
           const result = await this.api.ingest(item.payload, actor);
           if (result.state === "canceled")
             throw new ClientError("MATCH_CANCELED", 409);
+          this.box.phase(item.id, "checking");
           const record = await this.api.get(item.matchKey, actor);
           this.box.saveMatch(actor, record);
           if (record.state === "canceled")
             throw new ClientError("MATCH_CANCELED", 409);
         } else {
+          this.box.phase(item.id, "checking");
           const record = await this.api.get(item.matchKey, actor);
           this.box.saveMatch(actor, record);
           if (record.state === "canceled")
             throw new ClientError("MATCH_CANCELED", 409);
           if (record.state === "pending") {
+            this.box.phase(item.id, "sending");
             await this.api.confirm(item.matchKey, item.payload, actor);
+            this.box.phase(item.id, "checking");
             const confirmed = await this.api.get(item.matchKey, actor);
             this.box.saveMatch(actor, confirmed);
             if (confirmed.state === "canceled")
@@ -111,7 +116,13 @@ export class Uploader {
             this.now() + Math.round(delay),
           );
           break;
-        } else this.box.mark(item.id, "needs_attention", e.code);
+        } else {
+          this.box.mark(item.id, "needs_attention", e.code);
+          if (e.code === "AUTH_REVOKED") {
+            this.onRevoked(actor);
+            break;
+          }
+        }
       }
     }
     this.box.cleanup();

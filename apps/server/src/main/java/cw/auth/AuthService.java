@@ -1,5 +1,7 @@
 package cw.auth;
 
+import cw.accounts.AccountLinkService;
+import cw.contracts.AccountContracts.IdentityObservation;
 import cw.contracts.ApiException;
 import cw.contracts.MatchContracts.CollectorPrincipal;
 import cw.db.MutationCoordinator;
@@ -18,7 +20,6 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,102 +31,71 @@ public class AuthService {
     private final MutationCoordinator mutations;
     private final MemberRepository members;
     private final Clock clock;
+    private final GroupCodeService groups;
+    private final AccountLinkService links;
+    private final AdminLoginCode adminCode;
     private final SecureRandom random = new SecureRandom();
 
-    public AuthService(MutationCoordinator mutations, MemberRepository members, Clock clock) {
+    public AuthService(
+            MutationCoordinator mutations,
+            MemberRepository members,
+            Clock clock,
+            GroupCodeService groups,
+            AccountLinkService links,
+            AdminLoginCode adminCode) {
         this.mutations = mutations;
         this.members = members;
         this.clock = clock;
+        this.groups = groups;
+        this.links = links;
+        this.adminCode = adminCode;
     }
 
-    public record CodeReply(String id, String code, String scope, Instant expiresAt) {}
-
     public record EnrollmentReply(
-            String token, String memberId, String credentialId, String puuid) {}
+            String token,
+            String memberId,
+            String credentialId,
+            String puuid,
+            long codeGeneration) {}
 
     public record LoginReply(String token, String sessionId, String csrfToken) {}
 
     public record AdminPrincipal(String sessionId, String csrfHash) {}
 
-    public CodeReply issueCode(String scope, String memberId, String actor) {
+    public EnrollmentReply enroll(String code, IdentityObservation current) {
         mutations.lock();
-
-        if (scope == null || !Set.of("admin", "collector").contains(scope)) {
-            throw new ApiException(422, "INVALID_SCOPE");
+        groups.verifyCode(code);
+        if (current == null || !"current_summoner".equals(current.source())) {
+            throw new ApiException(422, "ACCOUNT_EVIDENCE_REQUIRED");
         }
-
-        if (scope.equals("collector") && (memberId == null || !members.existsById(memberId))) {
-            throw new ApiException(422, "UNREGISTERED_PARTICIPANT");
-        }
-
-        if (scope.equals("admin") && memberId != null) {
-            throw new ApiException(422, "INVALID_SCOPE");
-        }
-
-        String code = secret();
-
-        EnrollmentCode entity = new EnrollmentCode();
-        entity.id = UUID.randomUUID().toString();
-        entity.secretHash = hash(code);
-        entity.scope = scope;
-        entity.memberId = memberId;
-        entity.expiresAt =
-                clock.instant()
-                        .plus(
-                                scope.equals("admin")
-                                        ? Duration.ofMinutes(30)
-                                        : Duration.ofHours(24));
-
-        em.persist(entity);
-        mutations.audit("code_issued", actor, entity.id, "{\"scope\":\"" + scope + "\"}");
-
-        return new CodeReply(entity.id, code, scope, entity.expiresAt);
-    }
-
-    public CodeReply recoverAdmin(boolean revokeAll) {
-        mutations.lock();
-
-        if (revokeAll) {
-            em.createQuery("update AdminSession s set s.revoked=true").executeUpdate();
-            em.createQuery("update EnrollmentCode c set c.revoked=true where c.scope='admin'")
-                    .executeUpdate();
-            mutations.audit("admin_recovered", "local", "owner", "{}");
-        }
-
-        return issueCode("admin", null, "local");
+        links.observe(current);
+        return enroll(code, current.puuid());
     }
 
     public EnrollmentReply enroll(String code, String currentPuuid) {
         mutations.lock();
-
-        EnrollmentCode entity = usableCode(code, "collector");
+        long generation = groups.verifyCode(code);
         MemberEntity member =
-                members.findById(entity.memberId)
-                        .orElseThrow(() -> new ApiException(401, "AUTH_REVOKED"));
-
-        if (!member.puuid.equals(currentPuuid)) {
-            throw new ApiException(403, "ACCOUNT_MISMATCH");
-        }
-
+                members.findByPuuid(currentPuuid)
+                        .orElseThrow(() -> new ApiException(403, "UNREGISTERED_COLLECTOR"));
         String token = secret();
-
         CollectorCredential credential = new CollectorCredential();
         credential.id = UUID.randomUUID().toString();
         credential.secretHash = hash(token);
         credential.memberId = member.id;
+        credential.codeGeneration = generation;
         credential.createdAt = clock.instant();
-
         em.persist(credential);
-        entity.consumed = true;
         mutations.audit("collector_enrolled", member.id, credential.id, "{}");
-
-        return new EnrollmentReply(token, member.id, credential.id, member.puuid);
+        return new EnrollmentReply(token, member.id, credential.id, member.puuid, generation);
     }
 
     public LoginReply login(String code) {
         mutations.lock();
 
-        EnrollmentCode entity = usableCode(code, "admin");
+        if (!adminCode.matches(code)) {
+            throw new ApiException(401, "AUTH_REVOKED");
+        }
         String token = secret();
         String csrf = csrfFor(token);
 
@@ -137,34 +107,9 @@ public class AuthService {
         session.lastSeenAt = session.createdAt;
 
         em.persist(session);
-        entity.consumed = true;
         mutations.audit("admin_login", "owner", session.id, "{}");
 
         return new LoginReply(token, session.id, csrf);
-    }
-
-    private EnrollmentCode usableCode(String value, String scope) {
-        List<EnrollmentCode> list =
-                em.createQuery(
-                                "select c from EnrollmentCode c where c.secretHash=:hash",
-                                EnrollmentCode.class)
-                        .setParameter("hash", hash(value))
-                        .getResultList();
-
-        if (list.isEmpty()) {
-            throw new ApiException(401, "AUTH_REVOKED");
-        }
-
-        EnrollmentCode code = list.getFirst();
-
-        if (!code.scope.equals(scope)
-                || code.consumed
-                || code.revoked
-                || !code.expiresAt.isAfter(clock.instant())) {
-            throw new ApiException(401, "AUTH_REVOKED");
-        }
-
-        return code;
     }
 
     public AdminPrincipal requireAdmin(String token) {
@@ -213,7 +158,10 @@ public class AuthService {
                 members.findById(c.memberId)
                         .orElseThrow(() -> new ApiException(401, "AUTH_REVOKED"));
 
-        return new CollectorPrincipal(member.id, c.id, member.puuid);
+        CollectorPrincipal principal =
+                new CollectorPrincipal(member.id, c.id, member.puuid, c.codeGeneration);
+        groups.requireCurrentGeneration(principal);
+        return principal;
     }
 
     public void revoke(String kind, String id) {
@@ -231,15 +179,6 @@ public class AuthService {
             }
             case "collector-credentials" -> {
                 CollectorCredential c = em.find(CollectorCredential.class, id);
-
-                if (c == null) {
-                    throw new ApiException(404, "NOT_FOUND");
-                }
-
-                c.revoked = true;
-            }
-            case "codes" -> {
-                EnrollmentCode c = em.find(EnrollmentCode.class, id);
 
                 if (c == null) {
                     throw new ApiException(404, "NOT_FOUND");

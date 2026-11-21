@@ -1,6 +1,6 @@
 import { build } from "esbuild";
 import { build as viteBuild } from "vite";
-import { rm } from "node:fs/promises";
+import { rm, cp } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const release = process.argv.includes("--release");
@@ -27,3 +27,9 @@ await build({
   outfile: `${output}/preload.cjs`,
 });
 await viteBuild({ build: { outDir: resolve(output, "renderer") } });
+
+await cp(
+  "packages/game-assets/champions",
+  `${output}/renderer/assets/champions`,
+  { recursive: true },
+);

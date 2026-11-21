@@ -8,6 +8,7 @@ export interface CollectorPrincipal {
 }
 export interface Credential extends CollectorPrincipal {
   token: string;
+  codeGeneration?: number;
 }
 export interface Member {
   id: string;
@@ -45,7 +46,14 @@ export interface NormalizedMatch {
   patch: string;
   participants: Participant[];
 }
+export interface RoleSuggestion {
+  puuid: string;
+  role: Role | null;
+  source: string;
+  reason: string;
+}
 export interface CollectorMatch {
+  roleSuggestions?: RoleSuggestion[];
   matchKey: string;
   state: MatchState;
   match: NormalizedMatch;
@@ -110,4 +118,39 @@ export function validateRoles(
     )
       throw new ClientError("INVALID_ROLES");
   }
+}
+
+export interface IdentityObservation {
+  puuid: string;
+  riotId: string;
+  source: "current_summoner" | "current_lookup";
+  observedAt: string;
+}
+
+export interface EvaluationProgress {
+  status: "queued" | "running" | "ready" | "failed" | "unknown";
+  targetRevision: number;
+  scoringVersion: string | null;
+  observedAt: string;
+  unavailable?: boolean;
+  lastKnownStatus?: string;
+}
+export interface CollectorProgress {
+  matchKey: string;
+  registrationState: MatchState;
+  evaluation: EvaluationProgress;
+  registeredRevision: number | null;
+}
+export interface TransferProgress {
+  phase:
+    | "queued"
+    | "sending"
+    | "checking"
+    | "retry_wait"
+    | "action_required"
+    | "done";
+  attempt: number;
+  lastAttemptAt?: number;
+  nextRetryAt?: number;
+  errorCode?: string;
 }

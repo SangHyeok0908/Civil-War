@@ -29,10 +29,25 @@ function setup() {
   boxes.push(box);
   let cred: any = actor;
   const lcu = {
-    getAccount: vi.fn(async () => ({
+    getAccount: vi.fn(async (): Promise<import("./lcu-client").Account> => ({
       puuid: actor.puuid,
       displayName: "수집자",
+      identity: {
+        puuid: actor.puuid,
+        riotId: "Collector#KR1",
+        source: "current_summoner" as const,
+        observedAt: new Date().toISOString(),
+      },
     })),
+    getIdentity: vi.fn(
+      async (
+        _puuid: string,
+      ): Promise<
+        import("../../../../packages/contracts/src/index").IdentityObservation
+      > => {
+        throw new ClientError("LCU_UNAVAILABLE");
+      },
+    ),
     listPastMatches: vi.fn(async (_puuid: string) => ({
       ids: [match.gameId],
       warningCode: null as string | null,
@@ -51,6 +66,20 @@ function setup() {
     active: true,
   }));
   const api = {
+    progress: vi.fn(async (keys: string[]) =>
+      keys.map((matchKey) => ({
+        matchKey,
+        registrationState: "registered" as const,
+        registeredRevision: 1,
+        evaluation: {
+          status: "queued" as const,
+          targetRevision: 1,
+          scoringVersion: null,
+          observedAt: new Date().toISOString(),
+        },
+      })),
+    ),
+    observations: vi.fn(async () => {}),
     enroll: vi.fn(async () => actor),
     members: vi.fn(async () => roster),
     pending: vi.fn(async () => [] as any[]),
@@ -121,7 +150,7 @@ it("offlineThenResume uses roster cache and confirm FIFO", async () => {
   let r = await x.service.queryPastMatches();
   expect(r.snapshot.matches[0].status).toBe("전송 대기");
   const s = await x.service.confirmRegistration(key, roles, true);
-  expect(s.matches[0].status).toBe("등록 대기");
+  expect(s.matches[0].status).toBe("등록 진행 중");
   expect(x.api.confirm).not.toHaveBeenCalled();
   x.box.db.exec("UPDATE outbox SET next_at=0");
   await x.service.tick();
@@ -137,7 +166,7 @@ it("queryFailureIsNotPending; unknown member and account mismatch blocked", asyn
   expect(x.box.listOutbox()).toHaveLength(0);
   x.box.cache("members:" + actor.memberId, []);
   expect((await x.service.queryPastMatches()).results[0].code).toBe(
-    "UNREGISTERED_PARTICIPANT",
+    "INSUFFICIENT_REGISTERED_PARTICIPANTS",
   );
   x.lcu.getAccount.mockResolvedValue({
     puuid: "different",
@@ -179,7 +208,7 @@ it("cached upload when LCU stopped, known account switch blocks ownership", asyn
   expect(x.api.ingest).toHaveBeenCalledTimes(2);
   expect(x.lcu.listPastMatches).toHaveBeenCalledTimes(1);
 });
-it("same member rotation requires explicit verified resume; other identity rejected", async () => {
+it("same member rotation automatically resumes after server verifies the account", async () => {
   const x = setup();
   await x.service.initialize();
   x.api.ingest.mockRejectedValueOnce(new ClientError("AUTH_REVOKED", 401));
@@ -187,9 +216,8 @@ it("same member rotation requires explicit verified resume; other identity rejec
   x.api.enroll.mockResolvedValueOnce({ ...actor, credentialId: "rotated" });
   await x.service.enroll("code");
   expect(x.box.listOutbox()[0].credentialId).toBe("c0");
-  expect(x.box.listOutbox()[0].state).toBe("needs_attention");
-  await x.service.resumeOwnRequests();
   expect(x.box.listOutbox()[0].state).toBe("succeeded");
+  expect(x.api.ingest).toHaveBeenCalledTimes(2);
 });
 it("duplicate query refreshes externally registered roles and later cancellation", async () => {
   const x = setup();
@@ -225,9 +253,8 @@ it("explicit saved confirmation works with LCU stopped but known mismatch remain
     displayName: "other",
   });
   await x.service.getAccount();
-  await expect(x.service.resumeOwnRequests()).rejects.toThrow(
-    "ACCOUNT_MISMATCH",
-  );
+  await x.service.tick();
+  expect((await x.service.snapshot()).account.code).toBe("ACCOUNT_MISMATCH");
 });
 it("local startup does not wait for an unresolved remote server", async () => {
   const x = setup();
@@ -356,3 +383,304 @@ it("late pending list cannot undo a background registration", async () => {
     true,
   );
 });
+it("six registered players allow guests, five do not", async () => {
+  const x = setup();
+  await x.service.initialize();
+  x.box.cache("members:" + actor.memberId, (await x.api.members()).slice(0, 6));
+  expect((await x.service.queryPastMatches()).results[0].code).toBeNull();
+  x.box.cache("members:" + actor.memberId, (await x.api.members()).slice(0, 5));
+  x.api.members.mockResolvedValueOnce((await x.api.members()).slice(0, 5));
+  expect((await x.service.queryPastMatches()).results[0].code).toBe(
+    "INSUFFICIENT_REGISTERED_PARTICIPANTS",
+  );
+});
+
+it("manualDraftSurvivesRefreshAndRestart and overrides newer proposals", async () => {
+  const x = setup();
+  await x.service.initialize();
+  await x.service.queryPastMatches();
+  const record = x.box.matches(actor)[0];
+  x.box.saveMatch(actor, {
+    ...record,
+    roleSuggestions: [
+      {
+        puuid: actor.puuid,
+        role: "TOP",
+        source: "match",
+        reason: "explicit_match_evidence",
+      },
+    ],
+  });
+  expect((await x.service.snapshot()).matches[0].roles[actor.puuid]).toBe(
+    "TOP",
+  );
+  await x.service.saveDraft(key, { [actor.puuid]: "MIDDLE" });
+  x.box.saveMatch(actor, {
+    ...record,
+    roleSuggestions: [
+      {
+        puuid: actor.puuid,
+        role: "JUNGLE",
+        source: "match",
+        reason: "explicit_match_evidence",
+      },
+    ],
+  });
+  const restarted = new CollectorService(x.lcu, x.api, x.store, x.box);
+  await restarted.initializeLocal();
+  expect((await restarted.snapshot()).matches[0].roles[actor.puuid]).toBe(
+    "MIDDLE",
+  );
+  await restarted.saveDraft(key, { [actor.puuid]: null });
+  expect(
+    (await restarted.snapshot()).matches[0].roles[actor.puuid],
+  ).toBeUndefined();
+});
+it("compactUiKeepsFullIngestPayload", async () => {
+  const x = setup();
+  await x.service.initialize();
+  await x.service.queryPastMatches();
+  const payload = x.box.listOutbox().find((j) => j.kind === "ingest")!.payload;
+  expect(payload.rawJson).toBe(JSON.stringify(raw));
+  expect(payload.rawMatch.participants[0].stats).toEqual(
+    raw.participants[0].stats,
+  );
+});
+
+it("offlineIsUnknownNotFailed and calculation failure keeps registration", async () => {
+  const x = setup();
+  await x.service.initialize();
+  await x.service.queryPastMatches();
+  await x.service.confirmRegistration(key, roles, true);
+  expect((await x.service.snapshot()).matches[0].evaluation?.status).toBe(
+    "queued",
+  );
+  x.api.progress.mockRejectedValueOnce(new ClientError("NETWORK_ERROR"));
+  await x.service.refreshProgress(true);
+  const after = (await x.service.snapshot()).matches[0];
+  expect(after.state).toBe("registered");
+  expect(after.evaluation?.status).toBe("unknown");
+  expect(after.evaluation?.lastKnownStatus).toBe("queued");
+});
+it("actual transfer phase is observable while confirmation awaits response", async () => {
+  const x = setup();
+  await x.service.initialize();
+  await x.service.queryPastMatches();
+  let done!: () => void;
+  x.api.confirm.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        done = () => resolve({ disposition: "created" });
+      }),
+  );
+  const sending = x.service.confirmRegistration(key, roles, true);
+  await vi.waitFor(() =>
+    expect(x.box.listOutbox().find((j) => j.kind === "confirm")?.phase).toBe(
+      "sending",
+    ),
+  );
+  expect((await x.service.snapshot()).matches[0].transfer?.phase).toBe(
+    "sending",
+  );
+  done();
+  await sending;
+});
+it("revoked idle connection asks for a new group code without clearing saved identity", async () => {
+  const x = setup();
+  x.api.members.mockRejectedValue(new ClientError("AUTH_REVOKED", 401));
+  const result = await x.service.initialize();
+  expect(result.account.enrolled).toBe(true);
+  expect(result.account.code).toBe("AUTH_REVOKED");
+});
+it("draft patches retain previous participants and explicit unselection", async () => {
+  const x = setup();
+  await x.service.initialize();
+  await x.service.queryPastMatches();
+  const first = match.participants[0].puuid,
+    second = match.participants[1].puuid;
+  await x.service.saveDraft(key, { [first]: "TOP" });
+  await x.service.saveDraft(key, { [second]: "JUNGLE" });
+  expect((await x.service.snapshot()).matches[0].roles).toMatchObject({
+    [first]: "TOP",
+    [second]: "JUNGLE",
+  });
+  await x.service.saveDraft(key, { [first]: null });
+  expect((await x.service.snapshot()).matches[0].roles).toEqual({
+    [second]: "JUNGLE",
+  });
+});
+
+it("fresh identities cannot prevent offline local capture with cached eligible roster", async () => {
+  const x = setup();
+  await x.service.initialize();
+  x.lcu.getIdentity.mockImplementation(async (puuid: string) => ({
+    puuid,
+    riotId: "Fresh#test",
+    source: "current_lookup" as const,
+    observedAt: new Date().toISOString(),
+  }));
+  x.api.observations.mockRejectedValue(new ClientError("NETWORK_ERROR"));
+  x.api.ingest.mockRejectedValue(new ClientError("NETWORK_ERROR"));
+  const result = await x.service.queryPastMatches();
+  expect(result.snapshot.matches).toHaveLength(1);
+  expect(x.box.listOutbox()[0].payload.rawJson).toBe(JSON.stringify(raw));
+  expect(x.box.listOutbox()[0].state).toBe("pending");
+});
+it("server cancellation moves registered game and removes ready calculation label", async () => {
+  const x = setup();
+  await x.service.initialize();
+  await x.service.queryPastMatches();
+  await x.service.confirmRegistration(key, roles, true);
+  const response = await x.api.progress([key]);
+  x.api.progress.mockResolvedValueOnce(
+    response.map((p) => ({
+      ...p,
+      registrationState: "canceled",
+      evaluation: { ...p.evaluation, status: "ready" },
+    })) as any,
+  );
+  await x.service.refreshProgress(true);
+  const record = (await x.service.snapshot()).matches[0];
+  expect(record.status).toBe("등록 취소");
+  expect(record.evaluation).toBeUndefined();
+});
+
+it("restart tick automatically recovers same-owner paused jobs without changing submission IDs or drafts", async () => {
+  const x = setup();
+  await x.service.initialize();
+  await x.service.queryPastMatches();
+  await x.service.saveDraft(key, { [actor.puuid]: "TOP" });
+  const job = x.box.enqueueConfirmation(
+    key,
+    { rolesByPuuid: roles, clientSubmissionId: "saved-confirm" },
+    { ...actor, credentialId: "old-device" },
+  );
+  x.box.mark(job.id, "needs_attention", "CREDENTIAL_CHANGED");
+  const before = x.box.listOutbox();
+  await x.service.tick();
+  expect(x.box.listOutbox().map((j) => j.id)).toEqual(before.map((j) => j.id));
+  expect(
+    x.box.listOutbox().find((j) => j.id === job.id)?.payload.clientSubmissionId,
+  ).toBe("saved-confirm");
+  expect(x.box.listOutbox().find((j) => j.id === job.id)?.state).toBe(
+    "succeeded",
+  );
+  expect(x.api.confirm).toHaveBeenCalledTimes(1);
+  expect((await x.service.snapshot()).matches[0].manualRoles).toEqual({
+    [actor.puuid]: "TOP",
+  });
+});
+it("automatic recovery waits for the original account and then resumes on account return", async () => {
+  const x = setup();
+  await x.service.initialize();
+  const job = x.box.enqueueCollected(
+    { schemaVersion: 1, rawMatch: raw, clientSubmissionId: "original" },
+    actor,
+    match,
+  );
+  x.box.mark(job.id, "needs_attention", "ACCOUNT_MISMATCH");
+  x.lcu.getAccount.mockResolvedValue({
+    puuid: "other",
+    displayName: "다른 계정#KR1",
+  });
+  await x.service.tick();
+  expect(x.api.ingest).not.toHaveBeenCalled();
+  expect((await x.service.snapshot()).account.expectedDisplayName).toBe(
+    "회원0#KR1",
+  );
+  x.lcu.getAccount.mockResolvedValue({
+    puuid: actor.puuid,
+    displayName: "수집자",
+  });
+  await x.service.tick();
+  expect(x.box.listOutbox()[0].state).toBe("succeeded");
+});
+it("automatic recovery preserves permanent role errors and never confirms an unrequested match", async () => {
+  const x = setup();
+  await x.service.initialize();
+  const job = x.box.enqueueCollected(
+    { schemaVersion: 1, rawMatch: raw, clientSubmissionId: "invalid" },
+    actor,
+    match,
+  );
+  x.box.mark(job.id, "needs_attention", "INVALID_ROLES");
+  await x.service.tick();
+  await x.service.tick();
+  expect(x.box.listOutbox()[0].state).toBe("needs_attention");
+  expect(x.api.ingest).not.toHaveBeenCalled();
+  expect(x.api.confirm).not.toHaveBeenCalled();
+});
+it("failed membership verification leaves paused requests untouched after successful enrollment", async () => {
+  const x = setup();
+  await x.service.initialize();
+  const job = x.box.enqueueCollected(
+    { schemaVersion: 1, rawMatch: raw, clientSubmissionId: "saved" },
+    actor,
+    match,
+  );
+  x.box.mark(job.id, "needs_attention", "AUTH_REVOKED");
+  x.api.enroll.mockResolvedValueOnce({ ...actor, credentialId: "new" });
+  x.api.members.mockResolvedValue([]);
+  await x.service.enroll("000007");
+  await x.service.tick();
+  expect(x.box.listOutbox()[0].state).toBe("needs_attention");
+  expect(x.api.ingest).not.toHaveBeenCalled();
+});
+
+it("a late revoked upload from the previous credential cannot revoke a new connection", async () => {
+  const x = setup();
+  await x.service.initialize();
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  x.api.ingest.mockImplementationOnce(async () => {
+    await gate;
+    throw new ClientError("AUTH_REVOKED", 401);
+  });
+  const query = x.service.queryPastMatches();
+  await vi.waitFor(() => expect(x.api.ingest).toHaveBeenCalledTimes(1));
+  x.api.enroll.mockResolvedValueOnce({ ...actor, credentialId: "fresh" });
+  const connecting = x.service.enroll("000007");
+  await vi.waitFor(async () =>
+    expect((await x.store.load()).credentialId).toBe("fresh"),
+  );
+  release();
+  await Promise.all([query, connecting]);
+  expect((await x.service.snapshot()).account.code).toBeNull();
+  await x.service.tick();
+  expect(x.box.listOutbox()[0].state).toBe("succeeded");
+});
+
+it.each(["members", "pending", "progress"] as const)(
+  "late %s failure from the previous credential cannot overwrite a new connection",
+  async (endpoint) => {
+    const x = setup();
+    await x.service.initialize();
+    await x.service.queryPastMatches();
+    if (endpoint === "progress")
+      await x.service.confirmRegistration(key, roles, true);
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    x.api[endpoint].mockImplementationOnce(async () => {
+      await gate;
+      throw new ClientError("AUTH_REVOKED", 401);
+    });
+    const before = x.api[endpoint].mock.calls.length;
+    const refreshing =
+      endpoint === "progress"
+        ? x.service.refreshProgress(true)
+        : x.service.refreshRemote();
+    await vi.waitFor(() =>
+      expect(x.api[endpoint].mock.calls.length).toBeGreaterThan(before),
+    );
+    x.api.enroll.mockResolvedValueOnce({ ...actor, credentialId: "fresh" });
+    await x.service.enroll("000007");
+    release();
+    await refreshing;
+    expect((await x.service.snapshot()).account.code).toBeNull();
+    expect((await x.service.snapshot()).serverError).not.toBe("AUTH_REVOKED");
+  },
+);

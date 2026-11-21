@@ -4,6 +4,7 @@ import {
   parseJson,
 } from "../../../../tools/lcu-probe/client.mjs";
 import {
+  type IdentityObservation,
   ClientError,
   object,
   text,
@@ -11,6 +12,7 @@ import {
 export interface Account {
   puuid: string;
   displayName: string;
+  identity?: IdentityObservation;
 }
 export interface HistoryListing {
   ids: string[];
@@ -53,12 +55,46 @@ export class LcuClient {
     );
     return {
       puuid: text(value.puuid, 128),
+      ...(typeof value.gameName === "string" &&
+      typeof value.tagLine === "string"
+        ? { identity: this.identity(value, "current_summoner") }
+        : {}),
       displayName:
         typeof value.gameName === "string"
           ? value.gameName +
             (typeof value.tagLine === "string" ? "#" + value.tagLine : "")
           : text(value.displayName ?? value.internalName),
     };
+  }
+  private identity(
+    value: Record<string, any>,
+    source: IdentityObservation["source"],
+  ): IdentityObservation {
+    if (
+      typeof value.gameName !== "string" ||
+      !value.gameName.trim() ||
+      typeof value.tagLine !== "string" ||
+      !value.tagLine.trim() ||
+      value.gameName.includes("#") ||
+      value.tagLine.includes("#")
+    )
+      throw new ClientError("ACCOUNT_EVIDENCE_REQUIRED");
+    return {
+      puuid: text(value.puuid, 128),
+      riotId: value.gameName + "#" + value.tagLine,
+      source,
+      observedAt: new Date().toISOString(),
+    };
+  }
+  async getIdentity(puuid: string): Promise<IdentityObservation> {
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(puuid))
+      throw new ClientError("INVALID_ACCOUNT");
+    const value = object(
+      parseJson(await this.get("/lol-summoner/v2/summoners/puuid/" + puuid)),
+    );
+    if (value.puuid !== puuid)
+      throw new ClientError("ACCOUNT_EVIDENCE_REQUIRED");
+    return this.identity(value, "current_lookup");
   }
   async listPastMatches(puuid: string): Promise<HistoryListing> {
     if (!/^[A-Za-z0-9_-]{1,128}$/.test(puuid))

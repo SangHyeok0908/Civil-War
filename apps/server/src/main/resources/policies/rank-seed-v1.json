@@ -1,0 +1,27 @@
+{
+  "version": "solo-rank-seed-v1",
+  "neutral": 50,
+  "maximum": 100,
+  "dividedTiers": [
+    "IRON",
+    "BRONZE",
+    "SILVER",
+    "GOLD",
+    "PLATINUM",
+    "EMERALD",
+    "DIAMOND"
+  ],
+  "divisions": [
+    "IV",
+    "III",
+    "II",
+    "I"
+  ],
+  "topTiers": [
+    "MASTER",
+    "GRANDMASTER",
+    "CHALLENGER"
+  ],
+  "successCacheSeconds": 86400,
+  "failureBackoffMillis": 300000
+}

@@ -8,9 +8,7 @@ export function Login() {
   return (
     <div className="login-wrap">
       <Heading eyebrow="OWNER ACCESS" title="운영자 로그인" />
-      <p className="lead">
-        서버 또는 인증된 운영자 브라우저에서 발급한 일회용 코드를 입력하세요.
-      </p>
+      <p className="lead">운영자 로그인 코드를 입력하세요.</p>
       <form
         className="panel form-stack"
         onSubmit={async (e) => {
@@ -34,10 +32,12 @@ export function Login() {
         }}
       >
         <label>
-          운영자 등록 코드
+          운영자 로그인 코드
           <input
             type="password"
-            autoComplete="off"
+            minLength={8}
+            maxLength={128}
+            autoComplete="current-password"
             value={code}
             required
             onChange={(e) => setCode(e.target.value)}
@@ -46,10 +46,7 @@ export function Login() {
         <button disabled={busy || !code.trim()}>
           {busy ? "인증 중…" : "운영자 인증"}
         </button>
-        <p className="caption">
-          사용한 코드는 다시 사용할 수 없습니다. 수집자 코드는 운영자 권한을
-          부여하지 않습니다.
-        </p>
+        <p className="caption">모임 코드는 운영자 권한을 부여하지 않습니다.</p>
       </form>
       {error !== undefined && <ErrorBox error={error} />}
     </div>

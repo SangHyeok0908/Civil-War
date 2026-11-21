@@ -43,7 +43,7 @@ class SnapshotIsolationIntegrationTest extends DatabaseTestSupport {
                                                         memberService.patch(
                                                                 "member-1",
                                                                 json.readTree(
-                                                                        "{\"seedSkill\":99}"));
+                                                                        "{\"active\":false}"));
                                                         admin.roles(KEY, roles(true));
                                                         admin.cancel(KEY);
                                                     })
@@ -64,8 +64,8 @@ class SnapshotIsolationIntegrationTest extends DatabaseTestSupport {
                                 .filter(m -> m.id().equals("member-1"))
                                 .findFirst()
                                 .orElseThrow()
-                                .seedSkill())
-                .isEqualTo(50);
+                                .active())
+                .isTrue();
         assertThat(
                         input.matches().getFirst().participants().stream()
                                 .filter(p -> p.memberId().equals("member-1"))

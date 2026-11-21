@@ -64,7 +64,7 @@ public class EvaluationSnapshot {
                                 .filter(r -> r.puuid().equals(p.puuid))
                                 .findFirst()
                                 .orElseThrow();
-                ps.add(new EvaluableParticipant(p.memberId, p.role, record));
+                ps.add(new EvaluableParticipant(p.playerId, p.memberId, p.role, record));
             }
 
             games.add(new EvaluableMatch(normalized, List.copyOf(ps)));

@@ -89,6 +89,10 @@ public class ApiSecurityFilter extends OncePerRequestFilter {
                 response.setHeader("Cache-Control", "no-store");
             }
 
+            if (path.startsWith("/api/collector/")
+                    && !"2".equals(request.getHeader("X-CW-Collector-Protocol"))) {
+                throw new ApiException(426, "COLLECTOR_UPDATE_REQUIRED");
+            }
             HttpServletRequest req = request;
 
             if (!Set.of("GET", "HEAD", "OPTIONS").contains(req.getMethod())) {

@@ -23,7 +23,12 @@ public final class EvaluationContracts {
             Role role,
             JsonNode evidence) {}
 
-    public record EvaluableParticipant(String memberId, Role role, ParticipantRecord record) {}
+    public record EvaluableParticipant(
+            String playerId, String memberId, Role role, ParticipantRecord record) {
+        public EvaluableParticipant(String memberId, Role role, ParticipantRecord record) {
+            this(memberId, memberId, role, record);
+        }
+    }
 
     public record EvaluableMatch(NormalizedMatch match, List<EvaluableParticipant> participants) {}
 
@@ -44,12 +49,24 @@ public final class EvaluationContracts {
 
     public record GameScore(
             String matchKey,
+            String playerId,
             String memberId,
             Role role,
             String scoringVersion,
             double score,
             int rank,
-            Map<String, Double> breakdown) {}
+            Map<String, Double> breakdown) {
+        public GameScore(
+                String matchKey,
+                String memberId,
+                Role role,
+                String scoringVersion,
+                double score,
+                int rank,
+                Map<String, Double> breakdown) {
+            this(matchKey, memberId, memberId, role, scoringVersion, score, rank, breakdown);
+        }
+    }
 
     public record RoleSkill(String memberId, Role role, double value, int n) {}
 

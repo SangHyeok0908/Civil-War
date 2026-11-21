@@ -1,6 +1,6 @@
-# 집 Windows 시험 서버 배포
+# Windows Docker 서버 설치·교체
 
-집 Windows 데스크톱의 Docker Desktop에서 서버·데이터베이스를 실행하고 Cloudflare Tunnel로 수집기를 연결한다. 사용자는 이 절차의 실제 배포를 맡는다. 이번 묶음은 자료 보존 시험용이며, 기존 운영 DB를 옮기거나 덮어쓰는 절차가 아니다. 기기 등록 이후의 확인은 [Windows 실기 절차](collector-acceptance.md)를 따른다.
+집 Windows 데스크톱의 Docker Desktop에서 서버·데이터베이스를 실행하고 Cloudflare Tunnel로 수집기를 연결한다. 사용자는 이 절차의 실제 배포를 맡는다. 기존 서버의 새 버전 교체는 아래 [교체 절차](#새-계정코드-계약-적용-순서)를 따른다. 새 시험 환경은 기존 운영 DB와 분리한다. 기기 등록 이후의 확인은 [Windows 실기 절차](collector-acceptance.md)를 따른다.
 
 기록일: 2026-10-26. 편집·보완일: 2026-10-28. 제품의 운영 기준은 [명세](../spec.md#설치운영-설계), 실행 결과는 [준비 검증 보고서](../validation/2026-10-26-collector-acceptance-preparation.md)에 있다.
 
@@ -23,14 +23,21 @@ if ($cwOrigin -notmatch '^https://[a-z0-9]([a-z0-9.-]*[a-z0-9])?$') {
     throw 'https://시험호스트 형식의 주소만 입력하세요. 경로·포트·계정 정보는 넣지 마세요.'
 }
 $cwPassword = [Guid]::NewGuid().ToString('N') + [Guid]::NewGuid().ToString('N')
-[IO.File]::WriteAllLines((Join-Path $PWD '.env'), @("SERVER_ORIGIN=$cwOrigin", "POSTGRES_PASSWORD=$cwPassword"), [Text.UTF8Encoding]::new($false))
-Remove-Variable cwPassword
+$cwAdminSecure = Read-Host '새 운영자 로그인 코드를 입력하세요(영문·숫자·-_. 8–128자)' -AsSecureString
+$cwAdmin = [PSCredential]::new('admin', $cwAdminSecure).GetNetworkCredential().Password
+if ($cwAdmin -notmatch '^[A-Za-z0-9._-]{8,128}$' -or $cwAdmin.StartsWith('replace-with-')) {
+    throw '운영자 로그인 코드는 영문·숫자·-_. 로만 8–128자로 새로 정하세요.'
+}
+[IO.File]::WriteAllLines((Join-Path $PWD '.env'), @("SERVER_ORIGIN=$cwOrigin", "POSTGRES_PASSWORD=$cwPassword", "ADMIN_LOGIN_CODE=$cwAdmin"), [Text.UTF8Encoding]::new($false))
+Remove-Variable cwPassword, cwAdmin, cwAdminSecure
 New-Item -ItemType Directory -Force secrets | Out-Null
 $cwToken = Read-Host 'Cloudflare Tunnel 토큰만 붙여넣으세요' -AsSecureString
 $cwCredential = [PSCredential]::new('tunnel', $cwToken)
 [IO.File]::WriteAllText((Join-Path $PWD 'secrets\cloudflare-tunnel-token.txt'), $cwCredential.GetNetworkCredential().Password.Trim(), [Text.UTF8Encoding]::new($false))
 Remove-Variable cwToken, cwCredential
 ```
+
+운영자 로그인 코드는 이 PC의 `.env`에만 저장되며 서버는 값이 없거나 8자보다 짧으면 시작하지 않는다. 코드·문서·공개 저장소에 적힌 값은 쓰지 않는다. `.env`의 값 해석 차이를 피하려고 이 절차는 영문·숫자·`-`·`_`·`.`만 허용한다.
 
 토큰은 Cloudflare 설치 명령 중 `--token` 다음의 값이다. 설치 명령 전체를 넣지 않는다. `.env`와 `secrets`는 해당 PC에서만 보관하고 공유 ZIP·공개 저장소·시험 결과에 넣지 않는다. 토큰 파일 전달은 [Cloudflare 공식 실행 옵션](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/run-parameters/#token-file)을 따른다.
 
@@ -62,36 +69,16 @@ Invoke-RestMethod "$cwOrigin/api/members"
 
 처음 회원 목록은 빈 배열이다. PowerShell에서 아무 항목도 출력되지 않더라도 HTTP 오류가 없어야 한다. 브라우저에서 같은 주소의 `/admin`을 열어 로그인 화면도 확인한다. Cloudflare Tunnel 상태가 연결됨인지 확인하며, 화면 메뉴가 바뀌면 [공식 배포 안내](https://developers.cloudflare.com/tunnel/get-started/)의 공개 호스트 연결 절차를 따른다.
 
-시험 호스트에 별도의 브라우저 로그인·보안 확인 화면을 적용하면 수집기 요청이 JSON 대신 HTML이나 리다이렉트를 받을 수 있다. `/api/collector/*`에 그런 응답이 없는지 확인한다. 이 서버의 관리자 인증은 자체 일회용 코드를 사용한다. 외부 HTTPS만 사용하며 서버의 개발용 HTTP 프로필을 켜지 않는다.
+시험 호스트에 별도의 브라우저 로그인·보안 확인 화면을 적용하면 수집기 요청이 JSON 대신 HTML이나 리다이렉트를 받을 수 있다. `/api/collector/*`에 그런 응답이 없는지 확인한다. 이 서버의 관리자 인증은 `.env`의 운영자 로그인 코드로 한다. 외부 HTTPS만 사용하며 서버의 개발용 HTTP 프로필을 켜지 않는다.
 
-## 4. 최초 관리자 코드와 개인별 코드
+## 4. 최초 관리자 코드와 모임 코드
 
-같은 배포 폴더에서 다음 명령을 실행한다. 실행 중 서버와 같은 설정·DB에 연결하는 일회용 컨테이너다.
+기존 서버 웹 주소의 `/admin`에서 최초 환경 설정 때 `.env`의 `ADMIN_LOGIN_CODE`에 넣은 운영자 로그인 코드로 로그인한다. 형식과 세션은 [인증 계약](../contracts/api.md#인증과-권한)을 따른다. 코드 발급 명령은 사용하지 않는다. 코드를 바꾸려면 `.env` 값을 고친 뒤 `docker compose up -d --wait server`로 서버를 다시 만들고, 관리자 화면에서 기존 브라우저 세션을 폐기한다.
 
-```powershell
-docker compose run --rm --no-deps server admin:code --logging.level.root=ERROR
-```
-
-터미널의 `ADMIN_CODE=` 뒤 코드로 `/admin`에 로그인한다. 코드는 일반 로그로 저장하거나 공유하지 않는다. `--revoke-all`은 기존 관리자 인증을 폐기하는 복구 명령이므로 첫 발급에는 붙이지 않는다. 유효기간·권한은 [인증 계약](../contracts/api.md#인증과-권한)을 따른다.
-
-1. **참가자 관리 → 참가자 추가**에서 시험 수집자의 실제 LCU PUUID(게임 클라이언트가 사용하는 계정 식별자), Riot ID, 공개 이름을 등록한다. 기존 회원이 있다면 같은 회원을 사용한다. PUUID는 생성 후 바꿀 수 없다.
-2. 기기 인증만 먼저 확인할 때는 본인 1명으로 가능하다. 대기 자료 생성에는 선택한 기존 내전의 **참가자 10명 모두**가 회원으로 등록되어 있어야 한다. 원본 경기의 `participantIdentities[].player.puuid`와 실제 참가자를 대조한다. 이름이나 Riot 공식 API의 PUUID로 대신하지 않는다.
-3. 기존 비공개 조회 자료의 `002-current-summoner.json`에 있는 `puuid`로 본인 계정을 확인할 수 있다. 자료가 없으면 [기존 읽기 전용 조회 도구](../../tools/lcu-probe/README.md)의 필요한 조회만 사용한다. 식별자·원본은 공개 결과에 첨부하지 않는다.
-4. **코드·인증 → 코드 종류: 수집자 기기 → 연결할 참가자 → 코드 발급**으로 개인별 등록 코드를 만든다. 관리자 코드와 수집자 코드는 서로 다르다. 복구 때에도 새 회원을 만들지 않고 동일 참가자를 선택한다.
-
-### 참가자 정보 찾기
-
-친구에게 계정 식별자를 직접 물어보거나 친구마다 조회 도구를 실행할 필요는 없다. 함께 참가한 경기 원본의 참가자 정보에서 아래 값을 읽는다. 공개용 가명화 경기 예제는 실제 기기 등록에 사용할 수 없다.
-
-| 입력란 | 준비 방법 | 확인할 점 |
-| --- | --- | --- |
-| LCU PUUID | `participantIdentities[].player.puuid`를 그대로 복사 | 표시 이름이나 공식 API 식별자로 대신하지 않음 |
-| Riot ID | 같은 참가자의 `player.gameName`과 `player.tagLine`을 `이름#태그`로 연결 | 과거 원본이면 이후 이름·태그 변경 여부를 본인에게 확인. 값이 없으면 이름으로 추정하지 않음 |
-| 공개 이름 | 웹에 표시할 모임 별명을 운영자가 정해 입력 | 실제 이름일 필요가 없고 게임 이름과 같을 필요도 없음. 해당 친구가 쓸 별명을 확인하면 됨 |
-
-당시 조회 계정은 `002-current-summoner.json`의 `puuid`와 참가자 식별자를 대조해 찾는다. 이 표시는 수집 당시 계정이며 오늘 로그인한 계정을 새로 확인한 결과는 아니다. 먼저 본인만 등록해 기기 인증을 시험할 수 있고, 경기 자료를 수집하기 전까지 나머지 참가자를 등록하면 된다. PUUID는 수정할 수 없지만 Riot ID·공개 이름은 기존 회원의 편집 화면에서 바꿀 수 있다.
-
-포지션·초기 실력의 의미는 [회원 계약](../contracts/api.md#회원)을 따른다. 시험에서 임시로 입력한 값은 실제 포지션 검증이나 운영 데이터 확정으로 기록하지 않는다.
+1. **참가자 관리 → 참가자 추가**에서 실제 Riot ID를 입력한다. 기존 참가자는 같은 프로필을 사용한다. 가능한 포지션은 팀 추천용 별도 설정이다.
+2. **코드·인증 → 모임 코드 발급**으로 공통 코드를 한 번 표시하고 수집자에게 전달한다. 수집자별 코드는 만들지 않는다.
+3. 수집자는 롤에 로그인한 뒤 수집기의 **모임에 연결**을 사용한다. 현재 계정 관측으로 프로필을 연결하며 과거 경기 이름만으로 합치지 않는다. 상세 입력·게스트 기준은 [명세](../spec.md#참가자와-포지션-관리)를 따른다.
+4. 재발급·삭제는 모든 수집기 연결을 해제한다. PC의 대기 자료를 지우지 않고 같은 계정으로 재연결하게 안내한다.
 
 ## 5. 중단·재개와 남은 운영 확인
 
@@ -111,3 +98,78 @@ cp apps/server/build/libs/civil-war-server-*-provisional.jar dist/home-server/se
 ```
 
 JAR 후보가 여러 개라면 현재 빌드 설정의 실행 JAR 하나를 명시한다. `-plain.jar`는 사용하지 않는다. 배포 ZIP에는 `home-server/` 아래 위 설정 4개와 `server.jar`만 넣는다. ZIP 해시는 파일 생성 후 별도로 계산한다.
+
+## 새 계정·코드 계약 적용 순서
+
+이 절차는 기존 Windows·Docker 서버와 수집기를 교체할 때 사용한다. ZIP은 새 폴더에 풀어 실행 파일을 준비한다. 기존 서버의 Compose 프로젝트·DB·볼륨·환경 설정과 각 PC의 수집기 자료 경로를 유지한다. 새 서버 구축은 앞의 최초 환경 설정 절차를 따른다.
+
+### 1. 쓰기 중단과 백업
+
+모든 수집기를 종료한다. **기존 서버 배포 폴더**의 PowerShell에서 외부 연결과 서버를 멈추고 DB 컨테이너는 유지한다.
+
+```powershell
+docker compose stop cloudflared server
+$cwBackupRoot = Join-Path $env:USERPROFILE ('CivilWarBackups\' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+New-Item -ItemType Directory -Path $cwBackupRoot | Out-Null
+Copy-Item -LiteralPath @('.env', 'compose.yml', 'Dockerfile', '.dockerignore', 'server.jar') -Destination $cwBackupRoot
+if (Test-Path -LiteralPath 'secrets') { Copy-Item -LiteralPath 'secrets' -Destination $cwBackupRoot -Recurse }
+docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc -f /tmp/civil-war-before-ux.dump'
+if ($LASTEXITCODE -ne 0) { throw 'DB 백업 실패. 적용을 멈추세요.' }
+docker compose cp postgres:/tmp/civil-war-before-ux.dump (Join-Path $cwBackupRoot 'database.dump')
+if ($LASTEXITCODE -ne 0) { throw 'DB 백업 복사 실패. 적용을 멈추세요.' }
+```
+
+각 수집기 PC에서도 앱 종료 후 `%APPDATA%\Civil War Collector` 폴더 전체를 별도 백업한다. 서버 DB 백업과 수집기 대기는 서로 다른 자료다. 백업을 새 격리 DB·복사 폴더에 복원해 회원·등록/취소 경기·원문·대기 요청·초안을 대조하는 것이 적용 전 확인 기준이다.
+
+### 2. 기존 설정으로 서버 교체
+
+ZIP의 `home-server/server.jar`를 기존 배포 폴더의 `server.jar`에 복사한다. 기존 `.env`, `secrets`, `compose.yml`, `Dockerfile`, `.dockerignore`를 사용한다. ZIP의 설정 네 파일은 최초 구성과 대조할 때 쓰는 예제다. 사용자별 프로젝트명·DB·볼륨을 새 이름으로 바꾸지 않는다.
+
+자동 솔로랭크 참고를 사용할 때는 서버 `.env`에 `RIOT_API_KEY`를 넣고, 기존 `compose.yml`의 `server.environment`에 다음 항목을 추가한다. 실제 키는 배포 ZIP·수집기 설정에 넣지 않는다. 키가 없거나 조회가 실패하면 연결·조회 대기와 최근 성공값 또는 공통 시작값을 사용한다.
+
+```yaml
+RIOT_API_KEY: ${RIOT_API_KEY:-}
+```
+
+새 서버는 운영자 로그인 코드를 `.env`의 `ADMIN_LOGIN_CODE`에서 읽으며 값이 없으면 시작하지 않는다. 기존 `.env`에 이 값이 없으면 아래 블록으로 추가하고, 기존 `compose.yml`의 `server.environment`에도 다음 항목을 넣는다. 이전 고정값처럼 공개된 값은 쓰지 않는다.
+
+```powershell
+if (Select-String -LiteralPath .env -Pattern '^ADMIN_LOGIN_CODE=' -Quiet) { throw '이미 ADMIN_LOGIN_CODE가 있습니다. 기존 값을 유지하세요.' }
+$cwAdminSecure = Read-Host '새 운영자 로그인 코드를 입력하세요(영문·숫자·-_. 8–128자)' -AsSecureString
+$cwAdmin = [PSCredential]::new('admin', $cwAdminSecure).GetNetworkCredential().Password
+if ($cwAdmin -notmatch '^[A-Za-z0-9._-]{8,128}$' -or $cwAdmin.StartsWith('replace-with-')) {
+    throw '운영자 로그인 코드는 영문·숫자·-_. 로만 8–128자로 새로 정하세요.'
+}
+[IO.File]::AppendAllText((Join-Path $PWD '.env'), "ADMIN_LOGIN_CODE=$cwAdmin`n", [Text.UTF8Encoding]::new($false))
+Remove-Variable cwAdmin, cwAdminSecure
+```
+
+```yaml
+ADMIN_LOGIN_CODE: ${ADMIN_LOGIN_CODE:?Set ADMIN_LOGIN_CODE in .env}
+```
+
+기존 서버 폴더에서 실행한다. Docker Desktop은 Linux 컨테이너 모드여야 한다.
+
+```powershell
+docker compose config --quiet
+docker compose up -d --build --wait postgres server
+docker compose ps
+```
+
+서버 시작 때 미적용 DB 전환만 수행한다. 0.3에서 0.4로 교체할 때 회원·경기·취소·기기 인증·관리자 세션을 유지하고 DB 구조를 바꾸지 않는다. 개인별 코드 방식의 더 오래된 버전에서 처음 전환하면 해당 이전 전환 규칙에 따라 개인 코드와 기기 자격이 해제된다. 연결 누락으로 전환이 실패하면 자료를 버려 계속하지 않는다. **`docker compose down -v`와 볼륨 삭제는 실행하지 않는다.**
+
+### 3. 모임 코드와 새 수집기 연결
+
+서버가 `healthy`이면 `docker compose start cloudflared`로 기존 외부 연결을 시작한다. 기존 웹 주소에서 `.env`의 운영자 로그인 코드로 로그인해 모임 코드를 발급한다. 이전 43자리 코드도 새 수집기의 입력 팝업에서 사용할 수 있다. 6자리 코드로 바꾸려면 재발급한다. 재발급은 기존 모든 수집기를 해제하므로 새 코드를 배포할 시점에 수행한다. 서버 버전 교체만으로 기존 기기·브라우저 세션을 해제하지 않는다.
+
+ZIP의 `collector` 폴더에 있는 새 설치 파일을 같은 Windows 사용자로 더블클릭한다. 설치를 마치면 바로가기가 생성되고 앱이 실행된다. 이후 바탕화면 아이콘으로 실행하며 서버 주소를 입력하지 않는다. 기존 수집기 자료 폴더와 참가자 프로필을 그대로 사용한다. 롤에 로그인한 상태에서 팝업에 새 모임 코드를 입력하면 같은 참가자·계정의 저장 요청을 자동으로 이어 보낸다. 정상 연결 후에는 코드 입력 폼을 숨긴다.
+
+서버와 PC의 기존 기록·포지션·대기 건수·계산 상태를 대조한다. 새 경기 수집이나 새 참가자 계정 확인에는 **롤에서 경기 가져오기**를 사용한다. 이미 등록을 요청한 경기만 자동 처리되고 확인 대기 경기는 직접 등록한다.
+
+프로토콜 2를 지원하지 않는 구형 수집기는 새 서버에서 업데이트 필요 응답을 받는다. 새 모임 코드를 재발급·삭제하면 모든 수집기가 다시 연결해야 한다. 모임 코드는 발급 때 한 번만 보여 준다.
+
+### 4. 확인 범위와 되돌리기
+
+이 배포물은 macOS에서 빌드·무결성 검사한 Windows x64 설치판이며 코드 서명은 없다. 실제 Windows 설치 실행, 새 LCU 현재 이름 조회 경로와 Riot 키 실연동, 운영 서버 적용은 이 ZIP 생성으로 확인된 결과가 아니다.
+
+문제가 생기면 쓰기를 멈춘 상태를 유지하고 보관한 서버·수집기 백업과 그에 맞는 프로그램 버전을 함께 복원한다. 새 DB에 예전 프로그램을 역실행하지 않는다. 적용 후 새로 생긴 자료는 별도로 보관해 복원 시 잃지 않도록 대조한다.

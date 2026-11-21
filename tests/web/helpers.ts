@@ -7,7 +7,7 @@ export function state(): {
   adminCode: string;
   cookie: string;
   csrf: string;
-  members: AdminMember[];
+  members: (AdminMember & { puuid: string })[];
   keys: string[];
   collectorCode: string;
 } {
@@ -64,11 +64,8 @@ export async function login(
   page: import("@playwright/test").Page,
   request: APIRequestContext,
 ) {
-  const reply = await (
-    await admin(request, "/codes", { scope: "admin" })
-  ).json();
   await page.goto("/admin");
-  await page.getByLabel("운영자 등록 코드").fill(reply.code);
+  await page.getByLabel("운영자 로그인 코드").fill(state().adminCode);
   await page.getByRole("button", { name: "운영자 인증" }).click();
   await page.waitForURL("**/admin/members");
 }

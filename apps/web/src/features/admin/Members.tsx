@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api, useRemote } from "../../api";
+import { MemberAvatar } from "../../components/MemberAvatar";
 import type { AdminMember, Role, Suggestion } from "../../types";
 import {
   roles,
@@ -8,15 +9,32 @@ import {
   ErrorBox,
   Empty,
 } from "../../components/Common";
+const tierNames: Record<string, string> = {
+  IRON: "아이언",
+  BRONZE: "브론즈",
+  SILVER: "실버",
+  GOLD: "골드",
+  PLATINUM: "플래티넘",
+  EMERALD: "에메랄드",
+  DIAMOND: "다이아몬드",
+  MASTER: "마스터",
+  GRANDMASTER: "그랜드마스터",
+  CHALLENGER: "챌린저",
+};
+function rankLabel(m: AdminMember) {
+  if (m.rankTier)
+    return `${tierNames[m.rankTier] ?? m.rankTier} ${m.rankDivision ?? ""}${m.rankStatus === "ranked" ? "" : " · 최근 조회값 사용"}`;
+  if (m.rankStatus === "unranked") return "솔로랭크 등급 없음";
+  if (m.rankStatus === "conflict" || m.rankStatus === "not_found")
+    return "Riot ID와 계정 연결 확인 필요";
+  return "솔로랭크 조회 대기 또는 연결 확인 필요";
+}
 const blank = {
-  puuid: "",
   riotId: "",
-  displayName: "",
   active: true,
   primaryRole: null as Role | null,
   secondaryRole: null as Role | null,
   allowedRoles: [] as Role[],
-  seedSkill: 50,
 };
 export function MembersAdmin() {
   const result = useRemote<AdminMember[]>("/api/admin/members");
@@ -28,8 +46,8 @@ export function MembersAdmin() {
         <button onClick={() => setEditing("new")}>참가자 추가</button>
       </div>
       <p className="caption">
-        초기 실력은 팀 편성에만 반영됩니다. 현재 포지션을 바꾸어도 과거 경기의
-        확정 역할은 유지됩니다.
+        Riot ID로 참가자를 추가하고 게임 계정 정보를 자동으로 연결합니다. 현재
+        포지션을 바꾸어도 과거 경기의 확정 역할은 유지됩니다.
       </p>
       {editing === "new" && (
         <MemberEditor
@@ -48,20 +66,29 @@ export function MembersAdmin() {
       ) : (
         <div className="admin-members">
           {result.data.map((m) => (
-            <div className="panel" key={m.id}>
+            <div
+              className={
+                "panel member-panel" + (editing === m.id ? " is-editing" : "")
+              }
+              key={m.id}
+            >
               <div className="panel-heading">
-                <div>
-                  <h3>
-                    {m.displayName}{" "}
-                    <span className="badge">
-                      {m.active ? "활성" : "비활성"}
-                    </span>
-                  </h3>
-                  <small>
-                    {m.riotId} · 초기 실력 {m.seedSkill} ·{" "}
-                    {m.allowedRoles.map((r) => roleName[r]).join(" / ") ||
-                      "포지션 미지정"}
-                  </small>
+                <div className="member-identity">
+                  <MemberAvatar member={m} />
+                  <div>
+                    <h3>
+                      {m.displayName}{" "}
+                      <span className="badge">
+                        {m.active ? "팀 추천 대상" : "팀 추천 제외"}
+                      </span>
+                    </h3>
+                    <small>
+                      {m.riotId} · {!m.puuid && "게임 계정 연결 확인 중 · "}{" "}
+                      {m.allowedRoles.map((r) => roleName[r]).join(" / ") ||
+                        "포지션 미지정"}
+                    </small>
+                    <small>{rankLabel(m)}</small>
+                  </div>
                 </div>
                 <button
                   className="secondary"
@@ -123,14 +150,11 @@ function MemberEditor({
           setError(undefined);
           try {
             const body = {
-              displayName: form.displayName,
               riotId: form.riotId,
               active: form.active,
               primaryRole: form.primaryRole,
               secondaryRole: form.secondaryRole,
               allowedRoles: form.allowedRoles,
-              seedSkill: form.seedSkill,
-              ...(!member ? { puuid: form.puuid } : {}),
             };
             await api(
               "/api/admin/members" + (member ? "/" + member.id : ""),
@@ -147,40 +171,11 @@ function MemberEditor({
       >
         <div className="form-grid">
           <label>
-            공개 이름
-            <input
-              required
-              value={form.displayName}
-              onChange={(e) => change("displayName", e.target.value)}
-            />
-          </label>
-          <label>
             Riot ID
             <input
               required
               value={form.riotId}
               onChange={(e) => change("riotId", e.target.value)}
-            />
-          </label>
-          {!member && (
-            <label>
-              LCU PUUID
-              <input
-                required
-                value={form.puuid}
-                onChange={(e) => change("puuid", e.target.value)}
-              />
-            </label>
-          )}
-          <label>
-            초기 실력 (0–100)
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="1"
-              value={form.seedSkill}
-              onChange={(e) => change("seedSkill", Number(e.target.value))}
             />
           </label>
           {(["primaryRole", "secondaryRole"] as const).map((k) => (
@@ -220,16 +215,17 @@ function MemberEditor({
                 {roleName[r]}
               </label>
             ))}
-            <label>
-              <input
-                type="checkbox"
-                checked={form.active}
-                onChange={(e) => change("active", e.target.checked)}
-              />
-              활성 참가자
-            </label>
           </div>
         </fieldset>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={form.active}
+            onChange={(e) => change("active", e.target.checked)}
+          />
+          팀 추천 대상
+        </label>
+        <small>해제해도 과거 경기 기록은 유지됩니다.</small>
         <div className="action-row">
           <button disabled={busy}>{busy ? "저장 중…" : "참가자 저장"}</button>
           <button type="button" className="secondary" onClick={done}>
