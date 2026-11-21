@@ -97,7 +97,7 @@ Invoke-RestMethod "$cwOrigin/api/members"
 자동 교체는 새 `compose.yml`이 집 PC에 있어야 시작되므로 첫 전환은 손으로 한다. 이 전환 중 서버가 몇 분 멈추며 수집기 전송은 지연된다(기록 손실은 아님). 명령은 **기존 배포 폴더**의 PowerShell에서 실행한다.
 
 1. GitHub의 패키지 설정에서 `civil-war-server`와 `civil-war-updater` 이미지가 공개인지 확인하고, 비공개면 공개로 바꾼다. 처음 만들어진 패키지의 기본 공개 여부는 확인하지 않았다. 공개가 아니면 아래 `docker pull`이 로그인을 요구한다.
-2. Discord 서버 설정에서 웹훅을 만들고 주소를 `secrets\discord-webhook-url.txt`에 저장한다. 이 파일은 `.env`·`secrets`처럼 공유 ZIP·저장소에 넣지 않는다.
+2. Discord 서버 설정에서 웹훅을 만들고 주소를 `secrets\discord-webhook-url.txt`에 저장한다. `secrets` 폴더가 없으면 먼저 만든다(`New-Item -ItemType Directory -Force secrets`). 이 파일은 `.env`·`secrets`처럼 공유 ZIP·저장소에 넣지 않는다.
 3. 서버·Tunnel을 멈추고 백업한다. [쓰기 중단과 백업](#1-쓰기-중단과-백업) 절차를 그대로 따른다.
 4. 새 `compose.yml`을 저장소 master에서 받아 기존 폴더에 덮어쓴다(위 3번 백업에 기존 파일이 들어 있다). `.env`·`secrets`·프로젝트 이름(`cw-collector-acceptance`)은 바꾸지 않는다. 기존 `compose.yml`에 직접 추가했던 설정이 있으면 백업본과 비교한다.
 
@@ -132,14 +132,16 @@ docker compose logs --tail 50 updater
 docker inspect --format '{{ json .Config.Labels }}' (docker compose ps -q server)
 ```
 
-출력의 `org.opencontainers.image.revision` 값이 실행 중 서버 이미지의 원본 커밋이다. GitHub의 master 커밋과 대조한다. 교체 담당 로그에는 교체 시작·정상 확인·되돌림과 `이전에 되돌린 이미지라 다시 시도하지 않습니다` 같은 줄이 남는다. 로그가 멈춰 있거나 `updater`가 `docker compose ps`에 없으면 교체 담당이 멈춘 것이며, 이때도 알림은 오지 않는다.
+출력의 `org.opencontainers.image.revision` 값이 실행 중 서버 이미지의 원본 커밋이며, GitHub의 master 커밋과 대조하는 것이 반영 여부의 최종 확인이다. 교체 담당 로그의 각 줄 앞에는 시각이 붙고 다음 줄이 남는다. 교체 성공 확인에는 `교체 완료: <커밋 앞 7자>`, 시작에는 `교체 시작: <커밋 앞 7자>`가 쓰인다. 되돌렸다면 `되돌림 완료: <커밋 앞 7자>`가 남고 Discord에도 알림이 온다. 교체 도중 교체 담당이 재시작되면 `재시작 복구: <단계>`가 남는다. 실패 단계는 `새 버전 시작 실패`·`백업 실패` 같은 줄과 `alert sent|skipped|failed: <종류>`로, 이미 되돌린 이미지는 `이전에 되돌린 이미지라 다시 시도하지 않습니다.`로 남는다. 커밋 정보를 읽지 못하면 `unknown`으로 적힌다.
+
+교체 담당이 살아 있는지는 로그가 아니라 `docker compose ps updater`의 상태가 `running`인지로 확인한다. 새 이미지가 없으면 로그에 아무것도 남지 않는 것이 정상이므로, 조용한 로그만으로 멈췄다고 판단하지 않는다. `updater`가 `running`이 아니면 멈춘 것이며 이때도 알림은 오지 않는다.
 
 ### 멈춤 상태의 수동 조치
 
 되돌림도 실패하면 Discord에 "수동 조치 필요"가 오고, 서버는 멈춘 채로 자동 교체도 멈춘다. 공개 조회·관리는 쓸 수 없고 수집기 자료는 각 PC에 보존된다.
 
 1. `docker compose logs --tail 100 updater postgres server`로 실패한 단계를 확인한다. `backups\` 폴더의 백업 파일(`pg_dump -Fc`)이 남아 있는지 본다. 백업 파일을 지우지 않는다.
-2. 원인을 고친다. 필요하면 [쓰기 중단과 백업](#1-쓰기-중단과-백업)의 백업 기준으로 DB를 되돌리고 서버를 직접 시작한다. `docker compose down -v`와 볼륨 삭제는 하지 않는다.
+2. 원인을 고친다. DB 복원이 필요하면 이 문서에는 복원 명령이 아직 없다. 복원은 명세의 기준대로 별도의 명시적 실행으로 제한되는 수동 작업이며, 백업을 만드는 방법만 [쓰기 중단과 백업](#1-쓰기-중단과-백업)에 있다. 복원 전에 담당자와 함께 진행 여부를 정하고 서버를 직접 시작한다. `docker compose down -v`와 볼륨 삭제는 하지 않는다.
 3. 서버가 정상 상태(`healthy`)인 것을 확인한 뒤 멈춤을 푼다. 교체가 진행 중인 상태에서는 초기화를 거부한다.
 
    ```powershell
