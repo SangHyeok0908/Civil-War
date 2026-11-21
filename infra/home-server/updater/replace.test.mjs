@@ -86,6 +86,7 @@ function makeOps(options = {}) {
 const effectful = (ops) => ops.calls.filter(([name]) => MUTATING.has(name));
 const names = (ops) => effectful(ops).map(([name]) => name);
 // 부수 효과 호출을 순서대로 단순화한다. saveState는 단계, alert는 종류·단계로 줄인다.
+const logs = (ops) => ops.calls.filter(([n]) => n === "log").map(([, m]) => m);
 const trace = (ops) =>
   effectful(ops).map(([n, ...a]) => {
     if (n === "saveState") return ["saveState", a[0].phase];
@@ -170,6 +171,7 @@ test("runCycle — 성공 순서", async () => {
   assert.equal(result.phase, "idle");
   assert.equal(result.candidateId, null);
   assert.ok(!names(ops).includes("alert"));
+  assert.deepEqual(logs(ops), ["교체 시작: abcdef1", "교체 완료: abcdef1"]);
 });
 
 test("runCycle — 백업 실패", async () => {
@@ -189,6 +191,8 @@ test("runCycle — 백업 실패", async () => {
   assert.equal(states[1].phase, "idle");
   assert.equal(states[1].failedImageId, "sha256:new");
   assert.equal(states[1].candidateId, null);
+  assert.ok(logs(ops).includes("교체 시작: abcdef1"));
+  assert.ok(!logs(ops).some((m) => m.startsWith("교체 완료")));
   assert.equal(result.phase, "idle");
   assert.equal(result.failedImageId, "sha256:new");
 });
@@ -260,6 +264,10 @@ test("runCycle — 새 버전 실패 후 되돌림", async () => {
   assert.equal(result.phase, "idle");
   assert.equal(result.failedImageId, "sha256:new");
   assert.equal(result.backupFile, null);
+  const lines = logs(ops);
+  assert.ok(lines.includes("교체 시작: abcdef1"));
+  assert.ok(lines.includes("되돌림 완료: abcdef1"));
+  assert.ok(!lines.some((m) => m.startsWith("교체 완료")));
 });
 
 test("runCycle — tag 실패도 되돌림 경로를 탄다", async () => {
@@ -300,6 +308,7 @@ test("runCycle — 되돌림 실패", async () => {
   ]);
   assert.equal(saved(ops).at(-1).phase, "halted");
   assert.equal(saved(ops).at(-1).failedImageId, "sha256:new");
+  assert.ok(!logs(ops).some((m) => /^(교체|되돌림) 완료/.test(m)));
 });
 
 test("runCycle — 알림 실패가 되돌림을 막지 않는다", async () => {
@@ -386,6 +395,7 @@ test("recover — 백업 중 재시작", async () => {
   ]);
   assert.equal(saved(ops).at(-1).failedImageId, null);
   assert.equal(saved(ops).at(-1).candidateId, null);
+  assert.deepEqual(logs(ops), ["재시작 복구: backing-up"]);
   assert.equal(result.phase, "idle");
   assert.equal(result.failedImageId, null);
 });
@@ -410,6 +420,10 @@ test("recover — 새 버전 시작 중 재시작", async () => {
   assert.equal(saved(ops).at(-1).failedImageId, "sha256:new");
   assert.equal(result.phase, "idle");
   assert.equal(result.failedImageId, "sha256:new");
+  assert.deepEqual(logs(ops), [
+    "재시작 복구: starting-new",
+    "되돌림 완료: abcdef1",
+  ]);
 });
 
 test("recover — 되돌림 도중 재시작이 반복돼도 같은 결과", async () => {
@@ -433,4 +447,10 @@ test("recover — idle·halted는 아무것도 하지 않는다", async () => {
     assert.deepEqual(ops.calls, []);
     assert.deepEqual(result, state);
   }
+});
+
+test("runCycle — 커밋 정보가 없으면 unknown으로 기록한다", async () => {
+  const ops = makeOps({ images: IMAGES, revision: null });
+  await runCycle({ ...DEFAULT_STATE }, ops, CONFIG);
+  assert.deepEqual(logs(ops), ["교체 시작: unknown", "교체 완료: unknown"]);
 });

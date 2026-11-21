@@ -15,6 +15,10 @@ class RollbackStepError extends Error {
   }
 }
 
+function rev7(state) {
+  return state.candidateRevision?.slice(0, 7) ?? "unknown";
+}
+
 async function safeAlert(ops, kind, state, step) {
   try {
     await ops.alert(kind, {
@@ -89,6 +93,7 @@ async function rollBack(state, ops, config, step) {
   }
   const next = { ...state, ...CLEARED, phase: "idle", failedImageId };
   await ops.saveState(next);
+  ops.log(`되돌림 완료: ${rev7(state)}`);
   await safeAlert(ops, "rolled-back", state, step);
   return next;
 }
@@ -156,6 +161,7 @@ export async function runCycle(state, ops, config) {
     candidateRevision,
   };
   await ops.saveState(current);
+  ops.log(`교체 시작: ${rev7(current)}`);
 
   const backupFile = backupFileName(ops.now(), candidateRevision);
   try {
@@ -187,6 +193,7 @@ export async function runCycle(state, ops, config) {
   // 정상 확인 직후 idle을 먼저 저장한다. 이후 재시작돼도 정상 서버 위에 백업을 복원하지 않는다.
   const done = { ...current, ...CLEARED, phase: "idle" };
   await ops.saveState(done);
+  ops.log(`교체 완료: ${rev7(current)}`);
   try {
     await ops.pruneBackups(config.keepBackups);
   } catch (error) {
@@ -196,6 +203,9 @@ export async function runCycle(state, ops, config) {
 }
 
 export async function recover(state, ops, config) {
+  if (state.phase === "backing-up" || state.phase === "starting-new") {
+    ops.log(`재시작 복구: ${state.phase}`);
+  }
   if (state.phase === "backing-up") {
     return abortBeforeSwitch(state, ops, null, null);
   }
