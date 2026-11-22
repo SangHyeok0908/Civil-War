@@ -345,8 +345,9 @@ test("observed server cancellation updates filter and never shows score ready", 
   await app.evaluate(() => {
     (globalThis as any).__collectorFixture.state = "canceled";
   });
+  // 취소 표시는 진행 확인(약 10초 간격)과 화면 갱신(2초)으로 최대 약 12초 걸린다.
   await expect(page.locator("article.match .badge")).toHaveText("등록 취소", {
-    timeout: 12000,
+    timeout: 20000,
   });
   await expect(
     page.getByText("점수·랭킹 반영 완료", { exact: true }),
