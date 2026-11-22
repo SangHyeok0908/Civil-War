@@ -15,6 +15,8 @@ on:
         "tsconfig.json",
         "infra/compose.test.yml",
         "fixtures/lcu/candidates/**",
+        "infra/home-server/Dockerfile",
+        "infra/home-server/.dockerignore",
         ".github/workflows/server.yml",
       ]
   pull_request:
@@ -32,6 +34,8 @@ on:
         "tsconfig.json",
         "infra/compose.test.yml",
         "fixtures/lcu/candidates/**",
+        "infra/home-server/Dockerfile",
+        "infra/home-server/.dockerignore",
         ".github/workflows/server.yml",
       ]
 permissions:
@@ -64,3 +68,86 @@ jobs:
       - name: Stop test database
         if: always()
         run: docker compose -f infra/compose.test.yml down -v
+      - name: Upload runnable server JAR for image publishing
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4, resolved 2026-11-21
+        with:
+          name: server-jar
+          path: apps/server/build/libs/civil-war-server-*-provisional.jar
+          retention-days: 1
+          if-no-files-found: error
+  publish-image:
+    needs: server
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    concurrency:
+      group: server-image
+      cancel-in-progress: false
+    env:
+      IMAGE: ghcr.io/sanghyeok0908/civil-war-server
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4, resolved 2026-10-22
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4, resolved 2026-11-21
+        with:
+          name: server-jar
+          path: server-jar
+      - name: Prepare image build folder
+        run: |
+          set -euo pipefail
+          jars=(server-jar/civil-war-server-*-provisional.jar)
+          test "${#jars[@]}" -eq 1
+          mkdir image-build
+          cp infra/home-server/Dockerfile infra/home-server/.dockerignore image-build/
+          cp "${jars[0]}" image-build/server.jar
+      - name: Log in to GHCR
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build image
+        run: |
+          docker build --platform linux/amd64 \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "org.opencontainers.image.source=https://github.com/SangHyeok0908/Civil-War" \
+            -t "$IMAGE:master" -t "$IMAGE:sha-${GITHUB_SHA::7}" \
+            image-build
+      - name: Push image
+        run: |
+          set -euo pipefail
+          docker push "$IMAGE:sha-${GITHUB_SHA::7}"
+          # 이 목록은 이 파일 맨 위 on.push.paths와 항상 똑같아야 한다.
+          # 이 경로를 바꾼 더 새로운 master 커밋만 자기 실행으로 이미지를 게시하기 때문이다.
+          paths=(
+            ':(glob)apps/server/**'
+            ':(glob)apps/web/**'
+            ':(glob)packages/**'
+            ':(glob)tests/web/**'
+            ':(glob)scripts/web-test-server.mjs'
+            ':(glob)docs/contracts/**'
+            ':(glob)package.json'
+            ':(glob)pnpm-*.yaml'
+            ':(glob)*config.ts'
+            ':(glob)tsconfig.json'
+            ':(glob)infra/compose.test.yml'
+            ':(glob)fixtures/lcu/candidates/**'
+            ':(glob)infra/home-server/Dockerfile'
+            ':(glob)infra/home-server/.dockerignore'
+            ':(glob).github/workflows/server.yml'
+          )
+          # 실패하면 단계가 실패한다(조용히 건너뛰지 않는다).
+          git fetch --no-tags origin master
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD; then
+            echo "::warning::이 커밋이 master 기록에 없습니다(기록이 다시 써졌을 수 있음). $IMAGE:master 이름표는 올리지 않았으니 사람이 확인하세요."
+            exit 0
+          fi
+          newer="$(git rev-list "$GITHUB_SHA..FETCH_HEAD" -- "${paths[@]}")"
+          if [ -z "$newer" ]; then
+            docker push "$IMAGE:master"
+          else
+            echo "::notice::이 워크플로를 다시 실행할 더 새로운 master 커밋($(echo "$newer" | cut -c1-7 | paste -sd, -))이 있어 $IMAGE:master 이름표는 올리지 않고 sha 이름표만 올렸습니다. 그 커밋의 실행이 게시합니다."
+          fi

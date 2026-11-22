@@ -100,3 +100,12 @@ pnpm docs:check
 ```
 
 `docs:index`는 [정본 목록](../ssot.json)에서 [문서 안내](../README.md)를 생성한다. 생성 문서는 손으로 고치지 않는다. `test:docs`는 검사기의 회귀 테스트이며 `docs:check`는 저장소 문서 자체를 검사한다. 작성 절차와 자동 검사의 한계는 [AGENTS.md](../../AGENTS.md#문서-관리-절차)가 정본이다.
+
+## 서버 자동 교체 시험
+
+```sh
+pnpm test:updater
+pnpm test:updater-sim
+```
+
+`test:updater`는 교체 담당(`infra/home-server/updater`)의 단위 테스트이며 Docker가 필요 없다. `test:updater-sim`은 실제 로컬 Docker에서 임시 이미지·DB로 성공·되돌림·재시작 복구를 모의하므로 Docker가 실행 중이어야 하고 약 2분 걸린다. 프로젝트 `cw-updater-sim`과 `cw-sim/*` 이미지만 쓰고 끝나면 정리하며, 운영 서버와 GitHub·GHCR·Discord에는 접속하지 않는다. 모의 시험 성공은 집 PC 교체 성공이 아니다. 운영 절차는 [집 서버 운영 절차](../runbooks/home-server.md#자동-교체)를 따른다.

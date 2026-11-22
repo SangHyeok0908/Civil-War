@@ -1,0 +1,68 @@
+name: Home server updater verification
+on:
+  push:
+    paths: ["infra/home-server/updater/**", ".github/workflows/updater.yml"]
+  pull_request:
+    paths: ["infra/home-server/updater/**", ".github/workflows/updater.yml"]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4, resolved 2026-10-22
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24.22.1"
+      - run: node --test infra/home-server/updater/*.test.mjs
+  publish:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    concurrency:
+      group: updater-image
+      cancel-in-progress: false
+    env:
+      IMAGE: ghcr.io/sanghyeok0908/civil-war-updater
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4, resolved 2026-10-22
+        with:
+          fetch-depth: 0
+      - name: Log in to GHCR
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build image
+        run: |
+          docker build --platform linux/amd64 \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "org.opencontainers.image.source=https://github.com/SangHyeok0908/Civil-War" \
+            -t "$IMAGE:latest" -t "$IMAGE:sha-${GITHUB_SHA::7}" \
+            infra/home-server/updater
+      - name: Push image
+        run: |
+          set -euo pipefail
+          docker push "$IMAGE:sha-${GITHUB_SHA::7}"
+          # 이 목록은 이 파일 맨 위 on.push.paths와 항상 똑같아야 한다.
+          # 이 경로를 바꾼 더 새로운 master 커밋만 자기 실행으로 이미지를 게시하기 때문이다.
+          paths=(
+            ':(glob)infra/home-server/updater/**'
+            ':(glob).github/workflows/updater.yml'
+          )
+          # 실패하면 단계가 실패한다(조용히 건너뛰지 않는다).
+          git fetch --no-tags origin master
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD; then
+            echo "::warning::이 커밋이 master 기록에 없습니다(기록이 다시 써졌을 수 있음). $IMAGE:latest 이름표는 올리지 않았으니 사람이 확인하세요."
+            exit 0
+          fi
+          newer="$(git rev-list "$GITHUB_SHA..FETCH_HEAD" -- "${paths[@]}")"
+          if [ -z "$newer" ]; then
+            docker push "$IMAGE:latest"
+          else
+            echo "::notice::이 워크플로를 다시 실행할 더 새로운 master 커밋($(echo "$newer" | cut -c1-7 | paste -sd, -))이 있어 $IMAGE:latest 이름표는 올리지 않고 sha 이름표만 올렸습니다. 그 커밋의 실행이 게시합니다."
+          fi

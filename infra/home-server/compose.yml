@@ -20,8 +20,8 @@ services:
       timeout: 3s
       retries: 30
   server:
-    image: civil-war-home-server:collector-acceptance
-    build: .
+    image: civil-war-server:current
+    pull_policy: never
     environment:
       DATABASE_URL: jdbc:postgresql://postgres:5432/cw_collector_acceptance
       DATABASE_USER: cw_collector_acceptance
@@ -64,12 +64,27 @@ services:
         condition: service_healthy
     networks: [tunnel]
     restart: unless-stopped
+  updater:
+    image: ghcr.io/sanghyeok0908/civil-war-updater:latest
+    environment:
+      SOURCE_IMAGE: ghcr.io/sanghyeok0908/civil-war-server:master
+      COMPOSE_PROJECT_NAME: cw-collector-acceptance
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/deploy:ro
+      - ./backups:/backups
+    secrets: [discord_webhook]
+    networks: [updater]
+    restart: unless-stopped
 networks:
   database:
     internal: true
   tunnel:
+  updater: {}
 volumes:
   postgres_data:
 secrets:
   tunnel_token:
     file: ./secrets/cloudflare-tunnel-token.txt
+  discord_webhook:
+    file: ./secrets/discord-webhook-url.txt
