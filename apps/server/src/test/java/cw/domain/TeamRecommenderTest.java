@@ -15,9 +15,16 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 class TeamRecommenderTest {
+    private static Map<String, Double> seeds(List<Member> members) {
+        return members.stream()
+                .filter(m -> m.teamSeed() != null)
+                .collect(Collectors.toMap(Member::id, Member::teamSeed));
+    }
+
     List<Member> players() {
         return ScoringServiceTest.members().subList(0, 10);
     }
@@ -42,7 +49,11 @@ class TeamRecommenderTest {
                         .toList();
         TeamRecommendation result =
                 new TeamRecommender()
-                        .recommend(ps, new RoleSkillCalculator().calculate(ps, List.of()), 1, 5);
+                        .recommend(
+                                ps,
+                                new RoleSkillCalculator().calculate(ps, List.of(), seeds(ps)),
+                                1,
+                                5);
         assertThat(result.candidates()).hasSize(3);
 
         Set<String> rosters = new HashSet<>();
@@ -86,7 +97,11 @@ class TeamRecommenderTest {
                         .toList();
         TeamRecommendation result =
                 new TeamRecommender()
-                        .recommend(ps, new RoleSkillCalculator().calculate(ps, List.of()), 1, 5);
+                        .recommend(
+                                ps,
+                                new RoleSkillCalculator().calculate(ps, List.of(), seeds(ps)),
+                                1,
+                                5);
         assertThat(result.candidates()).isEmpty();
         assertThat(result.reason()).contains("MIDDLE");
     }
@@ -125,7 +140,7 @@ class TeamRecommenderTest {
     @Test
     void allTenAllFiveRolesBenchmark126Partitions() {
         List<Member> ps = players();
-        List<RoleSkill> skills = new RoleSkillCalculator().calculate(ps, List.of());
+        List<RoleSkill> skills = new RoleSkillCalculator().calculate(ps, List.of(), seeds(ps));
         long start = System.nanoTime();
 
         TeamRecommender recommender = new TeamRecommender();
@@ -148,7 +163,7 @@ class TeamRecommenderTest {
         List<Member> ps = players();
 
         ArrayList<RoleSkill> skills =
-                new ArrayList<>(new RoleSkillCalculator().calculate(ps, List.of()));
+                new ArrayList<>(new RoleSkillCalculator().calculate(ps, List.of(), seeds(ps)));
         skills.replaceAll(
                 s ->
                         s.memberId().equals("m0") && s.role() == Role.TOP
@@ -198,7 +213,10 @@ class TeamRecommenderTest {
             TeamRecommendation result =
                     new TeamRecommender()
                             .recommend(
-                                    ps, new RoleSkillCalculator().calculate(ps, List.of()), 1, 5);
+                                    ps,
+                                    new RoleSkillCalculator().calculate(ps, List.of(), seeds(ps)),
+                                    1,
+                                    5);
             assertThat(result.candidates()).hasSize(first == 3 ? 1 : 2);
         }
     }
@@ -210,9 +228,8 @@ class TeamRecommenderTest {
                 new RoleSkillCalculator()
                         .calculate(
                                 List.of(m),
-                                List.of(
-                                        new GameScore(
-                                                "x", m.id(), Role.TOP, "v", 80, 1, Map.of())));
+                                List.of(new GameScore("x", m.id(), Role.TOP, "v", 80, 1, Map.of())),
+                                Map.of());
         assertThat(
                         skills.stream()
                                 .filter(s -> s.role() == Role.TOP)

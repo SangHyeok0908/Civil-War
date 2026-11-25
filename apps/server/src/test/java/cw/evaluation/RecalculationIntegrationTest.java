@@ -35,7 +35,6 @@ class RecalculationIntegrationTest extends DatabaseTestSupport {
         assertThat(g.sourceRevision()).isEqualTo(revision());
         assertThat(g.gameScores()).hasSize(10);
         assertThat(g.memberStats()).hasSize(11);
-        assertThat(g.roleSkills()).hasSize(55);
         assertThat(g.gameScores())
                 .allSatisfy(s -> assertThat(s.scoringVersion()).isEqualTo(g.scoringVersion()));
         assertThat(
@@ -254,5 +253,20 @@ class RecalculationIntegrationTest extends DatabaseTestSupport {
         }
 
         assertThat(worker.runOnce()).isTrue();
+    }
+
+    @Test
+    void generationJsonWithLegacyRoleSkillsIsReadable() {
+        registered();
+        assertThat(worker.runOnce()).isTrue();
+        // Stored generations are immutable, so read a copy through the same mapper as current().
+        String stored =
+                jdbc.queryForObject("select result_json from evaluation_generations", String.class);
+        tools.jackson.databind.node.ObjectNode legacy =
+                (tools.jackson.databind.node.ObjectNode) json.readTree(stored);
+        legacy.putArray("roleSkills").addObject().put("memberId", "member-1");
+        EvaluationGeneration read =
+                json.readValue(json.writeValueAsString(legacy), EvaluationGeneration.class);
+        assertThat(read.gameScores()).hasSize(10);
     }
 }

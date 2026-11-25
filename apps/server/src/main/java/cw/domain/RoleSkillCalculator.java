@@ -6,9 +6,12 @@ import cw.contracts.MemberContracts.Member;
 import cw.contracts.Role;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class RoleSkillCalculator {
-    public List<RoleSkill> calculate(List<Member> members, List<GameScore> scores) {
+    /** Blends each member's seed, counted as five virtual games, with that role's game scores. */
+    public List<RoleSkill> calculate(
+            List<Member> members, List<GameScore> scores, Map<String, Double> seedByMember) {
         List<RoleSkill> result = new ArrayList<>();
 
         for (Member m : members) {
@@ -21,10 +24,7 @@ public class RoleSkillCalculator {
                         new RoleSkill(
                                 m.id(),
                                 role,
-                                (5.
-                                                        * (m.teamSeed() == null
-                                                                ? RankSeedPolicy.neutral()
-                                                                : m.teamSeed())
+                                (5. * seedByMember.getOrDefault(m.id(), RankSeedPolicy.neutral())
                                                 + selected.stream()
                                                         .mapToDouble(GameScore::score)
                                                         .sum())

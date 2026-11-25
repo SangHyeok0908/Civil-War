@@ -154,7 +154,6 @@ class ConfirmedScoringMigrationIntegrationTest extends DatabaseTestSupport {
                                                         s.breakdown()))
                                 .toList());
         assertThat(current.memberStats()).isEqualTo(previous.memberStats());
-        assertThat(current.roleSkills()).isEqualTo(previous.roleSkills());
         assertThat(
                         jdbc.queryForList(
                                 "select id,raw_json,normalized_json,state from matches order by id"))

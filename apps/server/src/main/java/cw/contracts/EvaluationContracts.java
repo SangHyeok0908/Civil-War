@@ -134,13 +134,14 @@ public final class EvaluationContracts {
             Double kda,
             boolean perfect) {}
 
+    /** Generations stored before role skills moved to request time may still carry roleSkills. */
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     public record EvaluationGeneration(
             String id,
             long sourceRevision,
             String scoringVersion,
             List<GameScore> gameScores,
-            List<MemberStats> memberStats,
-            List<RoleSkill> roleSkills) {}
+            List<MemberStats> memberStats) {}
 
     public record TeamSeat(String memberId, Role role) {}
 
@@ -148,5 +149,12 @@ public final class EvaluationContracts {
             List<TeamSeat> teamA, List<TeamSeat> teamB, double skillDifference) {}
 
     public record TeamRecommendation(
-            List<TeamCandidate> candidates, String reason, long sourceRevision) {}
+            List<TeamCandidate> candidates,
+            String reason,
+            long sourceRevision,
+            List<RankLookup> rankLookups) {
+        public TeamRecommendation withRankLookups(List<RankLookup> values) {
+            return new TeamRecommendation(candidates, reason, sourceRevision, List.copyOf(values));
+        }
+    }
 }
