@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { api, useRemote } from "../../api";
 import { MemberAvatar } from "../../components/MemberAvatar";
-import type { PublicMember, Recommendation as Result } from "../../types";
+import type {
+  PublicMember,
+  RankLookup,
+  Recommendation as Result,
+} from "../../types";
 import {
   Heading,
   Loading,
@@ -9,7 +13,53 @@ import {
   Empty,
   roleName,
   score,
+  tierNames,
 } from "../../components/Common";
+function rankTier(r: RankLookup) {
+  if (!r.tier) return r.source === "live" ? "등급 없음" : "—";
+  return `${tierNames[r.tier] ?? r.tier} ${r.division ?? ""}`.trim();
+}
+function rankSource(r: RankLookup) {
+  if (r.source === "live")
+    return r.tier ? "방금 조회" : "방금 조회 (기준값 50)";
+  if (r.source === "saved" && r.observedAt)
+    return `조회 실패 · ${new Date(r.observedAt).toLocaleString("ko-KR", {
+      month: "long",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    })} 조회값 사용`;
+  return "조회 실패 · 기준값 50 사용";
+}
+function RankLookups({
+  lookups,
+  members,
+}: {
+  lookups: RankLookup[];
+  members: PublicMember[] | undefined;
+}) {
+  const live = lookups.filter((r) => r.source === "live").length;
+  return (
+    <section className="panel rank-lookups">
+      <h3>
+        솔로랭크 반영 · {lookups.length}명 중 {live}명 최신 조회
+      </h3>
+      {live < lookups.length && (
+        <ul>
+          {lookups.map((r) => (
+            <li key={r.memberId}>
+              <span>
+                {members?.find((m) => m.id === r.memberId)?.displayName}
+              </span>
+              <span>{rankTier(r)}</span>
+              <span>{rankSource(r)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
 export function Recommendation() {
   const members = useRemote<PublicMember[]>("/api/members");
   const [selected, setSelected] = useState<string[]>([]);
@@ -146,6 +196,7 @@ export function Recommendation() {
               </article>
             ))}
           </div>
+          <RankLookups lookups={result.rankLookups} members={members.data} />
           <p className="caption">
             서로 다른 선수 구성만 표시합니다. 가장 균형 잡힌 구성의 팀 합 차이
             +5 이내에서 최대 3개를 제공합니다. 실제 경기 포지션은 등록 때 별도로

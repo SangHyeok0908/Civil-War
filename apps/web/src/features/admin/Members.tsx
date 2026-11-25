@@ -1,33 +1,22 @@
 import { useState } from "react";
 import { api, useRemote } from "../../api";
 import { MemberAvatar } from "../../components/MemberAvatar";
-import type { AdminMember, Role, Suggestion } from "../../types";
+import type { AdminMember, Role } from "../../types";
 import {
   roles,
   roleName,
   Loading,
   ErrorBox,
   Empty,
+  tierNames,
 } from "../../components/Common";
-const tierNames: Record<string, string> = {
-  IRON: "아이언",
-  BRONZE: "브론즈",
-  SILVER: "실버",
-  GOLD: "골드",
-  PLATINUM: "플래티넘",
-  EMERALD: "에메랄드",
-  DIAMOND: "다이아몬드",
-  MASTER: "마스터",
-  GRANDMASTER: "그랜드마스터",
-  CHALLENGER: "챌린저",
-};
 function rankLabel(m: AdminMember) {
   if (m.rankTier)
     return `${tierNames[m.rankTier] ?? m.rankTier} ${m.rankDivision ?? ""}${m.rankStatus === "ranked" ? "" : " · 최근 조회값 사용"}`;
   if (m.rankStatus === "unranked") return "솔로랭크 등급 없음";
   if (m.rankStatus === "conflict" || m.rankStatus === "not_found")
     return "Riot ID와 계정 연결 확인 필요";
-  return "솔로랭크 조회 대기 또는 연결 확인 필요";
+  return "팀 추천 때 조회합니다";
 }
 const blank = {
   riotId: "",
@@ -123,23 +112,7 @@ function MemberEditor({
   const [form, setForm] = useState(member ? { ...member } : { ...blank });
   const [error, setError] = useState<unknown>();
   const [busy, setBusy] = useState(false);
-  const [suggestion, setSuggestion] = useState<Suggestion>();
-  const [official, setOfficial] = useState("");
-  const [confirmed, setConfirmed] = useState(false);
-  const [samples, setSamples] = useState("");
-  const [notice, setNotice] = useState("");
   const change = (k: string, v: unknown) => setForm({ ...form, [k]: v });
-  async function suggest() {
-    try {
-      setSuggestion(
-        await api<Suggestion>(
-          "/api/admin/members/" + member!.id + "/role-suggestion",
-        ),
-      );
-    } catch (e) {
-      setError(e);
-    }
-  }
   return (
     <div className="editor">
       <form
@@ -233,137 +206,6 @@ function MemberEditor({
           </button>
         </div>
       </form>
-      {member && (
-        <details className="reference-editor">
-          <summary>초기 포지션 참고 자료</summary>
-          <p>
-            공식 API PUUID와 LCU PUUID는 다를 수 있습니다. 연결을 직접 확인한
-            자료만 가져오세요. 가져오기는 수동 설정이나 내전 점수를 변경하지
-            않습니다.
-          </p>
-          <button className="secondary" onClick={suggest}>
-            현재 참고 자료로 제안 보기
-          </button>
-          <form
-            className="form-stack"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              setError(undefined);
-              try {
-                const parsed = JSON.parse(samples);
-                setSuggestion(
-                  await api<Suggestion>(
-                    "/api/admin/member-references",
-                    "POST",
-                    {
-                      memberId: member.id,
-                      officialPuuid: official,
-                      confirmedMapping: confirmed,
-                      samples: Array.isArray(parsed) ? parsed : parsed.samples,
-                    },
-                  ),
-                );
-                setNotice(
-                  "참고 자료를 가져왔습니다. 참가자 설정은 유지됩니다.",
-                );
-              } catch (e) {
-                setError(e);
-              }
-            }}
-          >
-            <label>
-              확인한 공식 API PUUID
-              <input
-                required
-                value={official}
-                onChange={(e) => setOfficial(e.target.value)}
-              />
-            </label>
-            <label>
-              참고 JSON 파일
-              <input
-                type="file"
-                accept="application/json,.json"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (file) setSamples(await file.text());
-                }}
-              />
-            </label>
-            <label>
-              참고 표본 JSON
-              <textarea
-                rows={5}
-                required
-                value={samples}
-                onChange={(e) => setSamples(e.target.value)}
-                placeholder="검증된 solo420 표본 배열"
-              />
-            </label>
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={confirmed}
-                required
-                onChange={(e) => setConfirmed(e.target.checked)}
-              />
-              공식 계정과 이 참가자의 연결을 직접 확인했습니다
-            </label>
-            <button disabled={!confirmed || !samples}>
-              참고 자료 가져오기
-            </button>
-          </form>
-          {notice && (
-            <p role="status" className="cyan-text">
-              {notice}
-            </p>
-          )}
-          {suggestion && (
-            <div className="notice">
-              <strong>
-                최근 {suggestion.sampleCount}경기 제안:{" "}
-                {suggestion.primary ? roleName[suggestion.primary] : "없음"} /{" "}
-                {suggestion.secondary ? roleName[suggestion.secondary] : "없음"}
-              </strong>
-              <p>{suggestion.reason}</p>
-              <small>
-                {Object.entries(suggestion.sources)
-                  .map(([k, n]) => k + " " + n + "경기")
-                  .join(" · ")}
-              </small>
-              <button
-                className="secondary"
-                disabled={!suggestion.primary}
-                onClick={() => {
-                  setForm({
-                    ...form,
-                    primaryRole: suggestion.primary,
-                    secondaryRole: suggestion.secondary,
-                    allowedRoles: Array.from(
-                      new Set([
-                        ...form.allowedRoles,
-                        ...[suggestion.primary, suggestion.secondary].filter(
-                          (r): r is Role => r !== null,
-                        ),
-                      ]),
-                    ),
-                  });
-                  setNotice(
-                    "제안을 편집란에 적용했습니다. 참가자 저장을 눌러 확정하세요.",
-                  );
-                }}
-              >
-                제안을 편집란에 적용
-              </button>
-            </div>
-          )}
-          <p className="caption">
-            수집기의 실시간 솔로 참고 내보내기는 아직 제공되지 않습니다. 검증된
-            운영자 자료만 가져옵니다. 표본에는 queueId 420, durationSeconds
-            ≥300, earlyEnded false가 필요합니다.
-          </p>
-        </details>
-      )}
       {error !== undefined && <ErrorBox error={error} />}
     </div>
   );

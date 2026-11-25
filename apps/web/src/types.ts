@@ -88,6 +88,15 @@ export interface TeamSeat {
   memberId: string;
   role: Role;
 }
+export interface RankLookup {
+  memberId: string;
+  source: "live" | "saved" | "default";
+  status: string;
+  teamSeed: number;
+  tier: string | null;
+  division: string | null;
+  observedAt: string | null;
+}
 export interface Recommendation {
   candidates: {
     teamA: TeamSeat[];
@@ -96,19 +105,13 @@ export interface Recommendation {
   }[];
   reason: string | null;
   sourceRevision: number;
+  rankLookups: RankLookup[];
 }
 export interface Catalog {
   version: string;
   baseUrl: string;
   champions: Record<string, { name: string; image: string }>;
   items: Record<string, { name: string; image: string }>;
-}
-export interface Suggestion {
-  primary: Role | null;
-  secondary: Role | null;
-  sampleCount: number;
-  sources: Record<string, number>;
-  reason: string;
 }
 export interface Rules {
   id: string;

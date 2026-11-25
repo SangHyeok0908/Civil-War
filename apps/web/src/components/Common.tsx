@@ -18,6 +18,18 @@ export const metricName: Record<string, string> = {
   deaths: "사망 보정",
   win: "승패",
 };
+export const tierNames: Record<string, string> = {
+  IRON: "아이언",
+  BRONZE: "브론즈",
+  SILVER: "실버",
+  GOLD: "골드",
+  PLATINUM: "플래티넘",
+  EMERALD: "에메랄드",
+  DIAMOND: "다이아몬드",
+  MASTER: "마스터",
+  GRANDMASTER: "그랜드마스터",
+  CHALLENGER: "챌린저",
+};
 export const number = (n: number) => n.toLocaleString("ko-KR");
 export const score = (n: number | null | undefined) =>
   n == null ? "—" : (Math.round(n * 100) / 100).toFixed(2);
