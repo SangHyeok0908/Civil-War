@@ -11,6 +11,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -22,7 +24,9 @@ public class HttpRiotGateway implements RiotGateway {
     private final String key;
     private final URI accountOrigin, platformOrigin;
     private final JsonMapper json;
-    private long retryNotBefore;
+    private final AtomicLong retryNotBefore = new AtomicLong();
+    private final Semaphore permits;
+    private final Duration requestTimeout;
 
     private record Response(int statusCode, String body, long retryAfterMillis) {}
 
@@ -37,15 +41,35 @@ public class HttpRiotGateway implements RiotGateway {
             @Value("${RIOT_API_KEY:}") String key,
             @Value("${cw.riot.account-origin:https://asia.api.riotgames.com}") String accountOrigin,
             @Value("${cw.riot.platform-origin:https://kr.api.riotgames.com}") String platformOrigin,
-            JsonMapper json) {
-        this(key, URI.create(accountOrigin), URI.create(platformOrigin), json);
+            JsonMapper json,
+            @Value("${cw.riot.max-concurrent-requests:10}") int maxConcurrentRequests,
+            @Value("${cw.riot.request-timeout-ms:4000}") long requestTimeoutMillis) {
+        this(
+                key,
+                URI.create(accountOrigin),
+                URI.create(platformOrigin),
+                json,
+                maxConcurrentRequests,
+                Duration.ofMillis(requestTimeoutMillis));
     }
 
     public HttpRiotGateway(String key, URI accountOrigin, URI platformOrigin, JsonMapper json) {
+        this(key, accountOrigin, platformOrigin, json, 10, Duration.ofMillis(4000));
+    }
+
+    public HttpRiotGateway(
+            String key,
+            URI accountOrigin,
+            URI platformOrigin,
+            JsonMapper json,
+            int maxConcurrentRequests,
+            Duration requestTimeout) {
         this.key = key;
         this.accountOrigin = origin(accountOrigin);
         this.platformOrigin = origin(platformOrigin);
         this.json = json;
+        this.permits = new Semaphore(maxConcurrentRequests, true);
+        this.requestTimeout = requestTimeout;
     }
 
     private static URI origin(URI uri) {
@@ -66,19 +90,37 @@ public class HttpRiotGateway implements RiotGateway {
         return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
-    private synchronized Response get(URI origin, String path) {
-        long now = System.currentTimeMillis();
-        if (retryNotBefore > now) {
-            return new Response(429, "", retryNotBefore - now);
+    private Response get(URI origin, String path) {
+        Response blocked = blocked();
+        if (blocked != null || key.isBlank()) {
+            return blocked;
         }
-        if (key.isBlank()) {
+        try {
+            permits.acquire();
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
             return null;
         }
+        try {
+            // Another caller may have received 429 while this one waited for a permit.
+            blocked = blocked();
+            return blocked != null ? blocked : send(origin, path);
+        } finally {
+            permits.release();
+        }
+    }
+
+    private Response blocked() {
+        long now = System.currentTimeMillis(), until = retryNotBefore.get();
+        return until > now ? new Response(429, "", until - now) : null;
+    }
+
+    private Response send(URI origin, String path) {
         try {
             HttpResponse<String> response =
                     client.send(
                             HttpRequest.newBuilder(origin.resolve(path))
-                                    .timeout(Duration.ofSeconds(5))
+                                    .timeout(requestTimeout)
                                     .header("X-Riot-Token", key)
                                     .header("Accept", "application/json")
                                     .GET()
@@ -104,7 +146,8 @@ public class HttpRiotGateway implements RiotGateway {
             }
             if (response.statusCode() == 429) {
                 retry = retry > 0 ? retry : cw.domain.RankSeedPolicy.failureBackoffMillis();
-                retryNotBefore = Math.addExact(System.currentTimeMillis(), retry);
+                retryNotBefore.accumulateAndGet(
+                        Math.addExact(System.currentTimeMillis(), retry), Math::max);
             }
             return new Response(response.statusCode(), response.body(), Math.max(0, retry));
         } catch (InterruptedException error) {
