@@ -204,7 +204,7 @@ PublicMatch에는 `matchKey`, `startedAtUtc`, `durationSeconds`, `mapId`, `patch
 | `POST /api/teams/recommend` | [TeamInput](stage3.schema.json#/$defs/TeamInput) `{memberIds:string[10]}` → `{candidates:[{teamA:[{memberId,role}],teamB:[{memberId,role}],skillDifference}],reason:null|string,sourceRevision,rankLookups:RankLookup[10]}` |
 | `GET /api/scoring-versions/:id` | 공개 점수에 쓴 변경 불가능한 전체 [ScoringRuleSet](stage3.schema.json#/$defs/ScoringRuleSet). 알 수 없는 버전은 404 |
 
-팀 추천은 응답 전에 선택한 10명의 솔로랭크를 조회한다. [RankLookup](stage3.schema.json#/$defs/RankLookup)은 `{memberId,source,status,teamSeed,tier,division,observedAt}`이다. `source`는 이번 계산에 쓴 값의 출처로 `live`(이번 조회 성공), `saved`(이번 조회 실패, 마지막 성공값), `default`(성공한 적 없음, 공통 시작값)다. `status`는 이번 조회 결과로 `ranked`·`unranked`·`unavailable`·`not_found`·`conflict`·`timeout`(대기 상한 초과) 중 하나다. 상한을 넘긴 조회는 저장하지 않는다. 조회 일부가 실패해도 추천은 200으로 응답한다.
+팀 추천은 응답 전에 선택한 10명의 솔로랭크를 조회한다. [RankLookup](stage3.schema.json#/$defs/RankLookup)은 `{memberId,source,status,teamSeed,tier,division,observedAt}`이다. `source`는 이번 계산에 쓴 값의 출처로 `live`(이번 조회 성공), `saved`(이번 조회 실패, 마지막 성공값), `default`(성공한 적 없음, 공통 시작값)다. `status`는 이번 조회 결과로 `ranked`·`unranked`·`unavailable`·`not_found`·`conflict`·`timeout`(대기 상한 초과) 중 하나다. 상한 안에 끝난 조회만 응답 전에 한 트랜잭션으로 저장하고, 상한을 넘긴 조회는 저장하지 않는다. 포지션별 실력은 저장하지 않고 요청마다 계산한다. 조회 일부가 실패해도 추천은 200으로 응답한다.
 
 현재 세대가 없으면 순위·회원 통계·팀 추천은 202 `RECALCULATING`을 반환한다. 이때 팀 추천은 Riot 조회를 하지 않는다. 이는 경기 기록을 200으로 읽는 동작과 구분한다.
 
@@ -233,7 +233,7 @@ ScoringRuleSet의 필드·숫자 상수는 [현재 스키마](stage3.schema.json
 
 공개 계산 조회는 `REPEATABLE READ`(읽기 트랜잭션 동안 같은 데이터 상태를 보는 격리 수준)로 서비스 상태를 읽고 revision·scoringVersion이 모두 같은 세대만 허용한다. 이미 시작된 조회는 일관된 이전 스냅샷(그 시점의 데이터 묶음)을 볼 수 있고, 변경 커밋 뒤 시작한 조회는 무효화를 본다.
 
-작업자는 PostgreSQL의 세션 단위 협력 잠금 `731954801`을 점유 → 스냅샷 → 계산 → 게시 전체 동안 유지한다. 입력 스냅샷도 REPEATABLE READ로 읽고 실제 계산은 그 트랜잭션 밖에서 한다. 최종 게시 트랜잭션은 서비스 상태를 잠근 뒤 revision·desired 버전·running 상태·정확한 attempts(점유 시도 번호)를 확인한다. 일치할 때만 모든 gameScores·memberStats·roleSkills를 함께 저장하고 활성 포인터를 바꾼다. 오래된 입력은 게시하지 않고 stale로 처리한다.
+작업자는 PostgreSQL의 세션 단위 협력 잠금 `731954801`을 점유 → 스냅샷 → 계산 → 게시 전체 동안 유지한다. 입력 스냅샷도 REPEATABLE READ로 읽고 실제 계산은 그 트랜잭션 밖에서 한다. 최종 게시 트랜잭션은 서비스 상태를 잠근 뒤 revision·desired 버전·running 상태·정확한 attempts(점유 시도 번호)를 확인한다. 일치할 때만 모든 gameScores·memberStats를 함께 저장하고 활성 포인터를 바꾼다. 오래된 입력은 게시하지 않고 stale로 처리한다.
 
 복구는 attempts를 올려 이전 작업자의 게시·실패 보고가 새 작업을 덮어쓰지 못하게 한다. 중단된 running 작업은 협력 잠금을 얻은 뒤 복구한다. 실패 작업은 웹 프로세스 재시작 또는 명시적인 retry로 재처리한다. 웹 기능을 끈 유지보수 프로세스는 스케줄러나 작업 복구를 시작하지 않는다. 제거한 `admin:code` 명령은 서버·DB를 시작하기 전에 실패한다. 상세 근거는 [작업 점유·실패 처리](../../apps/server/src/main/java/cw/evaluation/EvaluationRepository.java), [게시 검사](../../apps/server/src/main/java/cw/evaluation/GenerationPublisher.java)에 있다.
 

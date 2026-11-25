@@ -17,6 +17,7 @@
 | 등급 조회 시점 | 서버가 1초마다 한 명씩 조회. 성공 후 24시간, 실패 후 5분 동안 재조회하지 않음 | 팀 추천 요청 때 선택한 10명을 동시에 조회 |
 | Riot 요청 | 서버 전체에서 한 번에 하나씩, 요청당 5초 제한 | 서버 전체 동시 10개까지, 요청당 4초 제한 |
 | 늦은 조회 | 해당 없음 | 4초 상한이 지나면 취소하고 저장하지 않음. 마지막 성공값 또는 50을 쓰고 `timeout`으로 표시 |
+| 조회 결과 저장 | 사람마다 각자 전역 잠금을 잡고 저장 | 작업 스레드는 Riot만 호출하고, 상한 안에 끝난 결과를 요청 스레드가 한 트랜잭션·한 번의 잠금으로 저장 |
 | 포지션별 실력 계산 | 재계산 때 저장된 등급으로 미리 계산 | 추천 요청 때 이번 조회 결과로 계산 |
 | 등급 변화 | 재계산 번호를 올려 공개 평가 전체를 다시 계산 | 재계산하지 않음. 감사 기록만 남김 |
 | 추천 응답·화면 | 후보만 표시 | 사람별 반영 상태(`rankLookups`)와 "솔로랭크 반영" 목록 표시 |
@@ -30,10 +31,10 @@ macOS arm64, OpenJDK 25.0.1(Gradle 도구 체인과 웹 시험의 `JAVA_HOME`), 
 
 | 환경·검사 | 결과 |
 | --- | --- |
-| `./apps/server/gradlew -p apps/server clean build` | 통과. JUnit 시험 사례 189개(33개 클래스), 실패·오류·건너뜀 0 |
+| `./apps/server/gradlew -p apps/server clean build` | 통과. JUnit 시험 사례 191개(33개 클래스), 실패·오류·건너뜀 0. 최종 검토 수정 후 다시 실행한 값 |
 | `pnpm typecheck` | 통과 |
 | `pnpm test` | 통과. Vitest 8개 파일, 89개 사례 |
-| `pnpm test:web` | 통과. Playwright 23개 사례 |
+| `pnpm test:web` | 통과. Playwright 23개 사례. 최종 검토 수정 후 세 번 실행했고, 첫 실행에서 `light-ui.spec.ts`의 사진 시험 1건이 실패했다. 앞선 시험이 일으킨 재계산이 끝나기 전에 팀 추천을 눌러 202 "계산 중"을 받은 경우로, 이어진 두 번은 모두 통과했다 |
 | `pnpm format:check`, `pnpm format:java:check` | 통과 |
 
 ## 확인한 동작
@@ -47,7 +48,9 @@ macOS arm64, OpenJDK 25.0.1(Gradle 도구 체인과 웹 시험의 `JAVA_HOME`), 
 | 자리 기다리던 요청이 취소됨 | 0.5초 안에 실패로 반환 | `HttpRiotGatewayTest.interruptedWaitForPermitReturnsUnavailable` |
 | 조회 성공·실패·첫 실패·등급 없음 | 각각 `live`·`saved`(시드 90 유지)·`default`(50)·`live`(50) | `LiveRankLookupIntegrationTest` 4개 사례 |
 | 한 명만 2초 지연, 상한 300ms | 1초 안에 응답, 그 사람만 `timeout`·`default`, 2.5초 뒤에도 결과 저장 안 됨 | `LiveRankLookupIntegrationTest.memberPastDeadlineTimesOutAndIsNotSaved` |
-| Riot 키 없음 | 10명 모두 `default`, 2초 안에 응답 | `LiveRankLookupIntegrationTest.blankKeyFinishesWithoutWaitingForTheDeadline` |
+| Riot 키 없음 | 10명 모두 기준값 50 사용으로 표시 | 키 없이 실행하는 웹 시험 `tests/web/team-sparse-history.spec.ts`. 단위 시험 `LiveRankLookupIntegrationTest.blankKeyFinishesWithoutWaitingForTheDeadline`은 Riot 대역이 빈 응답을 줄 때 상한을 기다리지 않음만 확인한다 |
+| 다른 작업이 전역 DB 잠금을 1초 잡은 동안 상한 300ms 조회 | Riot 조회가 제때 끝났으면 10명 모두 `live`로 저장 | `LiveRankLookupIntegrationTest.databaseLockDoesNotTurnFinishedRiotLookupsIntoTimeouts` |
+| 취소를 무시하고 상한 뒤에 끝난 Riot 응답 | `timeout`으로 표시되고 저장되지 않음 | `LiveRankLookupIntegrationTest.riotResultArrivingAfterDeadlineIsNeverSaved` |
 | 한 명의 조회 코드가 예외 | 그 사람만 `unavailable`, 나머지 정상 | `LiveRankLookupIntegrationTest.exceptionForOneMemberOnlyAffectsThatMember` |
 | 같은 10명 추천 두 건 동시 | 둘 다 10명 결과 | `LiveRankLookupIntegrationTest.concurrentLookupsForSameMembersBothSucceed` |
 | 등급이 다이아몬드 I → 아이언 IV로 바뀜 | 다음 추천의 시드 90 → 0, 재계산 번호·작업 수 변화 없음 | `TeamApiIntegrationTest.freshRankChangesRecommendationWithoutRecalculation` |
