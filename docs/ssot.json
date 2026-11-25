@@ -342,6 +342,12 @@
       "role": "historical",
       "date": "2026-11-21",
       "current": "docs/status.md"
+    },
+    {
+      "path": "docs/validation/2026-11-25-team-live-solo-rank-report.md",
+      "role": "historical",
+      "date": "2026-11-25",
+      "current": "docs/status.md"
     }
   ],
   "topics": [

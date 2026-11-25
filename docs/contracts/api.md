@@ -91,9 +91,9 @@ Riot 비밀번호나 LCU 인증 토큰을 서버로 보내지 않는다. LCU에�
 
 계정 입력은 Riot ID만 받는다. 편집에서도 자기 자신을 제외한 같은 Riot ID를 대소문자 구분 없이 거절한다. 생성·편집의 공개 이름·PUUID·수동 실력 입력은 거절한다. 새 프로필은 `puuid:null`로 저장하고 생성 후 현재 계정 관측이 들어오면 안정적인 계정 행에 연결한다. 이름이 같은 옛 게스트 캐시만으로는 연결하지 않는다. 연결 대기는 다음 ‘롤에서 경기 가져오기’의 현재 이름 조회나 본인 기기 연결로 해소하며 그때 과거 기록을 소급한다. `displayName`은 Riot ID 전체를 따라가고 이름 변경은 회원·계정 키와 과거 기록을 유지한다. 기존 `seedSkill` 응답은 감사용 호환 필드이며 계산에 사용하지 않는다.
 
-`teamSeed`, `rankStatus`, `rankTier`, `rankDivision`, `rankObservedAt`은 자동 솔로랭크 참고 상태다. 등급 없음과 조회 실패를 구분하며 실패 시 최근 성공값을 유지한다. 수치·갱신 주기의 원본은 [등급 정책](../../apps/server/src/main/resources/policies/rank-seed-v1.json)이다. 계정 행을 합칠 때도 최근 성공 등급을 보존한다. Riot 429의 대기 시간은 회원별 다음 조회 시각에 반영하고, 같은 서버 프로세스의 다른 계정 조회도 해당 대기 중에는 HTTP 요청을 보내지 않는다. 이 참고값은 공개 누적 점수에 섞지 않는다. 공식 키는 서버의 `RIOT_API_KEY`에만 둔다.
+`teamSeed`, `rankStatus`, `rankTier`, `rankDivision`, `rankObservedAt`은 마지막 팀 추천에서 조회·저장한 솔로랭크 참고 상태다. 팀 추천에 한 번도 포함되지 않은 참가자는 조회 전 상태다. 등급 없음과 조회 실패를 구분하며 실패 시 최근 성공값을 유지한다. 환산 수치의 원본은 [등급 정책](../../apps/server/src/main/resources/policies/rank-seed-v1.json)이다. 계정 행을 합칠 때도 최근 성공 등급을 보존한다. Riot이 429를 돌려주면 그 대기 시간 동안 같은 서버 프로세스는 다른 계정 조회도 Riot에 보내지 않고 바로 실패로 처리한다. 이 참고값은 공개 누적 점수에 섞지 않는다. 공식 키는 서버의 `RIOT_API_KEY`에만 둔다.
 
-주·부 포지션은 서로 달라야 하고 가능한 포지션에 포함되어야 한다. 가능한 역할이 없는 참가자는 팀 추천 전에 설정이 필요하다. `active`는 팀 추천 대상이며 비활성화가 기존 기록이나 내전 후보의 등록 인원에서 제외하는 뜻은 아니다. 실제 설정 변경·게스트 연결·실력 기준 변화는 계산 입력 변경 번호와 재계산을 만든다.
+주·부 포지션은 서로 달라야 하고 가능한 포지션에 포함되어야 한다. 가능한 역할이 없는 참가자는 팀 추천 전에 설정이 필요하다. `active`는 팀 추천 대상이며 비활성화가 기존 기록이나 내전 후보의 등록 인원에서 제외하는 뜻은 아니다. 실제 설정 변경·게스트 연결은 계산 입력 변경 번호와 재계산을 만든다. 솔로랭크 등급 변화는 팀 추천 때 바로 반영하므로 재계산을 만들지 않는다.
 
 ### 참가자 프로필 사진
 
@@ -201,10 +201,12 @@ PublicMatch에는 `matchKey`, `startedAtUtc`, `durationSeconds`, `mapId`, `patch
 | --- | --- |
 | `GET /api/rankings` | [Rankings](stage3.schema.json#/$defs/Rankings): `{status:"ready",generationId,sourceRevision,scoringVersion,members:[{displayName,stats:MemberStats}]}` |
 | `GET /api/members/:id/stats` | [Profile](stage3.schema.json#/$defs/Profile): `{member:PublicMember,stats:MemberStats,generationId,sourceRevision,scoringVersion}`. 알 수 없는 회원은 404 |
-| `POST /api/teams/recommend` | [TeamInput](stage3.schema.json#/$defs/TeamInput) `{memberIds:string[10]}` → `{candidates:[{teamA:[{memberId,role}],teamB:[{memberId,role}],skillDifference}],reason:null|string,sourceRevision}` |
+| `POST /api/teams/recommend` | [TeamInput](stage3.schema.json#/$defs/TeamInput) `{memberIds:string[10]}` → `{candidates:[{teamA:[{memberId,role}],teamB:[{memberId,role}],skillDifference}],reason:null|string,sourceRevision,rankLookups:RankLookup[10]}` |
 | `GET /api/scoring-versions/:id` | 공개 점수에 쓴 변경 불가능한 전체 [ScoringRuleSet](stage3.schema.json#/$defs/ScoringRuleSet). 알 수 없는 버전은 404 |
 
-현재 세대가 없으면 순위·회원 통계·팀 추천은 202 `RECALCULATING`을 반환한다. 이는 경기 기록을 200으로 읽는 동작과 구분한다.
+팀 추천은 응답 전에 선택한 10명의 솔로랭크를 조회한다. [RankLookup](stage3.schema.json#/$defs/RankLookup)은 `{memberId,source,status,teamSeed,tier,division,observedAt}`이다. `source`는 이번 계산에 쓴 값의 출처로 `live`(이번 조회 성공), `saved`(이번 조회 실패, 마지막 성공값), `default`(성공한 적 없음, 공통 시작값)다. `status`는 이번 조회 결과로 `ranked`·`unranked`·`unavailable`·`not_found`·`conflict`·`timeout`(대기 상한 초과) 중 하나다. 상한을 넘긴 조회는 저장하지 않는다. 조회 일부가 실패해도 추천은 200으로 응답한다.
+
+현재 세대가 없으면 순위·회원 통계·팀 추천은 202 `RECALCULATING`을 반환한다. 이때 팀 추천은 Riot 조회를 하지 않는다. 이는 경기 기록을 200으로 읽는 동작과 구분한다.
 
 [GameScore](stage3.schema.json#/$defs/GameScore)는 matchKey·memberId·role·scoringVersion·반올림 전 score·순위 rank와 7개 정규화 항목(damage·growth·combat·vision·objective·deaths·win)의 `breakdown`을 담는다. 화면 반올림과 동점 순위의 기준은 [제품 명세](../spec.md)를 따른다.
 
@@ -237,24 +239,7 @@ ScoringRuleSet의 필드·숫자 상수는 [현재 스키마](stage3.schema.json
 
 ## 공식 기록 참고 자료 가져오기
 
-참고 자료는 선호 역할의 **제안**을 만드는 용도다. 경기 통계·회원 선호·revision을 직접 바꾸지 않으며 제안을 적용하려면 운영자가 검토한 뒤 일반 회원 PATCH를 별도로 해야 한다.
-
-| 관리자 메서드·경로 | 요청·응답 |
-| --- | --- |
-| `POST /api/admin/member-references` | [ReferenceImport](stage3.schema.json#/$defs/ReferenceImport) `{memberId,officialPuuid,confirmedMapping:true,samples:RoleReferenceSample[]}` → 역할 제안 |
-| `GET /api/admin/members/:id/role-suggestion` | `{primary:Role|null,secondary:Role|null,sampleCount,sources,reason}` |
-
-한 번에 최대 200개 표본을 받는다. `officialPuuid`는 공백이 아닌 최대 255자이며 운영자가 `confirmedMapping:true`로 별도 연결을 확인해야 한다. 저장한 공식 PUUID 연결을 다른 값으로 바꾸면 409 `REFERENCE_MAPPING_CONFLICT`다. 같은 공식 PUUID를 다른 회원에게 연결하는 데이터베이스 충돌도 409 `CONFLICT`로 거절한다. 두 종류의 PUUID 값을 비교하는 것으로 동일 인물임을 증명하지 않는다.
-
-[RoleReferenceSample](stage3.schema.json#/$defs/RoleReferenceSample)은 다음 경계를 따른다.
-
-- `sample.puuid`는 해당 회원의 **LCU PUUID**, `sample.evidence.officialPuuid`는 별도 확인한 **공식 PUUID**와 같아야 한다.
-- `source`는 `solo420`만 받는다. gameId는 공백 아닌 최대 100자, playedAt은 epoch 이상·현재 이하의 시각이다.
-- evidence는 `queueId:420`, 역할 값 또는 null인 `teamPosition`, 300초 이상 정수 `durationSeconds`, `earlyEnded:false`를 포함한다. role이 있으면 teamPosition과 같아야 한다.
-- role을 모르는 null 표본은 제안에 넣지 않는다. 같은 회원·source·gameId를 다시 가져오면 중복 저장하지 않는다.
-- 외부에서 넣은 inhouse 표본은 거절한다. 내전 표본은 데이터베이스의 등록 경기와 확정 역할에서만 가져온다.
-
-제안은 imported solo420과 등록 내전의 알려진 역할 표본을 합쳐 최신 20개로 만든다. 소스·경기 중복을 합치며 빈도, 가장 최근 시각, 역할의 안정적인 순서로 primary·secondary를 고른다. 가져오기는 감사 기록을 남기지만 초기 실력이나 확정 선호를 자동 변경하지 않는다. 이 기존 관리용 포지션 제안은 팀 추천의 실력 계산과 별개다. 수집기의 내보내기 호출은 2026-10-29 제거했다. 팀 추천의 공식 등급 보정과 실제 외부 연동 검증 범위는 [현재 상태](../status.md)를 따른다.
+2026-11-25에 제거했다. `POST /api/admin/member-references`와 `GET /api/admin/members/:id/role-suggestion`은 더 이상 없으며 404를 반환한다. 저장 테이블도 삭제했다. 제거 이유는 [설계 기록](../superpowers/specs/2026-11-25-team-live-solo-rank-design.md)에 있다.
 
 ## 정적 화면과 이미지
 

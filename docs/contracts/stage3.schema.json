@@ -1383,12 +1383,92 @@
         "sourceRevision": {
           "type": "integer",
           "minimum": 0
+        },
+        "rankLookups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RankLookup"
+          },
+          "minItems": 10,
+          "maxItems": 10
         }
       },
       "required": [
         "candidates",
         "reason",
-        "sourceRevision"
+        "sourceRevision",
+        "rankLookups"
+      ],
+      "additionalProperties": false
+    },
+    "RankLookup": {
+      "type": "object",
+      "properties": {
+        "memberId": {
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "live",
+            "saved",
+            "default"
+          ]
+        },
+        "status": {
+          "enum": [
+            "ranked",
+            "unranked",
+            "unavailable",
+            "not_found",
+            "conflict",
+            "timeout"
+          ]
+        },
+        "teamSeed": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "tier": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "division": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observedAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "memberId",
+        "source",
+        "status",
+        "teamSeed",
+        "tier",
+        "division",
+        "observedAt"
       ],
       "additionalProperties": false
     },
@@ -1793,109 +1873,6 @@
         "metricMix",
         "normalization",
         "cumulativePrior"
-      ],
-      "additionalProperties": false
-    },
-    "RoleReferenceSample": {
-      "type": "object",
-      "properties": {
-        "puuid": {
-          "type": "string"
-        },
-        "source": {
-          "const": "solo420"
-        },
-        "gameId": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 100
-        },
-        "playedAt": {
-          "$ref": "#/$defs/Timestamp"
-        },
-        "role": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Role"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "evidence": {
-          "type": "object",
-          "properties": {
-            "officialPuuid": {
-              "type": "string"
-            },
-            "queueId": {
-              "const": 420
-            },
-            "teamPosition": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/Role"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "durationSeconds": {
-              "type": "integer",
-              "minimum": 300,
-              "maximum": 9223372036854775807
-            },
-            "earlyEnded": {
-              "const": false
-            }
-          },
-          "required": [
-            "officialPuuid",
-            "queueId",
-            "teamPosition",
-            "durationSeconds",
-            "earlyEnded"
-          ],
-          "additionalProperties": false
-        }
-      },
-      "required": [
-        "puuid",
-        "source",
-        "gameId",
-        "playedAt",
-        "role",
-        "evidence"
-      ],
-      "additionalProperties": false
-    },
-    "ReferenceImport": {
-      "type": "object",
-      "properties": {
-        "memberId": {
-          "type": "string"
-        },
-        "officialPuuid": {
-          "type": "string"
-        },
-        "confirmedMapping": {
-          "const": true
-        },
-        "samples": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/RoleReferenceSample"
-          },
-          "maxItems": 200
-        }
-      },
-      "required": [
-        "memberId",
-        "officialPuuid",
-        "confirmedMapping",
-        "samples"
       ],
       "additionalProperties": false
     },
