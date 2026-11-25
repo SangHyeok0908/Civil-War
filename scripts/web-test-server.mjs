@@ -69,7 +69,7 @@ execFileSync(java, [...args, "--spring.main.web-application-type=none"], {
 if (sql("select current_database()") !== "cw_web_test")
   throw Error("Unsafe fixture database");
 sql(
-  "TRUNCATE auth_attempts, solo_rank_snapshots, account_identity_evidence, player_accounts, role_reference_samples,member_reference_links,evaluation_generations,scoring_versions,audit_log,recalculation_jobs,match_participants,matches,collector_credentials,admin_sessions,enrollment_codes,members CASCADE; UPDATE service_state SET source_revision=0,desired_scoring_version=null,active_generation_id=null; UPDATE group_collector_code SET secret_hash=null,generation=1,issued_at=null",
+  "TRUNCATE auth_attempts, solo_rank_snapshots, account_identity_evidence, player_accounts, evaluation_generations,scoring_versions,audit_log,recalculation_jobs,match_participants,matches,collector_credentials,admin_sessions,enrollment_codes,members CASCADE; UPDATE service_state SET source_revision=0,desired_scoring_version=null,active_generation_id=null; UPDATE group_collector_code SET secret_hash=null,generation=1,issued_at=null",
 );
 const firstCode = env.ADMIN_LOGIN_CODE;
 let child;

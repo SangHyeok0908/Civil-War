@@ -33,7 +33,7 @@ class PlayerAccountMigrationIntegrationTest {
                         .cleanDisabled(false)
                         .load();
         try {
-            assertThat(migration.migrate().migrationsExecuted).isEqualTo(10);
+            assertThat(migration.migrate().migrationsExecuted).isEqualTo(11);
             JdbcTemplate jdbc = new JdbcTemplate(dataSource);
             assertThat(
                             jdbc.queryForObject(

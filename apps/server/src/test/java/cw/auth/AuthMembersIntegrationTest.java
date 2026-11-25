@@ -439,4 +439,39 @@ class AuthMembersIntegrationTest extends DatabaseTestSupport {
                                 .getStatus())
                 .isEqualTo(401);
     }
+
+    @Test
+    void referenceEndpointsAreGone() throws Exception {
+        Login login = login();
+        assertThat(
+                        mvc.perform(
+                                        get("/api/admin/members/member-1/role-suggestion")
+                                                .cookie(login.cookie()))
+                                .andReturn()
+                                .getResponse()
+                                .getStatus())
+                .isEqualTo(404);
+        assertThat(
+                        mvc.perform(
+                                        post("/api/admin/member-references")
+                                                .cookie(login.cookie())
+                                                .header("Origin", "http://localhost:8080")
+                                                .header("X-CSRF-Token", login.csrf())
+                                                .contentType("application/json")
+                                                .content(
+                                                        "{\"memberId\":\"member-1\",\"officialPuuid\":\"x\",\"confirmedMapping\":true,\"samples\":[]}"))
+                                .andReturn()
+                                .getResponse()
+                                .getStatus())
+                .isEqualTo(404);
+    }
+
+    @Test
+    void referenceTablesAreDropped() {
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from information_schema.tables where table_name in ('member_reference_links','role_reference_samples')",
+                                Long.class))
+                .isZero();
+    }
 }

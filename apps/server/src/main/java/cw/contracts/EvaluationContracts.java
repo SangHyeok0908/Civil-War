@@ -17,14 +17,6 @@ import tools.jackson.databind.JsonNode;
 public final class EvaluationContracts {
     private EvaluationContracts() {}
 
-    public record RoleReferenceSample(
-            String puuid,
-            String source,
-            String gameId,
-            Instant playedAt,
-            Role role,
-            JsonNode evidence) {}
-
     public record EvaluableParticipant(
             String playerId, String memberId, Role role, ParticipantRecord record) {
         public EvaluableParticipant(String memberId, Role role, ParticipantRecord record) {
