@@ -102,7 +102,7 @@ public class AccountLinkService {
         }
         if (previous != null && !previous.id.equals(account.id)) {
             em.createNativeQuery(
-                            "insert into solo_rank_snapshots(player_id,status,tier,division,seed_value,observed_at,attempted_at,next_attempt_at) select :destination,status,tier,division,seed_value,observed_at,attempted_at,next_attempt_at from solo_rank_snapshots where player_id=:previous on conflict(player_id) do update set status=excluded.status,tier=excluded.tier,division=excluded.division,seed_value=excluded.seed_value,observed_at=excluded.observed_at,attempted_at=excluded.attempted_at,next_attempt_at=excluded.next_attempt_at where solo_rank_snapshots.observed_at is null or excluded.observed_at>solo_rank_snapshots.observed_at")
+                            "insert into solo_rank_snapshots(player_id,status,tier,division,seed_value,observed_at,attempted_at) select :destination,status,tier,division,seed_value,observed_at,attempted_at from solo_rank_snapshots where player_id=:previous on conflict(player_id) do update set status=excluded.status,tier=excluded.tier,division=excluded.division,seed_value=excluded.seed_value,observed_at=excluded.observed_at,attempted_at=excluded.attempted_at where solo_rank_snapshots.observed_at is null or excluded.observed_at>solo_rank_snapshots.observed_at")
                     .setParameter("destination", account.id)
                     .setParameter("previous", previous.id)
                     .executeUpdate();

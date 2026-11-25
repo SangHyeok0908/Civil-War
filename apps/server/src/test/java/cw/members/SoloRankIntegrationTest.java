@@ -35,16 +35,22 @@ class SoloRankIntegrationTest extends DatabaseTestSupport {
     @Autowired MemberService profiles;
     @Autowired cw.accounts.AccountLinkService links;
 
+    @Autowired cw.riot.MemberProfileService profileIcons;
+
     @Test
-    void accountRateLimitDelaysTheMembersNextAttempt() {
-        when(gateway.resolveAccount("Player1#test"))
-                .thenReturn(new AccountLookup("unavailable", null, "Player1#test", 600000));
-        ranks.refresh("member-1");
-        java.sql.Timestamp next =
-                jdbc.queryForObject(
-                        "select next_attempt_at from solo_rank_snapshots where player_id='member-1'",
-                        java.sql.Timestamp.class);
-        assertThat(next.toInstant()).isAfter(java.time.Instant.now().plusSeconds(599));
+    void schedulerTickDoesNotLookUpRanks() {
+        new cw.riot.SoloRankScheduler(profileIcons).tick();
+        org.mockito.Mockito.verify(gateway, org.mockito.Mockito.never())
+                .getSoloRank(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void snapshotTableHasNoNextAttemptColumn() {
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from information_schema.columns where table_name='solo_rank_snapshots' and column_name='next_attempt_at'",
+                                Long.class))
+                .isZero();
     }
 
     @Test

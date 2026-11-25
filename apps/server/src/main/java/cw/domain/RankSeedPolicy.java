@@ -26,10 +26,6 @@ public final class RankSeedPolicy {
         return values;
     }
 
-    public static long successCacheSeconds() {
-        return POLICY.get("successCacheSeconds").asLong();
-    }
-
     public static long failureBackoffMillis() {
         return POLICY.get("failureBackoffMillis").asLong();
     }

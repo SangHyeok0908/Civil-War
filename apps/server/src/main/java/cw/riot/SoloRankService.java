@@ -141,13 +141,6 @@ public class SoloRankService {
                         saved.tier = lookup.tier();
                         saved.division = lookup.division();
                         saved.observedAt = now;
-                        saved.nextAttemptAt = now.plusSeconds(RankSeedPolicy.successCacheSeconds());
-                    } else {
-                        saved.nextAttemptAt =
-                                now.plusMillis(
-                                        Math.max(
-                                                RankSeedPolicy.failureBackoffMillis(),
-                                                lookup.retryAfterMillis()));
                     }
                     snapshots.save(saved);
                     // Team recommendations read the seed live, so a change needs no recalculation.
@@ -156,20 +149,5 @@ public class SoloRankService {
                     }
                     return view(saved);
                 });
-    }
-
-    public void refreshNextDue() {
-        for (MemberEntity member : members.findAll()) {
-            if (member.accountId == null) {
-                continue;
-            }
-            SoloRankSnapshot snapshot = snapshots.findById(member.accountId).orElse(null);
-            if (snapshot == null
-                    || snapshot.nextAttemptAt == null
-                    || !snapshot.nextAttemptAt.isAfter(clock.instant())) {
-                refresh(member.id);
-                return;
-            }
-        }
     }
 }

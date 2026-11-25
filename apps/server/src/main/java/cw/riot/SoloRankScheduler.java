@@ -11,17 +11,15 @@ import org.springframework.stereotype.Component;
 @org.springframework.scheduling.annotation.EnableScheduling
 @ConditionalOnProperty(name = "cw.riot.poll-enabled", havingValue = "true", matchIfMissing = true)
 public class SoloRankScheduler {
-    private final SoloRankService ranks;
     private final MemberProfileService profiles;
 
-    public SoloRankScheduler(SoloRankService ranks, MemberProfileService profiles) {
-        this.ranks = ranks;
+    /** Solo ranks are looked up when a team recommendation is requested, not on this timer. */
+    public SoloRankScheduler(MemberProfileService profiles) {
         this.profiles = profiles;
     }
 
     @Scheduled(fixedDelayString = "${cw.riot.poll-ms:1000}")
     public void tick() {
-        ranks.refreshNextDue();
         profiles.refreshNextDue();
     }
 }
