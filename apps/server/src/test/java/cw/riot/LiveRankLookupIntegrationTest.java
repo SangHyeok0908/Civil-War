@@ -8,7 +8,6 @@ import cw.contracts.AccountContracts.AccountLookup;
 import cw.contracts.AccountContracts.SoloRankLookup;
 import cw.contracts.EvaluationContracts.RankLookup;
 import cw.support.DatabaseTestSupport;
-import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -23,7 +22,6 @@ class LiveRankLookupIntegrationTest extends DatabaseTestSupport {
     @MockitoBean RiotGateway gateway;
     @Autowired LiveRankLookup live;
     @Autowired SoloRankService ranks;
-    @Autowired Clock clock;
 
     private static final List<String> TEN =
             IntStream.rangeClosed(1, 10).mapToObj(i -> "member-" + i).toList();
@@ -100,7 +98,7 @@ class LiveRankLookupIntegrationTest extends DatabaseTestSupport {
                             }
                             return new SoloRankLookup("ranked", "GOLD", "IV", 0);
                         });
-        LiveRankLookup shortDeadline = new LiveRankLookup(ranks, clock, 300);
+        LiveRankLookup shortDeadline = new LiveRankLookup(ranks, 300);
         try {
             long started = System.nanoTime();
             List<RankLookup> values = shortDeadline.lookup(TEN);
@@ -152,5 +150,72 @@ class LiveRankLookupIntegrationTest extends DatabaseTestSupport {
         assertThat(results[1]).hasSize(10);
         assertThat(results[0]).allSatisfy(v -> assertThat(v.source()).isEqualTo("live"));
         assertThat(results[1]).allSatisfy(v -> assertThat(v.source()).isEqualTo("live"));
+    }
+
+    @Autowired javax.sql.DataSource dataSource;
+
+    @Test
+    void databaseLockDoesNotTurnFinishedRiotLookupsIntoTimeouts() throws Exception {
+        verifiedAccounts();
+        when(gateway.getSoloRank(anyString()))
+                .thenReturn(new SoloRankLookup("ranked", "GOLD", "IV", 0));
+        java.util.concurrent.CountDownLatch locked = new java.util.concurrent.CountDownLatch(1);
+        Thread holder =
+                Thread.ofVirtual()
+                        .start(
+                                () -> {
+                                    try (java.sql.Connection c = dataSource.getConnection()) {
+                                        c.setAutoCommit(false);
+                                        c.createStatement()
+                                                .execute(
+                                                        "select id from service_state where id=1 for update");
+                                        locked.countDown();
+                                        Thread.sleep(1000);
+                                        c.commit();
+                                    } catch (Exception error) {
+                                        throw new IllegalStateException(error);
+                                    }
+                                });
+        locked.await();
+        LiveRankLookup shortDeadline = new LiveRankLookup(ranks, 300);
+        try {
+            List<RankLookup> values = shortDeadline.lookup(TEN);
+            assertThat(values)
+                    .allSatisfy(
+                            v -> {
+                                assertThat(v.source()).isEqualTo("live");
+                                assertThat(v.status()).isEqualTo("ranked");
+                            });
+            assertThat(ranks.snapshotForMember("member-5").tier()).isEqualTo("GOLD");
+        } finally {
+            shortDeadline.close();
+            holder.join();
+        }
+    }
+
+    @Test
+    void riotResultArrivingAfterDeadlineIsNeverSaved() throws Exception {
+        verifiedAccounts();
+        when(gateway.getSoloRank(anyString()))
+                .thenAnswer(
+                        call -> {
+                            if ("official-4".equals(call.getArgument(0))) {
+                                // Ignore cancellation and finish late, as a stuck HTTP call might.
+                                long until = System.nanoTime() + 800_000_000L;
+                                while (System.nanoTime() < until) {
+                                    Thread.onSpinWait();
+                                }
+                            }
+                            return new SoloRankLookup("ranked", "GOLD", "IV", 0);
+                        });
+        LiveRankLookup shortDeadline = new LiveRankLookup(ranks, 300);
+        try {
+            RankLookup late = byMember(shortDeadline.lookup(TEN)).get("member-4");
+            assertThat(late.status()).isEqualTo("timeout");
+            Thread.sleep(1200);
+            assertThat(ranks.snapshotForMember("member-4").tier()).isNull();
+        } finally {
+            shortDeadline.close();
+        }
     }
 }

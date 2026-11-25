@@ -12,6 +12,9 @@ import cw.members.MemberRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -64,19 +67,20 @@ public class SoloRankService {
         return members.findById(memberId).map(m -> snapshot(m.accountId)).orElseGet(this::empty);
     }
 
-    public RankSeedSnapshot refresh(String memberId) {
-        return refresh(memberId, Instant.MAX);
-    }
+    /** The member as read before a lookup; a save is skipped if it changed meanwhile. */
+    public record Target(String memberId, String riotId, String playerId) {}
 
-    private boolean expired(Instant deadline) {
-        return Thread.currentThread().isInterrupted() || clock.instant().isAfter(deadline);
-    }
+    /** A finished Riot lookup that has not been saved yet. */
+    public record Fetched(Target target, AccountLookup official, SoloRankLookup lookup) {}
 
-    /** Returns null without saving when the deadline passed before the result could be stored. */
-    public RankSeedSnapshot refresh(String memberId, Instant deadline) {
+    public Target target(String memberId) {
         MemberEntity member = members.findById(memberId).orElseThrow();
-        String playerId = member.accountId, riotId = member.riotId;
-        AccountLookup official = gateway.resolveAccount(riotId);
+        return new Target(memberId, member.riotId, member.accountId);
+    }
+
+    /** Calls Riot only, so a cancelled caller never interrupts database work. */
+    public Fetched fetch(Target target) {
+        AccountLookup official = gateway.resolveAccount(target.riotId());
         SoloRankLookup result =
                 official != null && "verified".equals(official.status())
                         ? gateway.getSoloRank(official.puuid())
@@ -90,64 +94,76 @@ public class SoloRankService {
         if (result == null) {
             result = new SoloRankLookup("unavailable", null, null, 0);
         }
-        SoloRankLookup lookup = result;
-        if (expired(deadline)) {
-            return null;
-        }
+        return new Fetched(target, official, result);
+    }
+
+    public RankSeedSnapshot refresh(String memberId) {
+        return save(List.of(fetch(target(memberId)))).get(memberId);
+    }
+
+    /** Saves finished lookups under one lock and returns each member's stored view. */
+    public Map<String, RankSeedSnapshot> save(List<Fetched> values) {
         return tx.execute(
                 transaction -> {
                     mutations.lock();
-                    if (expired(deadline)) {
-                        return null;
+                    Map<String, RankSeedSnapshot> saved = new LinkedHashMap<>();
+                    for (Fetched value : values) {
+                        saved.put(value.target().memberId(), saveOne(value));
                     }
-                    MemberEntity current = members.findById(memberId).orElseThrow();
-                    if (!riotId.equals(current.riotId)
-                            || !Objects.equals(playerId, current.accountId)) {
-                        return snapshot(current.accountId);
-                    }
-                    PlayerAccountEntity account = accounts.findById(playerId).orElseThrow();
-                    SoloRankSnapshot saved =
-                            snapshots
-                                    .findById(playerId)
-                                    .orElseGet(
-                                            () -> {
-                                                SoloRankSnapshot value = new SoloRankSnapshot();
-                                                value.playerId = playerId;
-                                                value.seedValue = RankSeedPolicy.neutral();
-                                                return value;
-                                            });
-                    double before = saved.seedValue;
-                    // PostgreSQL keeps microseconds; Linux clocks return nanoseconds. Truncate
-                    // so the returned snapshot equals what a later read returns.
-                    Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
-                    saved.attemptedAt = now;
-                    saved.status = lookup.status();
-                    if (official != null && "verified".equals(official.status())) {
-                        if (account.officialPuuid != null
-                                && !account.officialPuuid.equals(official.puuid())) {
-                            saved.status = "conflict";
-                        } else {
-                            account.officialPuuid = official.puuid();
-                            account.linkStatus =
-                                    account.lcuPuuid == null ? "official_linked" : "verified";
-                            accounts.save(account);
-                        }
-                    }
-                    if ("ranked".equals(saved.status) || "unranked".equals(saved.status)) {
-                        saved.seedValue =
-                                "ranked".equals(saved.status)
-                                        ? RankSeedPolicy.toSeed(lookup.tier(), lookup.division())
-                                        : RankSeedPolicy.neutral();
-                        saved.tier = lookup.tier();
-                        saved.division = lookup.division();
-                        saved.observedAt = now;
-                    }
-                    snapshots.save(saved);
-                    // Team recommendations read the seed live, so a change needs no recalculation.
-                    if (Double.compare(before, saved.seedValue) != 0) {
-                        mutations.audit("rank_seed_updated", "server", memberId, "{}");
-                    }
-                    return view(saved);
+                    return saved;
                 });
+    }
+
+    private RankSeedSnapshot saveOne(Fetched fetched) {
+        String memberId = fetched.target().memberId(),
+                riotId = fetched.target().riotId(),
+                playerId = fetched.target().playerId();
+        AccountLookup official = fetched.official();
+        SoloRankLookup lookup = fetched.lookup();
+        MemberEntity current = members.findById(memberId).orElseThrow();
+        if (!riotId.equals(current.riotId) || !Objects.equals(playerId, current.accountId)) {
+            return snapshot(current.accountId);
+        }
+        PlayerAccountEntity account = accounts.findById(playerId).orElseThrow();
+        SoloRankSnapshot saved =
+                snapshots
+                        .findById(playerId)
+                        .orElseGet(
+                                () -> {
+                                    SoloRankSnapshot value = new SoloRankSnapshot();
+                                    value.playerId = playerId;
+                                    value.seedValue = RankSeedPolicy.neutral();
+                                    return value;
+                                });
+        double before = saved.seedValue;
+        // PostgreSQL keeps microseconds; Linux clocks return nanoseconds. Truncate
+        // so the returned snapshot equals what a later read returns.
+        Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
+        saved.attemptedAt = now;
+        saved.status = lookup.status();
+        if (official != null && "verified".equals(official.status())) {
+            if (account.officialPuuid != null && !account.officialPuuid.equals(official.puuid())) {
+                saved.status = "conflict";
+            } else {
+                account.officialPuuid = official.puuid();
+                account.linkStatus = account.lcuPuuid == null ? "official_linked" : "verified";
+                accounts.save(account);
+            }
+        }
+        if ("ranked".equals(saved.status) || "unranked".equals(saved.status)) {
+            saved.seedValue =
+                    "ranked".equals(saved.status)
+                            ? RankSeedPolicy.toSeed(lookup.tier(), lookup.division())
+                            : RankSeedPolicy.neutral();
+            saved.tier = lookup.tier();
+            saved.division = lookup.division();
+            saved.observedAt = now;
+        }
+        snapshots.save(saved);
+        // Team recommendations read the seed live, so a change needs no recalculation.
+        if (Double.compare(before, saved.seedValue) != 0) {
+            mutations.audit("rank_seed_updated", "server", memberId, "{}");
+        }
+        return view(saved);
     }
 }
