@@ -97,4 +97,20 @@ class SoloRankIntegrationTest extends DatabaseTestSupport {
         assertThat(failed.observedAt()).isEqualTo(first.observedAt());
         assertThat(revision()).isEqualTo(before);
     }
+
+    @Test
+    void rankChangeDoesNotBumpRevision() {
+        when(gateway.resolveAccount("Player1#test"))
+                .thenReturn(new AccountLookup("verified", "official", "Player1#test"));
+        when(gateway.getSoloRank("official"))
+                .thenReturn(new SoloRankLookup("ranked", "DIAMOND", "I", 0));
+        long before = revision();
+        assertThat(ranks.refresh("member-1").teamSeed()).isEqualTo(90.);
+        assertThat(revision()).isEqualTo(before);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from audit_log where action='rank_seed_updated'",
+                                Long.class))
+                .isEqualTo(1L);
+    }
 }

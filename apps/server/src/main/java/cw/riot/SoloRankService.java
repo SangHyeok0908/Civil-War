@@ -6,7 +6,6 @@ import cw.contracts.AccountContracts.AccountLookup;
 import cw.contracts.AccountContracts.RankSeedSnapshot;
 import cw.contracts.AccountContracts.SoloRankLookup;
 import cw.db.MutationCoordinator;
-import cw.db.ServiceState;
 import cw.domain.RankSeedPolicy;
 import cw.members.MemberEntity;
 import cw.members.MemberRepository;
@@ -61,7 +60,20 @@ public class SoloRankService {
                 value.seedValue, value.status, value.tier, value.division, value.observedAt);
     }
 
+    public RankSeedSnapshot snapshotForMember(String memberId) {
+        return members.findById(memberId).map(m -> snapshot(m.accountId)).orElseGet(this::empty);
+    }
+
     public RankSeedSnapshot refresh(String memberId) {
+        return refresh(memberId, Instant.MAX);
+    }
+
+    private boolean expired(Instant deadline) {
+        return Thread.currentThread().isInterrupted() || clock.instant().isAfter(deadline);
+    }
+
+    /** Returns null without saving when the deadline passed before the result could be stored. */
+    public RankSeedSnapshot refresh(String memberId, Instant deadline) {
         MemberEntity member = members.findById(memberId).orElseThrow();
         String playerId = member.accountId, riotId = member.riotId;
         AccountLookup official = gateway.resolveAccount(riotId);
@@ -79,9 +91,15 @@ public class SoloRankService {
             result = new SoloRankLookup("unavailable", null, null, 0);
         }
         SoloRankLookup lookup = result;
+        if (expired(deadline)) {
+            return null;
+        }
         return tx.execute(
                 transaction -> {
-                    ServiceState state = mutations.lock();
+                    mutations.lock();
+                    if (expired(deadline)) {
+                        return null;
+                    }
                     MemberEntity current = members.findById(memberId).orElseThrow();
                     if (!riotId.equals(current.riotId)
                             || !Objects.equals(playerId, current.accountId)) {
@@ -132,8 +150,8 @@ public class SoloRankService {
                                                 lookup.retryAfterMillis()));
                     }
                     snapshots.save(saved);
+                    // Team recommendations read the seed live, so a change needs no recalculation.
                     if (Double.compare(before, saved.seedValue) != 0) {
-                        mutations.changed(state);
                         mutations.audit("rank_seed_updated", "server", memberId, "{}");
                     }
                     return view(saved);

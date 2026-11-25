@@ -1,8 +1,10 @@
 package cw.contracts;
 
+import cw.contracts.AccountContracts.RankSeedSnapshot;
 import cw.contracts.MatchContracts.NormalizedMatch;
 import cw.contracts.MatchContracts.ParticipantRecord;
 import cw.contracts.MemberContracts.Member;
+import cw.domain.RankSeedPolicy;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -69,6 +71,41 @@ public final class EvaluationContracts {
     }
 
     public record RoleSkill(String memberId, Role role, double value, int n) {}
+
+    /** One member's solo-rank input for a team recommendation and where it came from. */
+    public record RankLookup(
+            String memberId,
+            String source,
+            String status,
+            double teamSeed,
+            String tier,
+            String division,
+            Instant observedAt) {
+        public static RankLookup of(String memberId, RankSeedSnapshot value, String status) {
+            if ("ranked".equals(status) || "unranked".equals(status)) {
+                return new RankLookup(
+                        memberId,
+                        "live",
+                        status,
+                        value.teamSeed(),
+                        value.tier(),
+                        value.division(),
+                        value.observedAt());
+            }
+            if (value.observedAt() != null) {
+                return new RankLookup(
+                        memberId,
+                        "saved",
+                        status,
+                        value.teamSeed(),
+                        value.tier(),
+                        value.division(),
+                        value.observedAt());
+            }
+            return new RankLookup(
+                    memberId, "default", status, RankSeedPolicy.neutral(), null, null, null);
+        }
+    }
 
     public record MemberStats(
             String memberId,
