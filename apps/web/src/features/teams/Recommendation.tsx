@@ -57,6 +57,11 @@ function RankLookups({
           ))}
         </ul>
       )}
+      <p className="caption">
+        내전 기록이 적은 참가자는 솔로랭크 등급으로 실력을 보정합니다. 등급을
+        조회하지 못했거나 등급이 없으면 0~100점의 중간인 기준값 50에서 시작하고,
+        내전 기록이 쌓일수록 실제 기록을 더 많이 반영합니다.
+      </p>
     </section>
   );
 }
@@ -196,12 +201,14 @@ export function Recommendation() {
               </article>
             ))}
           </div>
-          <RankLookups lookups={result.rankLookups} members={members.data} />
           <p className="caption">
-            서로 다른 선수 구성만 표시합니다. 가장 균형 잡힌 구성의 팀 합 차이
-            +5 이내에서 최대 3개를 제공합니다. 실제 경기 포지션은 등록 때 별도로
-            확인합니다.
+            팀 합 차이는 두 팀의 포지션별 실력 점수를 각각 더한 값의 차이입니다.
+            한 사람의 실력은 0~100점이며, 차이가 0에 가까울수록 두 팀의 실력이
+            비슷합니다. 서로 다른 선수 구성만 표시하고, 가장 균형 잡힌 구성보다
+            차이가 5 이내로 큰 구성까지 최대 3개를 제공합니다. 실제 경기
+            포지션은 등록 때 별도로 확인합니다.
           </p>
+          <RankLookups lookups={result.rankLookups} members={members.data} />
         </section>
       )}
     </>

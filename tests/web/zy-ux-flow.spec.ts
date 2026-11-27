@@ -169,6 +169,16 @@ test("six members four guests promotion shared code rotation preserves queued re
     await page
       .getByRole("button", { name: "모임 코드 재발급", exact: true })
       .click();
+    // Nothing is replaced until the operator confirms the warning.
+    await expect(
+      page.getByText("지금 연결된 모든 수집기의 연결이 끊어집니다", {
+        exact: false,
+      }),
+    ).toBeVisible();
+    await expect(api.members(a)).resolves.toBeDefined();
+    await page
+      .getByRole("button", { name: "재발급 확정", exact: true })
+      .click();
     const freshCode = (await (await rotated).json()).code;
     await expect(page.locator("output")).toHaveText(freshCode);
     await expect(api.members(a)).rejects.toMatchObject({
@@ -200,6 +210,7 @@ test("six members four guests promotion shared code rotation preserves queued re
     await page
       .getByRole("button", { name: "모임 코드 삭제", exact: true })
       .click();
+    await page.getByRole("button", { name: "삭제 확정", exact: true }).click();
     await expect(
       page.getByText("발급된 코드 없음", { exact: true }),
     ).toBeVisible();

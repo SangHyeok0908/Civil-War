@@ -11,6 +11,7 @@ import {
   roleName,
   score,
   metricName,
+  shortPatch,
 } from "../../components/Common";
 import { ChampionItemIcon } from "../../components/ChampionItemIcon";
 
@@ -40,8 +41,7 @@ export function MatchDetail({ matchKey }: { matchKey: string }) {
           {Math.floor(match.durationSeconds / 60)}분{" "}
           {match.durationSeconds % 60}초
         </span>
-        <span>패치 {match.patch}</span>
-        <span className="mono">{match.matchKey}</span>
+        <span>패치 {shortPatch(match.patch)}</span>
       </div>
       {match.evaluationStatus !== "ready" && (
         <div role="status" className="notice amber">
@@ -106,6 +106,7 @@ function TeamReport({ teamId, match }: { teamId: 100 | 200; match: Match }) {
             <tr>
               {[
                 "참가자 / 챔피언",
+                "활약",
                 "포지션",
                 "K / D / A",
                 "가한 피해",
@@ -115,7 +116,6 @@ function TeamReport({ teamId, match }: { teamId: 100 | 200; match: Match }) {
                 "시야",
                 "목표물 / 포탑",
                 "최종 아이템",
-                "활약",
               ].map((column) => (
                 <th key={column} scope="col">
                   {column}
@@ -161,32 +161,6 @@ function PlayerRow({
         <ChampionItemIcon id={participant.championId} />
       </td>
       <td>
-        <span className="role">{roleName[participant.role]}</span>
-      </td>
-      <td className="nowrap">
-        <Kda stats={participant} />
-      </td>
-      <td>{number(participant.championDamage)}</td>
-      <td>{number(participant.damageTaken)}</td>
-      <td>{number(participant.laneCs + participant.neutralCs)}</td>
-      <td>{number(participant.goldEarned)}</td>
-      <td>{number(participant.visionScore)}</td>
-      <td>
-        {number(participant.objectiveDamage)}
-        <small>{number(participant.turretDamage)}</small>
-      </td>
-      <td>
-        <div className="items">
-          {participant.items.map((itemId, index) => (
-            <ChampionItemIcon
-              key={index + ":" + itemId}
-              id={itemId}
-              kind="item"
-            />
-          ))}
-        </div>
-      </td>
-      <td>
         {playerScore ? (
           <details>
             <summary>
@@ -212,6 +186,32 @@ function PlayerRow({
         ) : (
           <span className="subtle">계산 중</span>
         )}
+      </td>
+      <td>
+        <span className="role">{roleName[participant.role]}</span>
+      </td>
+      <td className="nowrap">
+        <Kda stats={participant} />
+      </td>
+      <td>{number(participant.championDamage)}</td>
+      <td>{number(participant.damageTaken)}</td>
+      <td>{number(participant.laneCs + participant.neutralCs)}</td>
+      <td>{number(participant.goldEarned)}</td>
+      <td>{number(participant.visionScore)}</td>
+      <td>
+        {number(participant.objectiveDamage)}
+        <small>{number(participant.turretDamage)}</small>
+      </td>
+      <td>
+        <div className="items">
+          {participant.items.map((itemId, index) => (
+            <ChampionItemIcon
+              key={index + ":" + itemId}
+              id={itemId}
+              kind="item"
+            />
+          ))}
+        </div>
       </td>
     </tr>
   );

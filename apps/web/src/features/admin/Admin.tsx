@@ -3,7 +3,8 @@ import { Heading, Loading, ErrorBox } from "../../components/Common";
 import { Login } from "./Login";
 import { MembersAdmin } from "./Members";
 import { Codes } from "./Codes";
-import { MatchCorrections, Audit } from "./MatchCorrections";
+import { MatchCorrections } from "./MatchCorrections";
+import { Audit } from "./Audit";
 import { Scoring } from "./Scoring";
 import { Jobs } from "./Jobs";
 export function Admin({ path }: { path: string }) {
@@ -40,7 +41,7 @@ export function Admin({ path }: { path: string }) {
           ["codes", "코드·인증"],
           ["matches", "경기 정정"],
           ["scoring", "평가 기준"],
-          ["jobs", "재계산 작업"],
+          ["jobs", "점수 재계산"],
           ["audit", "변경 이력"],
         ].map(([url, label]) => (
           <a
@@ -53,7 +54,7 @@ export function Admin({ path }: { path: string }) {
         ))}
       </nav>
       {route === "codes" ? (
-        <Codes />
+        <Codes sessionId={session.data?.sessionId} />
       ) : route === "matches" ? (
         <MatchCorrections />
       ) : route === "scoring" ? (

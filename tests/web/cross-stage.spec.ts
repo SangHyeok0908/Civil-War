@@ -109,11 +109,40 @@ test("actualStage2OutboxToSpring pending lostConfirmAck roleCorrection cancellat
     .toBe("ready");
   await login(page, request);
   await page.getByRole("link", { name: "경기 정정", exact: true }).click();
-  await page.getByRole("button", { name: new RegExp(key) }).click();
-  await page.getByText("원본 수치 보기 (읽기 전용)", { exact: true }).click();
-  await expect(page.locator(".raw-record")).toContainText(
-    "0.12345678901234567890123456789",
+  // The list shows ten matches as cards and names them by date, not by match key.
+  await expect(page.locator(".correction-card")).toHaveCount(10);
+  await expect(page.getByRole("button", { name: new RegExp(key) })).toHaveCount(
+    0,
   );
+  const card = page.locator(`[data-match-key="${key}"]`);
+  await expect(card.locator(".preview-team")).toHaveCount(2);
+  await expect(card.locator(".preview-team").first()).toContainText(
+    s.members[0].displayName,
+  );
+  await card.getByRole("button").first().click();
+  await expect(card.locator(".correction-team")).toHaveCount(2);
+  await expect(card.locator(".correction-team").first()).toContainText(
+    /블루팀/,
+  );
+  await expect(card.locator(".correction-team").last()).toContainText(/레드팀/);
+  // The raw record view was removed from the screen; the API above still keeps the original.
+  await expect(page.getByText("원본 수치 보기 (읽기 전용)")).toHaveCount(0);
+  await expect(page.locator(".raw-record")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "포지션 정정 저장" }),
+  ).toBeDisabled();
+  await page
+    .getByLabel(s.members[0].displayName + " 실제 포지션", { exact: true })
+    .selectOption("JUNGLE");
+  await expect(
+    page.getByText("블루팀에 정글 포지션이 두 명 이상입니다."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "포지션 정정 저장" }),
+  ).toBeDisabled();
+  await page
+    .getByLabel(s.members[0].displayName + " 실제 포지션", { exact: true })
+    .selectOption("TOP");
   await page
     .getByLabel(s.members[0].displayName + " 실제 포지션", { exact: true })
     .selectOption("JUNGLE");
@@ -124,6 +153,15 @@ test("actualStage2OutboxToSpring pending lostConfirmAck roleCorrection cancellat
   await expect(
     page.getByText("포지션을 정정했습니다. 평가를 다시 계산합니다."),
   ).toBeVisible();
+  await expect(card.getByText("포지션 정정", { exact: true })).toBeVisible();
+  await expect(
+    card.getByText(s.members[0].displayName + ": 탑 → 정글"),
+  ).toBeVisible();
+  await expect(card.getByText("{}")).toHaveCount(0);
+  await page.screenshot({
+    path: "docs/validation/assets/2026-11-27-operator-ux-correction.png",
+    fullPage: true,
+  });
   expect(
     (await (await admin(request, "/matches/" + key, undefined, "GET")).json())
       .record.confirmedRoles[s.members[0].puuid],
@@ -131,6 +169,7 @@ test("actualStage2OutboxToSpring pending lostConfirmAck roleCorrection cancellat
   await page.getByRole("button", { name: "등록 취소", exact: true }).click();
   await page.getByRole("button", { name: "등록 취소 확정" }).click();
   await expect(page.getByText("등록을 취소했습니다.")).toBeVisible();
+  await expect(card).toHaveCount(0);
   expect((await request.get("/api/matches/" + key)).status()).toBe(404);
   const retained = await (
     await admin(request, "/matches/" + key, undefined, "GET")

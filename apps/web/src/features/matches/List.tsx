@@ -8,6 +8,7 @@ import {
   ErrorBox,
   Empty,
   kst,
+  shortPatch,
 } from "../../components/Common";
 import {
   ChampionItemIcon,
@@ -40,6 +41,18 @@ export function MatchList({
   });
   if (cursor) params.set("cursor", cursor);
   const result = useRemote<MatchPage>("/api/matches?" + params);
+  // A full name wins; otherwise a part of a name counts once it points at one champion.
+  // A bare number is still read as a champion ID so old links and tools keep working.
+  const championId = (value: string) => {
+    const query = value.trim();
+    if (!query) return "";
+    const champions = Object.entries(catalog?.champions || {});
+    const exact = champions.find(([, asset]) => asset.name === query);
+    if (exact) return exact[0];
+    if (/^\d+$/.test(query)) return query;
+    const partial = champions.filter(([, asset]) => asset.name.includes(query));
+    return partial.length === 1 ? partial[0][0] : "";
+  };
   const change = (key: string, value: string) => {
     setFilter({ ...filter, [key]: value });
     setCursor("");
@@ -77,15 +90,12 @@ export function MatchList({
           챔피언
           <input
             list="champion-options"
-            placeholder="챔피언 이름 또는 ID"
+            placeholder="챔피언 이름"
             value={championQuery}
             onChange={(e) => {
               const value = e.target.value;
               setChampionQuery(value);
-              const id = Object.entries(catalog?.champions || {}).find(
-                ([, asset]) => asset.name === value,
-              )?.[0];
-              change("championId", id || (/^\d+$/.test(value) ? value : ""));
+              change("championId", championId(value));
             }}
           />
           <datalist id="champion-options">
@@ -97,9 +107,12 @@ export function MatchList({
           </datalist>
         </label>
       </form>
-      <p className="caption">
-        선택한 조건은 같은 참가자의 기록에 함께 적용됩니다.
-      </p>
+      {!memberId && (
+        <p className="caption">
+          참가자와 챔피언을 함께 고르면 그 참가자가 그 챔피언으로 플레이한
+          경기만 보여 줍니다.
+        </p>
+      )}
       {result.loading ? (
         <Loading />
       ) : result.error ? (
@@ -111,7 +124,6 @@ export function MatchList({
           {result.data.items.map((m) => (
             <article className="match-card" key={m.matchKey}>
               <div className="match-meta">
-                <span className="eyebrow">5 VS 5 · 소환사의 협곡</span>
                 <a
                   className="match-link"
                   href={"/matches/" + encodeURIComponent(m.matchKey)}
@@ -120,11 +132,11 @@ export function MatchList({
                 </a>
                 <small>
                   {Math.floor(m.durationSeconds / 60)}분{" "}
-                  {m.durationSeconds % 60}초 · 패치 {m.patch}
+                  {m.durationSeconds % 60}초 · 패치 {shortPatch(m.patch)}
                 </small>
-                <span className="badge">
-                  {m.evaluationStatus === "ready" ? "평가 완료" : "계산 중"}
-                </span>
+                {m.evaluationStatus !== "ready" && (
+                  <span className="badge amber">점수 계산 중</span>
+                )}
               </div>
               <div className="roster-preview">
                 {[100, 200].map((team) => (
@@ -157,13 +169,6 @@ export function MatchList({
                   </div>
                 ))}
               </div>
-              <a
-                className="arrow-link"
-                aria-label="경기 상세 보기"
-                href={"/matches/" + encodeURIComponent(m.matchKey)}
-              >
-                상세 ↗
-              </a>
             </article>
           ))}
         </div>

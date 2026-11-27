@@ -33,6 +33,9 @@ export const tierNames: Record<string, string> = {
 export const number = (n: number) => n.toLocaleString("ko-KR");
 export const score = (n: number | null | undefined) =>
   n == null ? "—" : (Math.round(n * 100) / 100).toFixed(2);
+/** Riot's build number adds two parts nobody needs: 16.20.824.8524 -> 16.20. */
+export const shortPatch = (patch: string) =>
+  patch.split(".").slice(0, 2).join(".") || patch;
 export const kst = (date: string) =>
   new Intl.DateTimeFormat("ko-KR", {
     timeZone: "Asia/Seoul",
@@ -92,26 +95,58 @@ export function Loading() {
     </div>
   );
 }
+const errorMessages: Record<string, string> = {
+  RECALCULATING: "기록을 다시 계산하고 있습니다. 잠시 후 다시 확인해 주세요.",
+  AUTH_REVOKED:
+    "인증이 만료되었거나 폐기되었습니다. 운영자 코드로 다시 로그인해 주세요.",
+  RATE_LIMITED: "요청이 많습니다. 10분 후 다시 시도해 주세요.",
+  NOT_FOUND: "기록을 찾을 수 없습니다.",
+  INVALID_TEAM_MEMBERS: "서로 다른 활성 참가자 10명을 선택해 주세요.",
+  NETWORK_ERROR:
+    "서버에 연결하지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.",
+  INVALID_RIOT_ID:
+    "Riot ID 형식이 올바르지 않습니다. 게임 이름과 태그를 #으로 이어서 입력해 주세요. 예: 소환사이름#KR1",
+  INVALID_MEMBER:
+    "참가자 정보를 저장할 수 없습니다. 주 포지션과 부 포지션은 서로 달라야 하고, 둘 다 가능한 포지션에 체크되어 있어야 합니다.",
+  CONFLICT:
+    "이미 같은 값이 등록되어 있습니다. 중복된 항목이 없는지 확인해 주세요.",
+  ACCOUNT_LINK_CONFLICT:
+    "이 게임 계정은 이미 다른 참가자와 연결되어 있습니다. Riot ID를 다시 확인해 주세요.",
+  INVALID_SCORING_RULES:
+    "평가 기준을 저장할 수 없습니다. 포지션마다 합계가 100인지, 승패 가중치가 5 이하인지 확인해 주세요.",
+  INVALID_MATCH:
+    "포지션을 저장할 수 없습니다. 팀마다 다섯 포지션을 하나씩 지정해 주세요.",
+  INVALID_STATE:
+    "아직 확인 대기 중인 경기입니다. 등록이 끝난 경기만 정정하거나 취소할 수 있습니다.",
+  MATCH_CANCELED: "이미 등록이 취소된 경기입니다.",
+  GROUP_CODE_EXISTS:
+    "모임 코드가 이미 발급되어 있습니다. 화면을 새로고침해 주세요.",
+  GROUP_CODE_MISSING: "발급된 모임 코드가 없습니다. 화면을 새로고침해 주세요.",
+  CODE_GENERATION_FAILED:
+    "코드를 만들지 못했습니다. 잠시 후 다시 시도해 주세요.",
+  FORBIDDEN:
+    "권한을 확인하지 못했습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.",
+  CSRF_REJECTED:
+    "보안 확인에 실패했습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.",
+  ORIGIN_REJECTED:
+    "보안 확인에 실패했습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.",
+};
 export function ErrorBox({
   error,
   retry,
+  messages,
 }: {
   error: unknown;
   retry?: () => void;
+  /** Screen-specific wording for a code whose meaning depends on the action. */
+  messages?: Record<string, string>;
 }) {
   const code = error instanceof ApiFailure ? error.code : "UNKNOWN";
   const recalc = code === "RECALCULATING";
-  const message = recalc
-    ? "기록을 다시 계산하고 있습니다. 잠시 후 다시 확인해 주세요."
-    : code === "AUTH_REVOKED"
-      ? "인증이 만료되었거나 폐기되었습니다. 운영자 코드로 다시 로그인해 주세요."
-      : code === "RATE_LIMITED"
-        ? "요청이 많습니다. 10분 후 다시 시도해 주세요."
-        : code === "NOT_FOUND"
-          ? "기록을 찾을 수 없습니다."
-          : code === "INVALID_TEAM_MEMBERS"
-            ? "서로 다른 활성 참가자 10명을 선택해 주세요."
-            : "요청을 처리하지 못했습니다. 입력과 연결 상태를 확인해 주세요.";
+  const message =
+    messages?.[code] ??
+    errorMessages[code] ??
+    "요청을 처리하지 못했습니다. 입력과 연결 상태를 확인해 주세요.";
   return (
     <div
       className={"notice " + (recalc ? "amber" : "error")}
@@ -129,13 +164,11 @@ export function ErrorBox({
   );
 }
 export function Status({ status }: { status: string }) {
+  // Ranked is the normal state, so only the exceptions are labelled.
+  if (status === "ranked") return null;
   return (
-    <span className={"badge " + (status === "ranked" ? "cyan" : "amber")}>
-      {status === "ranked"
-        ? "정식 랭킹"
-        : status === "unrated"
-          ? "기록 없음"
-          : "평가 중"}
+    <span className="badge amber">
+      {status === "unrated" ? "기록 없음" : "평가 중"}
     </span>
   );
 }
@@ -174,12 +207,24 @@ function RuleWeights({ version }: { version: string }) {
   );
   if (r.loading) return <Loading />;
   if (r.error) return <ErrorBox error={r.error} />;
-  const ruleset = r.data!;
+  return (
+    <WeightsTable ruleset={r.data!} caption="현재 버전의 역할별 가중치 (%)" />
+  );
+}
+
+export function WeightsTable({
+  ruleset,
+  caption,
+}: {
+  ruleset: Rules;
+  caption: string;
+}) {
+  const percent = (key: string) => Math.round(ruleset.metricMix[key] * 100);
   return (
     <>
       <div className="table-scroll">
         <table>
-          <caption>현재 버전의 역할별 가중치 (%)</caption>
+          <caption>{caption}</caption>
           <thead>
             <tr>
               <th>역할</th>
@@ -201,12 +246,11 @@ function RuleWeights({ version }: { version: string }) {
         </table>
       </div>
       <p>
-        피해량: 분당 피해 {Math.round(ruleset.metricMix.damagePerMinute * 100)}%
-        + 팀 피해 비중 {Math.round(ruleset.metricMix.damageShare * 100)}%. 성장:
-        분당 CS {Math.round(ruleset.metricMix.csPerMinute * 100)}% + 분당 골드{" "}
-        {Math.round(ruleset.metricMix.goldPerMinute * 100)}%. 서포터 교전: 킬
-        관여 {Math.round(ruleset.metricMix.supportParticipation * 100)}% + 분당
-        어시스트 {Math.round(ruleset.metricMix.supportAssists * 100)}%.
+        피해량: 분당 피해 {percent("damagePerMinute")}% + 팀 피해 비중{" "}
+        {percent("damageShare")}%. 성장: 분당 CS {percent("csPerMinute")}% +
+        분당 골드 {percent("goldPerMinute")}%. 서포터 교전: 킬 관여{" "}
+        {percent("supportParticipation")}% + 분당 어시스트{" "}
+        {percent("supportAssists")}%.
       </p>
     </>
   );

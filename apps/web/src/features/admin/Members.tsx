@@ -28,23 +28,38 @@ const blank = {
 export function MembersAdmin() {
   const result = useRemote<AdminMember[]>("/api/admin/members");
   const [editing, setEditing] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
+  const done = (saved?: string) => {
+    setEditing(null);
+    setNotice(saved ? `${saved} 님의 정보를 저장했습니다.` : "");
+    if (saved) result.reload();
+  };
   return (
     <section>
       <div className="section-heading">
         <h2>참가자와 가능한 포지션</h2>
-        <button onClick={() => setEditing("new")}>참가자 추가</button>
+        <button
+          onClick={() => {
+            setNotice("");
+            setEditing("new");
+          }}
+        >
+          참가자 추가
+        </button>
       </div>
       <p className="caption">
         Riot ID로 참가자를 추가하고 게임 계정 정보를 자동으로 연결합니다. 현재
         포지션을 바꾸어도 과거 경기의 확정 역할은 유지됩니다.
       </p>
+      {notice && (
+        <p className="notice" role="status">
+          {notice}
+        </p>
+      )}
       {editing === "new" && (
-        <MemberEditor
-          done={() => {
-            setEditing(null);
-            result.reload();
-          }}
-        />
+        <div className="panel">
+          <MemberEditor done={done} />
+        </div>
       )}
       {result.loading ? (
         <Loading />
@@ -67,9 +82,7 @@ export function MembersAdmin() {
                   <div>
                     <h3>
                       {m.displayName}{" "}
-                      <span className="badge">
-                        {m.active ? "팀 추천 대상" : "팀 추천 제외"}
-                      </span>
+                      {!m.active && <span className="badge">팀 추천 제외</span>}
                     </h3>
                     <small>
                       {m.riotId} · {!m.puuid && "게임 계정 연결 확인 중 · "}{" "}
@@ -81,20 +94,15 @@ export function MembersAdmin() {
                 </div>
                 <button
                   className="secondary"
-                  onClick={() => setEditing(editing === m.id ? null : m.id)}
+                  onClick={() => {
+                    setNotice("");
+                    setEditing(editing === m.id ? null : m.id);
+                  }}
                 >
-                  편집
+                  {editing === m.id ? "닫기" : "편집"}
                 </button>
               </div>
-              {editing === m.id && (
-                <MemberEditor
-                  member={m}
-                  done={() => {
-                    setEditing(null);
-                    result.reload();
-                  }}
-                />
-              )}
+              {editing === m.id && <MemberEditor member={m} done={done} />}
             </div>
           ))}
         </div>
@@ -107,12 +115,37 @@ function MemberEditor({
   done,
 }: {
   member?: AdminMember;
-  done: () => void;
+  /** Called with the saved name, or with nothing when the editor is just closed. */
+  done: (saved?: string) => void;
 }) {
   const [form, setForm] = useState(member ? { ...member } : { ...blank });
   const [error, setError] = useState<unknown>();
   const [busy, setBusy] = useState(false);
   const change = (k: string, v: unknown) => setForm({ ...form, [k]: v });
+  // The server rejects a preferred position that is not also an allowed one,
+  // so choosing one ticks it and unticking one clears the preference.
+  const prefer = (k: "primaryRole" | "secondaryRole", role: Role | null) =>
+    setForm({
+      ...form,
+      [k]: role,
+      allowedRoles:
+        role && !form.allowedRoles.includes(role)
+          ? [...form.allowedRoles, role]
+          : form.allowedRoles,
+    });
+  const allow = (role: Role, allowed: boolean) =>
+    setForm({
+      ...form,
+      allowedRoles: allowed
+        ? [...form.allowedRoles, role]
+        : form.allowedRoles.filter((x) => x !== role),
+      primaryRole:
+        !allowed && form.primaryRole === role ? null : form.primaryRole,
+      secondaryRole:
+        !allowed && form.secondaryRole === role ? null : form.secondaryRole,
+    });
+  const sameRoles =
+    !!form.primaryRole && form.primaryRole === form.secondaryRole;
   return (
     <div className="editor">
       <form
@@ -129,12 +162,12 @@ function MemberEditor({
               secondaryRole: form.secondaryRole,
               allowedRoles: form.allowedRoles,
             };
-            await api(
+            const saved = await api<AdminMember>(
               "/api/admin/members" + (member ? "/" + member.id : ""),
               member ? "PATCH" : "POST",
               body,
             );
-            done();
+            done(saved?.displayName || form.riotId);
           } catch (e) {
             setError(e);
           } finally {
@@ -147,6 +180,8 @@ function MemberEditor({
             Riot ID
             <input
               required
+              placeholder="게임 이름#태그"
+              aria-describedby="riot-id-hint"
               value={form.riotId}
               onChange={(e) => change("riotId", e.target.value)}
             />
@@ -156,7 +191,9 @@ function MemberEditor({
               {k === "primaryRole" ? "주 포지션" : "부 포지션"}
               <select
                 value={form[k] || ""}
-                onChange={(e) => change(k, e.target.value || null)}
+                onChange={(e) =>
+                  prefer(k, (e.target.value || null) as Role | null)
+                }
               >
                 <option value="">미지정</option>
                 {roles.map((r) => (
@@ -168,6 +205,15 @@ function MemberEditor({
             </label>
           ))}
         </div>
+        <small id="riot-id-hint">
+          Riot ID는 게임 이름과 태그를 #으로 이어서 입력합니다. 예:
+          소환사이름#KR1
+        </small>
+        {sameRoles && (
+          <p className="notice amber" role="status">
+            주 포지션과 부 포지션은 서로 달라야 합니다.
+          </p>
+        )}
         <fieldset>
           <legend>가능한 포지션</legend>
           <div className="checks">
@@ -176,14 +222,7 @@ function MemberEditor({
                 <input
                   type="checkbox"
                   checked={form.allowedRoles.includes(r)}
-                  onChange={(e) =>
-                    change(
-                      "allowedRoles",
-                      e.target.checked
-                        ? [...form.allowedRoles, r]
-                        : form.allowedRoles.filter((x) => x !== r),
-                    )
-                  }
+                  onChange={(e) => allow(r, e.target.checked)}
                 />
                 {roleName[r]}
               </label>
@@ -200,13 +239,23 @@ function MemberEditor({
         </label>
         <small>해제해도 과거 경기 기록은 유지됩니다.</small>
         <div className="action-row">
-          <button disabled={busy}>{busy ? "저장 중…" : "참가자 저장"}</button>
-          <button type="button" className="secondary" onClick={done}>
+          <button disabled={busy || sameRoles}>
+            {busy ? "저장 중…" : "참가자 저장"}
+          </button>
+          <button type="button" className="secondary" onClick={() => done()}>
             닫기
           </button>
         </div>
       </form>
-      {error !== undefined && <ErrorBox error={error} />}
+      {error !== undefined && (
+        <ErrorBox
+          error={error}
+          messages={{
+            CONFLICT:
+              "이미 등록된 Riot ID입니다. 참가자 목록에서 같은 사람이 있는지 확인해 주세요.",
+          }}
+        />
+      )}
     </div>
   );
 }

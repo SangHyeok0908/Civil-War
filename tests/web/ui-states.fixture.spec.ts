@@ -91,3 +91,41 @@ test("fixtureOnly matchRecalculationRefreshesWithoutNavigation", async ({
   ).toBeVisible();
   expect(calls).toBeGreaterThan(1);
 });
+
+test("fixtureOnly recalculatingMatchKeepsRecordsOnScreenWhileRefreshing", async ({
+  page,
+  request,
+}) => {
+  const url = "/api/matches/" + state().keys[0];
+  const ready = await (await request.get(url)).json();
+  let calls = 0;
+  await page.route("**/api/matches/*", async (route) => {
+    calls++;
+    // A slow reply would show the loading notice if the page cleared itself on refresh.
+    await new Promise((r) => setTimeout(r, 400));
+    await route.fulfill({
+      status: 200,
+      json: {
+        ...ready,
+        evaluationStatus: "recalculating",
+        generationId: null,
+        scoringVersion: null,
+        scores: [],
+      },
+    });
+  });
+  await page.goto("/matches/" + state().keys[0]);
+  await expect(page.getByTestId("player-row")).toHaveCount(10);
+  await expect
+    .poll(
+      async () => {
+        expect(await page.getByText("기록을 불러오는 중입니다…").count()).toBe(
+          0,
+        );
+        expect(await page.getByTestId("player-row").count()).toBe(10);
+        return calls;
+      },
+      { intervals: [100], timeout: 15000 },
+    )
+    .toBeGreaterThan(3);
+});

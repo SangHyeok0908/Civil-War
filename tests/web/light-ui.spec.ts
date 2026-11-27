@@ -97,13 +97,23 @@ test("page navigation returns to the new records and restores a clear focus", as
   ).toBeFocused();
 });
 
-test("public member availability explains its effect on team selection", async ({
+test("public member list marks only members excluded from team selection", async ({
   page,
 }) => {
   await page.goto("/members");
-  await expect(page.locator(".member-card .badge").first()).toHaveText(
-    "팀 추천 대상",
-  );
+  await expect(page.locator(".member-card").first()).toBeVisible();
+  await expect(page.locator(".member-card .badge")).toHaveCount(0);
+  await page.route("**/api/members", async (route) => {
+    const response = await route.fetch();
+    const members = await response.json();
+    members[0].active = false;
+    await route.fulfill({ response, json: members });
+  });
+  await page.reload();
+  await expect(page.locator(".member-card .badge")).toHaveCount(1);
+  await expect(
+    page.locator(".member-card").first().locator(".badge"),
+  ).toHaveText("팀 추천 제외");
 });
 
 test("long Riot IDs remain readable beside admin controls on a small screen", async ({

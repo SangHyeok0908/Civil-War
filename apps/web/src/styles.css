@@ -355,10 +355,6 @@ footer {
   flex-direction: column;
   gap: 7px;
 }
-.match-meta .eyebrow {
-  margin: 0;
-  font-size: 9px;
-}
 .match-link {
   font-size: 14px;
   font-weight: 700;
@@ -397,11 +393,6 @@ footer {
   white-space: nowrap;
   font-size: 10px;
   margin-top: 4px;
-}
-.arrow-link {
-  font-size: 12px;
-  color: var(--cyan);
-  white-space: nowrap;
 }
 .asset {
   display: inline-flex;
@@ -501,11 +492,9 @@ table {
   font-variant-numeric: tabular-nums;
 }
 th {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
   padding: 13px 16px;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
@@ -534,7 +523,7 @@ tbody tr:hover {
   min-width: 135px;
 }
 .records td small {
-  font-size: 10px;
+  font-size: 11px;
   margin-top: 3px;
 }
 .records .asset.champion {
@@ -563,7 +552,7 @@ tbody tr:hover {
 .breakdown > div {
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: 11px;
   gap: 8px;
 }
 .breakdown dd {
@@ -785,7 +774,7 @@ tbody tr:hover {
   border-radius: 6px;
   background: var(--input);
   color: var(--secondary-text);
-  font-size: 12px;
+  font-size: 14px;
 }
 .tabs a[aria-current="page"] {
   background: var(--primary-soft);
@@ -867,24 +856,12 @@ tbody tr:hover {
 .credentials {
   margin-top: 28px;
 }
-.correction-list {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
-}
-.correction-list .active {
-  border-color: var(--cyan);
-}
 .weights {
   min-width: 800px;
 }
 .weights input {
   width: 76px;
   padding: 8px;
-}
-.raw-record {
-  font-size: 11px;
 }
 .skip-link {
   position: fixed;
@@ -962,7 +939,7 @@ tbody tr:hover {
     font-size: 25px;
   }
   .page-heading > .badge {
-    font-size: 10px;
+    font-size: 11px;
   }
   .page-heading > .subtle {
     display: none;
@@ -988,14 +965,11 @@ tbody tr:hover {
     min-width: 0;
     gap: 5px;
   }
-  .match-meta .eyebrow {
-    grid-column: 1/-1;
-  }
   .match-meta .badge {
     grid-column: 2;
-    grid-row: 2/4;
+    grid-row: 1/3;
     align-self: center;
-    font-size: 9px;
+    font-size: 11px;
   }
   .match-meta .match-link {
     font-size: 12px;
@@ -1015,9 +989,6 @@ tbody tr:hover {
     max-width: 43px;
     margin-left: auto;
     margin-right: auto;
-  }
-  .arrow-link {
-    margin-left: auto;
   }
   .meta-bar {
     gap: 8px 18px;
@@ -1073,7 +1044,7 @@ tbody tr:hover {
     font-size: 12px;
   }
   .selection-card small {
-    font-size: 9px;
+    font-size: 11px;
   }
   .form-grid {
     grid-template-columns: 1fr;
@@ -1212,13 +1183,9 @@ textarea {
   min-width: 0;
   gap: 6px 12px;
 }
-.match-meta .eyebrow {
-  grid-column: 1 / -1;
-  font-size: 10px;
-}
 .match-meta .badge {
   grid-column: 2;
-  grid-row: 2 / 4;
+  grid-row: 1 / 3;
   align-self: center;
 }
 .match-link {
@@ -1259,13 +1226,6 @@ textarea {
   height: 38px;
   border-radius: 11px;
   border: 0;
-}
-.arrow-link {
-  display: block;
-  text-align: center;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-  color: var(--secondary-text);
 }
 .badge {
   border: 0;
@@ -1399,5 +1359,164 @@ textarea {
   }
   .page-heading h1 {
     overflow-wrap: anywhere;
+  }
+}
+
+/* Without a status badge the date and the duration still stack in the first column. */
+.match-meta > .match-link,
+.match-meta > small {
+  grid-column: 1;
+}
+
+/* The whole match card opens the match; member links inside it stay clickable on top. */
+.match-card {
+  position: relative;
+}
+.match-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.match-card .preview-team > a[href] {
+  position: relative;
+  z-index: 1;
+}
+
+/* The name column stays in view while the wide record table scrolls sideways. */
+.records th:first-child,
+.records td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+  box-shadow: 1px 0 0 var(--border);
+}
+.records th:first-child {
+  background: #f8f9fb;
+}
+.records tbody tr:hover td:first-child {
+  background: #f8faff;
+}
+
+/* Operator match corrections reuse the public match card. */
+.correction-summary {
+  position: relative;
+  display: grid;
+  gap: 20px;
+}
+.correction-card.selected {
+  outline: 2px solid var(--primary);
+}
+.card-button {
+  justify-self: start;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-weight: 700;
+  text-align: left;
+}
+.card-button:hover {
+  background: none;
+  color: var(--primary);
+}
+.correction-editor {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+.correction-team {
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.correction-team h3 {
+  padding: 14px 16px;
+}
+.correction-team select {
+  min-width: 110px;
+}
+.correction-team .asset.champion {
+  margin-top: 4px;
+}
+.match-number {
+  margin-top: 16px;
+}
+.audit td {
+  vertical-align: top;
+}
+.audit-changes {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--secondary-text);
+}
+.weights tr.invalid td,
+.weights tr.invalid th {
+  background: var(--amber-soft);
+}
+.weights-total {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.weights tr.invalid .weights-total,
+.weights tr.invalid .weights-total small {
+  color: var(--amber);
+}
+.rule-note summary .badge {
+  margin-left: 8px;
+}
+.job-summary strong {
+  font-size: 16px;
+}
+.job-summary:not(.amber):not(.error) {
+  color: var(--success);
+  background: var(--success-soft);
+  border-color: transparent;
+}
+p.notice {
+  margin: 16px 0;
+}
+.credentials .panel-heading small {
+  margin-top: 5px;
+}
+.confirm-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  max-width: 320px;
+}
+.confirm-inline small {
+  flex-basis: 100%;
+  color: var(--amber);
+}
+.ended-credentials {
+  border-top: 1px solid var(--border);
+}
+.ended-credentials summary {
+  padding: 16px 22px;
+  font-size: 13px;
+}
+.credentials td button {
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .tabs a {
+    font-size: 13px;
+  }
+  /* On a phone the position selector must be reachable without scrolling sideways,
+     so the damage column gives up its place. */
+  .correction-team th:nth-child(3),
+  .correction-team td:nth-child(3) {
+    display: none;
+  }
+  .correction-team th,
+  .correction-team td {
+    padding: 12px 10px;
+  }
+  .correction-team select {
+    min-width: 92px;
   }
 }

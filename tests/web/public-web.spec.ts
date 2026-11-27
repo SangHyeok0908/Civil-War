@@ -47,6 +47,12 @@ test("tenPlayerComparison and missingAssetFallback", async ({ page }) => {
   await expect(page.getByText(/KST/).first()).toBeVisible();
   await expect(page.getByText("999999").first()).toBeVisible();
   await expect(page.getByText("Perfect").first()).toBeVisible();
+  // The score sits next to the name, and internal identifiers stay off the page.
+  await expect(page.locator(".records thead th").nth(1).first()).toHaveText(
+    "활약",
+  );
+  await expect(page.locator(".meta-bar")).toContainText(/패치 \d+\.\d+$/m);
+  await expect(page.getByText(/KR:\d+/)).toHaveCount(0);
   await page.getByTestId("player-row").first().locator("summary").click();
   await expect(
     page.getByTestId("player-row").first().getByText("사망 보정"),
@@ -101,6 +107,16 @@ test("paginationAndSameParticipantFilters", async ({ page, request }) => {
   await page.goto("/matches");
   await expect(page.locator(".match-card")).toHaveCount(10);
   const first = await page.locator(".match-link").first().getAttribute("href");
+  // Finished matches carry no status badge, and the whole card opens the match.
+  await expect(page.locator(".match-card .badge")).toHaveCount(0);
+  await expect(page.getByText("상세 ↗")).toHaveCount(0);
+  await page
+    .locator(".match-card")
+    .first()
+    .click({ position: { x: 8, y: 8 } });
+  await page.waitForURL("**" + first);
+  await page.goBack();
+  await expect(page.locator(".match-card")).toHaveCount(10);
   await page.getByRole("button", { name: "다음 페이지" }).click();
   await expect(page.locator(".match-card")).toHaveCount(2);
   expect(
@@ -139,6 +155,12 @@ test("mobileReadableTablesAndNavigation", async ({ page }) => {
       .first()
       .evaluate((e) => e.scrollWidth > e.clientWidth),
   ).toBe(true);
+  // The name column stays visible while the wide table is scrolled sideways.
+  await page
+    .locator(".table-scroll")
+    .first()
+    .evaluate((e) => (e.scrollLeft = e.scrollWidth));
+  await expect(page.locator(".player-name").first()).toBeInViewport();
   await page.screenshot({
     path: "docs/validation/assets/2026-10-28-ux-ease-mobile.png",
     fullPage: true,

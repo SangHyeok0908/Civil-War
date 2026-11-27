@@ -41,9 +41,7 @@ export function Members() {
                   {m.secondaryRole ? " · " + roleName[m.secondaryRole] : ""}
                 </p>
               </div>
-              <span className={"badge " + (m.active ? "cyan" : "")}>
-                {m.active ? "팀 추천 대상" : "팀 추천 제외"}
-              </span>
+              {!m.active && <span className="badge">팀 추천 제외</span>}
             </a>
           ))}
         </div>

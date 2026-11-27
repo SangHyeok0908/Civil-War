@@ -50,7 +50,7 @@ export function App() {
             ))}
           </nav>
           <a className="admin-link" href="/admin">
-            운영자 ↗
+            운영자
           </a>
         </div>
       </header>
