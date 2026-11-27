@@ -15,5 +15,4 @@ public class SoloRankSnapshot {
     public double seedValue;
     public Instant observedAt;
     public Instant attemptedAt;
-    public Instant nextAttemptAt;
 }

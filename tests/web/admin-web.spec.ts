@@ -27,7 +27,7 @@ test("codeOnlyLogin csrf cookie restore and logout", async ({
     page.getByRole("heading", { name: "운영자 로그인" }),
   ).toBeVisible();
 });
-test("referenceDoesNotOverwriteManual soloNeverEntersRanking explicitApply", async ({
+test("member editor no longer offers role references", async ({
   page,
   request,
 }) => {
@@ -40,67 +40,10 @@ test("referenceDoesNotOverwriteManual soloNeverEntersRanking explicitApply", asy
     }),
   });
   await panel.getByRole("button", { name: "편집", exact: true }).click();
-  await panel.getByText("초기 포지션 참고 자료", { exact: true }).click();
-  await panel
-    .getByLabel("확인한 공식 API PUUID")
-    .fill("browser-official-member-1");
-  const samples = Array.from({ length: 20 }, (_, i) => ({
-    puuid: member.puuid,
-    source: "solo420",
-    gameId: "browser-solo-" + i,
-    playedAt: "2026-10-21T12:" + String(i).padStart(2, "0") + ":00Z",
-    role: "JUNGLE",
-    evidence: {
-      officialPuuid: "browser-official-member-1",
-      queueId: 420,
-      teamPosition: "JUNGLE",
-      durationSeconds: 1800,
-      earlyEnded: false,
-    },
-  }));
-  await panel.getByLabel("참고 표본 JSON").fill(JSON.stringify(samples));
-  await panel
-    .getByLabel("공식 계정과 이 참가자의 연결을 직접 확인했습니다")
-    .check();
-  const before = await (
-    await admin(request, "/members/" + member.id, undefined, "GET")
-  ).json();
-  const rankBefore = await (await request.get("/api/rankings")).json();
-  await panel.getByRole("button", { name: "참고 자료 가져오기" }).click();
   await expect(
-    panel.getByText("참고 자료를 가져왔습니다. 참가자 설정은 유지됩니다."),
+    panel.getByRole("button", { name: "참가자 저장" }),
   ).toBeVisible();
-  expect(
-    await (
-      await admin(request, "/members/" + member.id, undefined, "GET")
-    ).json(),
-  ).toEqual(before);
-  expect(await (await request.get("/api/rankings")).json()).toEqual(rankBefore);
-  await panel.getByRole("button", { name: "제안을 편집란에 적용" }).click();
-  await expect(
-    panel.getByRole("combobox", { name: "주 포지션", exact: true }),
-  ).toHaveValue("JUNGLE");
-  expect(
-    (
-      await (
-        await admin(request, "/members/" + member.id, undefined, "GET")
-      ).json()
-    ).primaryRole,
-  ).toBe("TOP");
-  await panel.getByRole("button", { name: "참가자 저장" }).click();
-  await expect
-    .poll(
-      async () =>
-        (
-          await (
-            await admin(request, "/members/" + member.id, undefined, "GET")
-          ).json()
-        ).primaryRole,
-    )
-    .toBe("JUNGLE");
-  await expect
-    .poll(async () => (await request.get("/api/rankings")).status())
-    .toBe(200);
+  await expect(panel.getByText("초기 포지션 참고 자료")).toHaveCount(0);
 });
 test("fixedCodeNewBrowser and collectorDeviceRevocation", async ({
   page,

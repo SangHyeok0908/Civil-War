@@ -69,20 +69,6 @@ export interface ConfirmationInput {
   rolesByPuuid: Record<string, Role>;
   clientSubmissionId: string;
 }
-export interface RoleReferenceSample {
-  puuid: string;
-  source: "solo420";
-  gameId: string;
-  playedAt: string;
-  role: Role;
-  evidence: {
-    officialPuuid: string;
-    queueId: 420;
-    teamPosition: Role;
-    durationSeconds: number;
-    earlyEnded: false;
-  };
-}
 export class ClientError extends Error {
   constructor(
     public code: string,

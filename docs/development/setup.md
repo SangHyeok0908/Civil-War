@@ -61,7 +61,7 @@ JAR(자바 실행 묶음)의 파일명에 넣을 버전은 서버 빌드 설정�
 
 ## 자동 솔로랭크 참고 연결
 
-서버 실행 환경에 `RIOT_API_KEY`를 설정하면 공식 Account-v1과 League-v4를 읽어 자동 시작 기준을 갱신한다. 키는 수집기·브라우저·로그에 넣지 않는다. [집 서버 환경 예시](../../infra/home-server/.env.example)와 Compose는 이 값을 서버 컨테이너에만 전달한다. 키가 없거나 서비스 조회가 실패해도 참가자는 저장하고 최근 성공값 또는 공통 시작값을 사용한다. 현재 정보는 참가자 관리의 조회 상태·시각으로 확인한다. 환산·갱신 정책은 [정책 파일](../../apps/server/src/main/resources/policies/rank-seed-v1.json)이 원본이다.
+서버 실행 환경에 `RIOT_API_KEY`를 설정하면 팀 추천 요청 때 공식 Account-v1과 League-v4를 읽어 선택한 10명의 자동 시작 기준을 정한다. 키는 수집기·브라우저·로그에 넣지 않는다. [집 서버 환경 예시](../../infra/home-server/.env.example)와 Compose는 이 값을 서버 컨테이너에만 전달한다. 키가 없거나 조회가 실패해도 추천은 최근 성공값 또는 공통 시작값으로 응답하고, 추천 결과에 사람별 반영 상태를 표시한다. 대기 상한·동시 요청 수는 `cw.riot.lookup-deadline-ms`, `cw.riot.max-concurrent-requests`, `cw.riot.request-timeout-ms` 설정으로 바꿀 수 있으며 기본값은 [조회 코드](../../apps/server/src/main/java/cw/riot/LiveRankLookup.java)와 [Riot 요청 코드](../../apps/server/src/main/java/cw/riot/HttpRiotGateway.java)가 원본이다. 환산 정책은 [정책 파일](../../apps/server/src/main/resources/policies/rank-seed-v1.json)이 원본이다.
 
 ## 최초 관리자와 복구
 

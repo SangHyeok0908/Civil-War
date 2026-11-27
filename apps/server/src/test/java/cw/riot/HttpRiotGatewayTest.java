@@ -2,11 +2,19 @@ package cw.riot;
 
 import static org.assertj.core.api.Assertions.*;
 
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import cw.contracts.AccountContracts.SoloRankLookup;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
@@ -127,6 +135,150 @@ class HttpRiotGatewayTest {
             SoloRankLookup throttled = gateway.getSoloRank("official-id");
             assertThat(throttled.status()).isEqualTo("unavailable");
             assertThat(throttled.retryAfterMillis()).isEqualTo(12000);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    private static HttpServer concurrentServer(HttpHandler handler) throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.setExecutor(Executors.newFixedThreadPool(8));
+        server.createContext("/", handler);
+        server.start();
+        return server;
+    }
+
+    private static void respond(HttpExchange exchange, String body) throws IOException {
+        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        exchange.sendResponseHeaders(200, bytes.length);
+        exchange.getResponseBody().write(bytes);
+        exchange.close();
+    }
+
+    @Test
+    void requestsRunConcurrentlyUpToTheLimit() throws Exception {
+        AtomicInteger inFlight = new AtomicInteger();
+        AtomicInteger maxInFlight = new AtomicInteger();
+        HttpServer server =
+                concurrentServer(
+                        exchange -> {
+                            maxInFlight.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
+                            try {
+                                Thread.sleep(300);
+                            } catch (InterruptedException error) {
+                                Thread.currentThread().interrupt();
+                            }
+                            inFlight.decrementAndGet();
+                            respond(exchange, "[]");
+                        });
+        try {
+            URI origin = URI.create("http://127.0.0.1:" + server.getAddress().getPort());
+            HttpRiotGateway gateway =
+                    new HttpRiotGateway(
+                            "key",
+                            origin,
+                            origin,
+                            JsonMapper.builder().build(),
+                            2,
+                            Duration.ofSeconds(2));
+            long started = System.nanoTime();
+            List<Thread> threads = new ArrayList<>();
+            for (int i = 0; i < 4; i++) {
+                String id = "p" + i;
+                threads.add(Thread.ofVirtual().start(() -> gateway.getSoloRank(id)));
+            }
+            for (Thread thread : threads) {
+                thread.join();
+            }
+            long elapsedMillis = (System.nanoTime() - started) / 1_000_000;
+            assertThat(maxInFlight.get()).isEqualTo(2);
+            assertThat(elapsedMillis).isLessThan(1000);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void tooManyRequestsBlocksConcurrentCallers() throws Exception {
+        AtomicInteger serverHits = new AtomicInteger();
+        HttpServer server =
+                concurrentServer(
+                        exchange -> {
+                            serverHits.incrementAndGet();
+                            exchange.getResponseHeaders().add("Retry-After", "60");
+                            exchange.sendResponseHeaders(429, -1);
+                            exchange.close();
+                        });
+        try {
+            URI origin = URI.create("http://127.0.0.1:" + server.getAddress().getPort());
+            HttpRiotGateway gateway =
+                    new HttpRiotGateway(
+                            "key",
+                            origin,
+                            origin,
+                            JsonMapper.builder().build(),
+                            10,
+                            Duration.ofSeconds(2));
+            gateway.getSoloRank("first");
+            List<SoloRankLookup> results = Collections.synchronizedList(new ArrayList<>());
+            List<Thread> threads = new ArrayList<>();
+            for (int i = 0; i < 5; i++) {
+                String id = "p" + i;
+                threads.add(Thread.ofVirtual().start(() -> results.add(gateway.getSoloRank(id))));
+            }
+            for (Thread thread : threads) {
+                thread.join();
+            }
+            assertThat(results)
+                    .hasSize(5)
+                    .allSatisfy(r -> assertThat(r.status()).isEqualTo("unavailable"));
+            assertThat(serverHits.get()).isEqualTo(1);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void interruptedWaitForPermitReturnsUnavailable() throws Exception {
+        HttpServer server =
+                concurrentServer(
+                        exchange -> {
+                            try {
+                                Thread.sleep(2000);
+                            } catch (InterruptedException error) {
+                                Thread.currentThread().interrupt();
+                            }
+                            respond(exchange, "[]");
+                        });
+        try {
+            URI origin = URI.create("http://127.0.0.1:" + server.getAddress().getPort());
+            HttpRiotGateway gateway =
+                    new HttpRiotGateway(
+                            "key",
+                            origin,
+                            origin,
+                            JsonMapper.builder().build(),
+                            1,
+                            Duration.ofSeconds(5));
+            Thread first = Thread.ofVirtual().start(() -> gateway.getSoloRank("first"));
+            Thread.sleep(200);
+            SoloRankLookup[] second = new SoloRankLookup[1];
+            long[] secondElapsedMillis = new long[1];
+            Thread waiting =
+                    Thread.ofVirtual()
+                            .start(
+                                    () -> {
+                                        long started = System.nanoTime();
+                                        second[0] = gateway.getSoloRank("second");
+                                        secondElapsedMillis[0] =
+                                                (System.nanoTime() - started) / 1_000_000;
+                                    });
+            Thread.sleep(100);
+            waiting.interrupt();
+            waiting.join();
+            assertThat(second[0].status()).isEqualTo("unavailable");
+            assertThat(secondElapsedMillis[0]).isLessThan(500);
+            first.join();
         } finally {
             server.stop(0);
         }

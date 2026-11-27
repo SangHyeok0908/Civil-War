@@ -35,16 +35,22 @@ class SoloRankIntegrationTest extends DatabaseTestSupport {
     @Autowired MemberService profiles;
     @Autowired cw.accounts.AccountLinkService links;
 
+    @Autowired cw.riot.MemberProfileService profileIcons;
+
     @Test
-    void accountRateLimitDelaysTheMembersNextAttempt() {
-        when(gateway.resolveAccount("Player1#test"))
-                .thenReturn(new AccountLookup("unavailable", null, "Player1#test", 600000));
-        ranks.refresh("member-1");
-        java.sql.Timestamp next =
-                jdbc.queryForObject(
-                        "select next_attempt_at from solo_rank_snapshots where player_id='member-1'",
-                        java.sql.Timestamp.class);
-        assertThat(next.toInstant()).isAfter(java.time.Instant.now().plusSeconds(599));
+    void schedulerTickDoesNotLookUpRanks() {
+        new cw.riot.SoloRankScheduler(profileIcons).tick();
+        org.mockito.Mockito.verify(gateway, org.mockito.Mockito.never())
+                .getSoloRank(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void snapshotTableHasNoNextAttemptColumn() {
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from information_schema.columns where table_name='solo_rank_snapshots' and column_name='next_attempt_at'",
+                                Long.class))
+                .isZero();
     }
 
     @Test
@@ -96,5 +102,21 @@ class SoloRankIntegrationTest extends DatabaseTestSupport {
         assertThat(failed.teamSeed()).isEqualTo(90.);
         assertThat(failed.observedAt()).isEqualTo(first.observedAt());
         assertThat(revision()).isEqualTo(before);
+    }
+
+    @Test
+    void rankChangeDoesNotBumpRevision() {
+        when(gateway.resolveAccount("Player1#test"))
+                .thenReturn(new AccountLookup("verified", "official", "Player1#test"));
+        when(gateway.getSoloRank("official"))
+                .thenReturn(new SoloRankLookup("ranked", "DIAMOND", "I", 0));
+        long before = revision();
+        assertThat(ranks.refresh("member-1").teamSeed()).isEqualTo(90.);
+        assertThat(revision()).isEqualTo(before);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from audit_log where action='rank_seed_updated'",
+                                Long.class))
+                .isEqualTo(1L);
     }
 }

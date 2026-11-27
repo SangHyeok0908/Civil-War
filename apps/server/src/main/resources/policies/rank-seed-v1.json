@@ -22,6 +22,5 @@
     "GRANDMASTER",
     "CHALLENGER"
   ],
-  "successCacheSeconds": 86400,
   "failureBackoffMillis": 300000
 }

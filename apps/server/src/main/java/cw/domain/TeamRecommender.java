@@ -52,7 +52,7 @@ public class TeamRecommender {
         String shortageReason = findRoleShortage(members);
 
         if (shortageReason != null) {
-            return new TeamRecommendation(List.of(), shortageReason, revision);
+            return new TeamRecommendation(List.of(), shortageReason, revision, List.of());
         }
 
         Map<String, Map<Role, Double>> skillsByMember = indexRoleSkills(members, skills);
@@ -71,7 +71,7 @@ public class TeamRecommender {
 
         if (candidates.isEmpty()) {
             return new TeamRecommendation(
-                    List.of(), "가능한 포지션 조합이 없습니다. 운영자가 가능한 포지션을 확인해 주세요.", revision);
+                    List.of(), "가능한 포지션 조합이 없습니다. 운영자가 가능한 포지션을 확인해 주세요.", revision, List.of());
         }
 
         double bestDifference = candidates.getFirst().value().skillDifference();
@@ -86,7 +86,8 @@ public class TeamRecommender {
                         .map(Candidate::value)
                         .toList(),
                 null,
-                revision);
+                revision,
+                List.of());
     }
 
     private void validateMembers(List<Member> selected) {

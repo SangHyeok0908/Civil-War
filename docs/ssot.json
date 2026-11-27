@@ -119,6 +119,12 @@
       "current": "docs/spec.md"
     },
     {
+      "path": "docs/superpowers/specs/2026-11-25-team-live-solo-rank-design.md",
+      "role": "historical",
+      "date": "2026-11-25",
+      "current": "docs/spec.md"
+    },
+    {
       "path": "docs/validation/lcu-candidate-contract.md",
       "role": "historical",
       "date": "2026-10-22",
@@ -310,6 +316,10 @@
       "role": "reference"
     },
     {
+      "path": "docs/superpowers/plans/2026-11-25-team-live-solo-rank.md",
+      "role": "reference"
+    },
+    {
       "path": "docs/superpowers/decisions/2026-10-29-light-ui.md",
       "role": "historical",
       "date": "2026-10-29",
@@ -331,6 +341,12 @@
       "path": "docs/validation/2026-11-21-auto-deploy-report.md",
       "role": "historical",
       "date": "2026-11-21",
+      "current": "docs/status.md"
+    },
+    {
+      "path": "docs/validation/2026-11-25-team-live-solo-rank-report.md",
+      "role": "historical",
+      "date": "2026-11-25",
       "current": "docs/status.md"
     }
   ],

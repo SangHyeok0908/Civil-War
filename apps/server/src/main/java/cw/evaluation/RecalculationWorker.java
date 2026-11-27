@@ -4,7 +4,6 @@ import cw.contracts.EvaluationContracts.EvaluationGeneration;
 import cw.contracts.EvaluationContracts.EvaluationInput;
 import cw.contracts.EvaluationContracts.GameScore;
 import cw.domain.MemberAggregator;
-import cw.domain.RoleSkillCalculator;
 import cw.domain.ScoringService;
 import cw.evaluation.EvaluationRepository.Claim;
 import java.sql.Connection;
@@ -45,8 +44,7 @@ public class RecalculationWorker {
                 input.sourceRevision(),
                 input.scoringVersion(),
                 scores,
-                new MemberAggregator().aggregate(input, scores),
-                new RoleSkillCalculator().calculate(input.members(), scores));
+                new MemberAggregator().aggregate(input, scores));
     }
 
     void calculateClaimed(EvaluationRepository.Claim claim) {

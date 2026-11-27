@@ -34,8 +34,14 @@ test("team recommendation includes a member with only one inhouse game", async (
   }
   await expect(page.locator(".candidate")).toHaveCount(3);
   await expect(page.locator(".team-seat")).toHaveCount(30);
+  expect(result.rankLookups).toHaveLength(10);
+  expect(result.rankLookups.every((r) => r.source === "default")).toBe(true);
+  await expect(
+    page.getByText("솔로랭크 반영 · 10명 중 0명 최신 조회"),
+  ).toBeVisible();
+  await expect(page.getByText("조회 실패 · 기준값 50 사용")).toHaveCount(10);
   await page.screenshot({
-    path: "docs/validation/assets/2026-10-29-teams-sparse-history.png",
+    path: "docs/validation/assets/2026-11-25-teams-rank-lookups.png",
     fullPage: true,
   });
 });

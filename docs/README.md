@@ -74,6 +74,7 @@
 - [docs/superpowers/plans/2026-10-29-collector-solo-removal.md](superpowers/plans/2026-10-29-collector-solo-removal.md)
 - [docs/superpowers/plans/2026-10-29-light-ui-profile-icons.md](superpowers/plans/2026-10-29-light-ui-profile-icons.md)
 - [docs/superpowers/plans/2026-11-21-ghcr-auto-deploy.md](superpowers/plans/2026-11-21-ghcr-auto-deploy.md)
+- [docs/superpowers/plans/2026-11-25-team-live-solo-rank.md](superpowers/plans/2026-11-25-team-live-solo-rank.md)
 
 ## 이력 문서
 
@@ -87,6 +88,7 @@
 - [docs/superpowers/plans/2026-10-23-code-readability.md](superpowers/plans/2026-10-23-code-readability.md) — 2026-10-23, 현재: [docs/spec.md](spec.md)
 - [docs/superpowers/specs/2026-10-21-lol-inhouse-design.md](superpowers/specs/2026-10-21-lol-inhouse-design.md) — 2026-10-21, 현재: [docs/spec.md](spec.md)
 - [docs/superpowers/specs/2026-11-21-ghcr-auto-deploy-design.md](superpowers/specs/2026-11-21-ghcr-auto-deploy-design.md) — 2026-11-21, 현재: [docs/spec.md](spec.md)
+- [docs/superpowers/specs/2026-11-25-team-live-solo-rank-design.md](superpowers/specs/2026-11-25-team-live-solo-rank-design.md) — 2026-11-25, 현재: [docs/spec.md](spec.md)
 - [docs/validation/lcu-candidate-contract.md](validation/lcu-candidate-contract.md) — 2026-10-22, 현재: [docs/contracts/api.md](contracts/api.md)
 - [docs/validation/lcu-field-map.md](validation/lcu-field-map.md) — 2026-10-21, 현재: [docs/status.md](status.md)
 - [docs/validation/lcu-objective-semantics.md](validation/lcu-objective-semantics.md) — 2026-10-24, 현재: [docs/status.md](status.md)
@@ -115,6 +117,7 @@
 - [docs/validation/2026-10-29-light-ui-report.md](validation/2026-10-29-light-ui-report.md) — 2026-10-29, 현재: [docs/status.md](status.md)
 - [docs/validation/2026-11-21-admin-login-setting-report.md](validation/2026-11-21-admin-login-setting-report.md) — 2026-11-21, 현재: [docs/status.md](status.md)
 - [docs/validation/2026-11-21-auto-deploy-report.md](validation/2026-11-21-auto-deploy-report.md) — 2026-11-21, 현재: [docs/status.md](status.md)
+- [docs/validation/2026-11-25-team-live-solo-rank-report.md](validation/2026-11-25-team-live-solo-rank-report.md) — 2026-11-25, 현재: [docs/status.md](status.md)
 
 ## 보존한 과거 기록 구간
 
