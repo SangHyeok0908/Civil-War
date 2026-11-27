@@ -344,6 +344,18 @@
       "current": "docs/status.md"
     },
     {
+      "path": "docs/superpowers/decisions/2026-11-27-collector-ux.md",
+      "role": "historical",
+      "date": "2026-11-27",
+      "current": "docs/spec.md"
+    },
+    {
+      "path": "docs/validation/2026-11-27-collector-ux-report.md",
+      "role": "historical",
+      "date": "2026-11-27",
+      "current": "docs/status.md"
+    },
+    {
       "path": "docs/validation/2026-11-25-team-live-solo-rank-report.md",
       "role": "historical",
       "date": "2026-11-25",
