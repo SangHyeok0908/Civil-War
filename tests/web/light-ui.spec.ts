@@ -43,6 +43,10 @@ test("cached Riot portraits appear in members admin and team choices", async ({
       ),
     }),
   );
+  // The previous spec cancels a match; recommending before that recalculation ends returns 202.
+  await expect
+    .poll(async () => (await request.get("/api/rankings")).status())
+    .toBe(200);
   const members = await (await request.get("/api/members")).json();
   expect(members[0].profileIconId).toBe(29);
   expect(JSON.stringify(members)).not.toMatch(/puuid|riotId|token/);
