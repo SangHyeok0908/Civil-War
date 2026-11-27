@@ -28,7 +28,7 @@ export const messages: Record<string, string> = {
   ROSTER_UNAVAILABLE:
     "서버에 연결해 참가자 목록을 받아야 합니다. 모임 연결과 인터넷 상태를 확인하세요.",
   LOCAL_SAVE_FAILED:
-    "전송 대기 저장 실패. 디스크 공간을 확인한 뒤 다시 조회하세요.",
+    "전송 대기 저장 실패: 디스크 공간을 확인한 뒤 다시 조회하세요.",
   UNSUPPORTED_SCHEMA: "지원하지 않는 경기 종류 또는 형식입니다.",
   INVALID_MATCH: "경기 필수 정보가 없거나 서로 일치하지 않습니다.",
   REQUIRED: "경기의 필수 기록이 누락되었습니다.",
@@ -36,6 +36,17 @@ export const messages: Record<string, string> = {
   PENDING_OWNER_MISMATCH:
     "다른 회원이 보관한 미완료 요청이 있어 계정을 바꿀 수 없습니다.",
   MATCH_CANCELED: "운영자가 등록을 취소한 경기입니다.",
+  QUERY_BUSY: "이미 경기를 가져오는 중입니다. 끝난 뒤 다시 시도하세요.",
+  HISTORY_LIMIT:
+    "롤 클라이언트의 경기 목록을 끝까지 읽지 못했습니다. 롤 클라이언트를 다시 실행한 뒤 조회하세요.",
+  INVALID_HISTORY:
+    "롤 클라이언트의 경기 목록을 읽지 못했습니다. 롤 클라이언트를 다시 실행한 뒤 조회하세요.",
+  INVALID_SERVER_RESPONSE:
+    "서버 응답을 처리하지 못했습니다. 수집기가 최신 버전인지 확인하고, 계속되면 운영자에게 문의하세요.",
+  INVALID_STATE: "이미 등록했거나 취소된 경기여서 변경할 수 없습니다.",
+  NOT_FOUND:
+    "경기를 찾지 못했습니다. ‘확인할 경기 불러오기’를 누른 뒤 다시 시도하세요.",
+  RATE_LIMITED: "요청이 많아 잠시 기다린 뒤 자동으로 다시 시도합니다.",
   LOCAL_ERROR: "작업에 실패했습니다. 저장 상태를 확인하고 다시 시도하세요.",
 };
 export const message = (code: string) =>

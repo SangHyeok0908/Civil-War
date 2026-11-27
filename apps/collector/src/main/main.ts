@@ -140,6 +140,10 @@ if (!app.requestSingleInstanceLock()) {
           };
         }
       });
+      service.onQueryProgress = (progress) => {
+        if (!window.isDestroyed())
+          window.webContents.send("collector:query-progress", progress);
+      };
       await window.loadURL(entry);
       window.show();
       void service.refreshRemote().catch(() => {});

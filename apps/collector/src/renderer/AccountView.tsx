@@ -7,11 +7,13 @@ export function AccountView({
   busy,
   enroll,
   error,
+  clearError,
 }: {
   account: SafeAccount;
   busy: boolean;
   enroll: (code: string) => Promise<boolean>;
   error: string;
+  clearError: () => void;
 }) {
   const [code, setCode] = useState("");
   const [open, setOpen] = useState(false);
@@ -34,6 +36,7 @@ export function AccountView({
     if (!busy) {
       setOpen(false);
       setCode("");
+      clearError();
     }
   }
   return (
@@ -46,7 +49,7 @@ export function AccountView({
         )}
         {account.code === "ACCOUNT_MISMATCH" && (
           <p>
-            전송 대기 기록을 만든 계정으로 로그인해주세요.
+            전송 대기 기록을 만든 계정으로 로그인하세요.
             {account.expectedDisplayName
               ? ` (${account.expectedDisplayName})`
               : ""}
@@ -69,8 +72,8 @@ export function AccountView({
         <Modal title="모임에 연결" dismiss={dismiss}>
           <p>
             {account.enrolled
-              ? "모임 연결이 해제되었습니다. 새 모임 코드를 입력해주세요. 저장된 기록은 유지됩니다."
-              : "운영자에게 받은 모임 코드를 입력해주세요."}
+              ? "모임 연결이 해제되었습니다. 새 모임 코드를 입력하세요. 저장된 기록은 유지됩니다."
+              : "운영자에게 받은 모임 코드를 입력하세요."}
           </p>
           {!account.connected && (
             <p className="warning">롤 클라이언트를 실행하고 로그인하세요.</p>

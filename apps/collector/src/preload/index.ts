@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { CollectorApi } from "./collector-api";
+import type { CollectorApi, QueryProgress } from "./collector-api";
 const invoke = async (command: string, payload: unknown = {}) => {
   const result = await ipcRenderer.invoke(
     "collector:command",
@@ -14,6 +14,14 @@ const api: CollectorApi = {
   snapshot: () => invoke("snapshot"),
   enroll: (code) => invoke("enroll", { code }),
   queryPastMatches: () => invoke("query"),
+  onQueryProgress: (listener) => {
+    const handler = (_event: unknown, progress: QueryProgress) =>
+      listener(progress);
+    ipcRenderer.on("collector:query-progress", handler);
+    return () => {
+      ipcRenderer.removeListener("collector:query-progress", handler);
+    };
+  },
   loadPendingMatches: () => invoke("pending"),
   saveDraft: (matchKey, rolesByPuuid) =>
     invoke("draft", { matchKey, rolesByPuuid }),

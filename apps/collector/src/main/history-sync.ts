@@ -24,6 +24,7 @@ import {
   type SafeAccount,
   type HistorySyncResult,
   type MatchView,
+  type QueryProgress,
 } from "../preload/collector-api";
 export class CollectorService {
   private credential: Credential | null = null;
@@ -39,6 +40,8 @@ export class CollectorService {
   private resuming: Promise<void> | null = null;
   private ticking: Promise<void> | null = null;
   readonly uploader: Uploader;
+  // 화면에 조회 진행 상황을 알린다. 완료 시각은 추측하지 않고 현재 작업만 전한다.
+  onQueryProgress: (progress: QueryProgress) => void = () => {};
   constructor(
     private lcu: Pick<
       LcuClient,
@@ -348,9 +351,15 @@ export class CollectorService {
         this.box.cached<Member[]>("members:" + actor.memberId) ??
         (await this.refreshMembers());
       void this.refreshMembers().catch(() => {});
+      this.onQueryProgress({ phase: "listing" });
       const listing = await this.lcu.listPastMatches(actor.puuid);
       const results: HistorySyncResult["results"] = [];
       for (const id of listing.ids) {
+        this.onQueryProgress({
+          phase: "matches",
+          current: results.length + 1,
+          total: listing.ids.length,
+        });
         let matchKey: string | null = null;
         try {
           const capture = await this.lcu.getMatch(id);
@@ -420,6 +429,7 @@ export class CollectorService {
           results.push({ matchKey, code: code(e) });
         }
       }
+      this.onQueryProgress({ phase: "sending" });
       await this.uploader.drainOutbox();
       await this.loadPendingMatches();
       return {

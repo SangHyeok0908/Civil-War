@@ -516,6 +516,8 @@ test("ease: failed connection keeps its dialog and leading zero code until recov
     .getByRole("button", { name: "모임에 연결", exact: true })
     .click();
   await expect(dialog.getByRole("alert")).toBeVisible();
+  // 연결 오류는 연결 창에만 표시하고 본문 알림과 섞지 않는다.
+  await expect(page.getByRole("alert")).toHaveCount(1);
   await expect(dialog.getByLabel("모임 코드", { exact: true })).toHaveValue(
     "000007",
   );
@@ -569,4 +571,95 @@ test("ease: an existing long group code reconnects without forcing other devices
   expect(
     await app.evaluate(() => (globalThis as any).__collectorFixture.lastCode),
   ).toBe(legacy);
+});
+
+test("ux: query result separates the summary, normal exclusions, and problems", async () => {
+  const page = await launch("mixed");
+  await page
+    .getByRole("button", { name: "롤에서 경기 가져오기", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "가져오는 중…", exact: true }),
+  ).toBeDisabled();
+  await expect(page.getByText(/4경기 중 \d번째 경기를 확인하고/)).toBeVisible();
+  const result = page.getByRole("status", { name: "가져오기 결과" });
+  await expect(result).toContainText(
+    "롤 기록 4경기를 확인했습니다. 내전 후보 1경기, 제외 2경기, 문제 1경기입니다.",
+  );
+  await expect(
+    result.getByRole("listitem").filter({ hasText: "내전 형식" }),
+  ).toContainText("2경기");
+  await expect(
+    result.getByRole("listitem").filter({ hasText: "롤 클라이언트 조회" }),
+  ).toContainText("1경기");
+  await expect(result).not.toContainText(" / ");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByText(/번째 경기를 확인하고/)).toHaveCount(0);
+  mkdirSync("docs/validation/assets", { recursive: true });
+  await page.screenshot({
+    path: "docs/validation/assets/2026-11-27-collector-query-result.png",
+    fullPage: true,
+  });
+  const nav = page.getByRole("navigation", { name: "경기 상태별 보기" });
+  await expect(nav.getByRole("button", { name: /등록 취소/ })).toHaveClass(
+    /none/,
+  );
+  await result.getByRole("button", { name: "확인 대기 1경기 보기" }).click();
+  await expect(nav.getByRole("button", { name: /확인 대기/ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await result.getByRole("button", { name: "결과 닫기", exact: true }).click();
+  await expect(result).toHaveCount(0);
+});
+
+test("ux: a successful query still reports what was found", async () => {
+  const page = await launch();
+  await page
+    .getByRole("button", { name: "롤에서 경기 가져오기", exact: true })
+    .click();
+  await expect(
+    page.getByRole("status", { name: "가져오기 결과" }),
+  ).toContainText("롤 기록 1경기를 확인했습니다. 내전 후보 1경기입니다.");
+  await expect(page.getByText("내전이 아니어서 제외한 경기")).toHaveCount(0);
+});
+
+test("ux: disabled fetch explains what to do next to the button", async () => {
+  const page = await launch("stopped");
+  await expect(
+    page.getByRole("button", { name: "롤에서 경기 가져오기", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByText("롤 클라이언트에 로그인하면 새 경기를 가져올 수 있습니다."),
+  ).toBeVisible();
+});
+
+test("ux: duplicate positions are marked in their rows before registration", async () => {
+  const page = await launch();
+  await page
+    .getByRole("button", { name: "롤에서 경기 가져오기", exact: true })
+    .click();
+  const selectors = page.getByRole("combobox");
+  await expect(selectors).toHaveCount(10);
+  await selectors.nth(0).selectOption("TOP");
+  await selectors.nth(1).selectOption("TOP");
+  await expect(page.getByText("같은 팀에서 중복", { exact: true })).toHaveCount(
+    2,
+  );
+  await expect(page.getByText("선택 필요", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "내전 등록", exact: true }).click();
+  const dialog = page.getByRole("dialog", {
+    name: "실제 포지션을 확정해주세요",
+  });
+  await dialog.getByRole("button", { name: "확인", exact: true }).click();
+  await expect(page.getByText("선택 필요", { exact: true })).toHaveCount(8);
+  await page.screenshot({
+    path: "docs/validation/assets/2026-11-27-collector-position-check.png",
+    fullPage: true,
+  });
+  await selectors.nth(1).selectOption("JUNGLE");
+  await expect(page.getByText("같은 팀에서 중복", { exact: true })).toHaveCount(
+    0,
+  );
 });

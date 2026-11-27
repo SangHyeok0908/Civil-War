@@ -684,3 +684,17 @@ it.each(["members", "pending", "progress"] as const)(
     expect((await x.service.snapshot()).serverError).not.toBe("AUTH_REVOKED");
   },
 );
+it("reports listing, per-match, and sending progress without guessing completion", async () => {
+  const x = setup();
+  await x.service.initialize();
+  const seen: unknown[] = [];
+  x.service.onQueryProgress = (progress) => seen.push(progress);
+
+  await x.service.queryPastMatches();
+
+  expect(seen).toEqual([
+    { phase: "listing" },
+    { phase: "matches", current: 1, total: 1 },
+    { phase: "sending" },
+  ]);
+});

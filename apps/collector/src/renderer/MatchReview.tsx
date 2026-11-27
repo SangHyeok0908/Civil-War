@@ -29,6 +29,7 @@ export function MatchReview({
 }) {
   const [edits, setEdits] = useState<Record<string, Role | null>>({});
   const [positionError, setPositionError] = useState("");
+  const [attempted, setAttempted] = useState(false);
   const roles = { ...record.roles };
   if (record.state === "pending") {
     for (const [id, role] of Object.entries(edits)) {
@@ -38,13 +39,37 @@ export function MatchReview({
   }
   const editable =
     record.state === "pending" && record.category !== "registering";
+  // 같은 팀에서 겹친 포지션은 등록을 누르기 전에도 해당 행에 표시한다.
+  const duplicated = new Set(
+    record.match.participants
+      .filter(
+        (p) =>
+          roles[p.puuid] &&
+          record.match.participants.some(
+            (other) =>
+              other.puuid !== p.puuid &&
+              other.teamId === p.teamId &&
+              roles[other.puuid] === roles[p.puuid],
+          ),
+      )
+      .map((p) => p.puuid),
+  );
+  const problem = (puuid: string) =>
+    duplicated.has(puuid)
+      ? "같은 팀에서 중복"
+      : attempted && !roles[puuid]
+        ? "선택 필요"
+        : "";
   return (
     <article className="match">
       <header>
         <div>
           <h2>
-            {new Date(record.match.startedAtUtc).toLocaleString("ko-KR")} ·{" "}
-            {Math.floor(record.match.durationSeconds / 60)}분
+            {new Date(record.match.startedAtUtc).toLocaleString("ko-KR", {
+              dateStyle: "medium",
+              timeStyle: "short",
+            })}{" "}
+            · {Math.floor(record.match.durationSeconds / 60)}분
           </h2>
         </div>
         <span
@@ -101,6 +126,7 @@ export function MatchReview({
                           <select
                             aria-label={record.names[p.puuid] + " 실제 포지션"}
                             value={roles[p.puuid] ?? ""}
+                            aria-invalid={!!problem(p.puuid)}
                             onChange={(e) => {
                               const role = e.target.value
                                 ? (e.target.value as Role)
@@ -125,16 +151,20 @@ export function MatchReview({
                         ) : (
                           "미확정"
                         )}
+                        {editable && problem(p.puuid) && (
+                          <small className="field-error">
+                            {problem(p.puuid)}
+                          </small>
+                        )}
                         {editable &&
+                          !problem(p.puuid) &&
                           record.roleSuggestions?.find(
                             (s) => s.puuid === p.puuid && s.role,
                           ) &&
                           !Object.prototype.hasOwnProperty.call(
                             { ...record.manualRoles, ...edits },
                             p.puuid,
-                          ) && (
-                            <small>경기 기록으로 추정 · 역할 확인 필요</small>
-                          )}
+                          ) && <small>자동 제안 · 실제 포지션 확인 필요</small>}
                       </td>
                     </tr>
                   ))}
@@ -162,13 +192,14 @@ export function MatchReview({
               try {
                 validateRoles(record.match, roles);
               } catch {
+                setAttempted(true);
                 const missing = record.match.participants.filter(
                   (p) => !roles[p.puuid],
                 );
                 setPositionError(
                   missing.length
-                    ? `${missing.map((p) => record.names[p.puuid]).join(", ")} 참가자의 실제 포지션을 선택해주세요.`
-                    : "같은 팀의 포지션이 중복되었습니다. 팀마다 탑·정글·미드·원딜·서포터를 한 명씩 지정해주세요.",
+                    ? `${missing.map((p) => record.names[p.puuid]).join(", ")} 참가자의 실제 포지션을 선택하세요.`
+                    : "같은 팀의 포지션이 중복되었습니다. 팀마다 탑·정글·미드·원딜·서포터를 한 명씩 지정하세요.",
                 );
                 return;
               }

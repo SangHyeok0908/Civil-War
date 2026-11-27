@@ -44,11 +44,16 @@ export interface HistorySyncResult {
   warningCode: string | null;
   snapshot: Snapshot;
 }
+export type QueryProgress =
+  | { phase: "listing" }
+  | { phase: "matches"; current: number; total: number }
+  | { phase: "sending" };
 export interface CollectorApi {
   getAccount(): Promise<SafeAccount>;
   snapshot(): Promise<Snapshot>;
   enroll(code: string): Promise<Snapshot>;
   queryPastMatches(): Promise<HistorySyncResult>;
+  onQueryProgress(listener: (progress: QueryProgress) => void): () => void;
   loadPendingMatches(): Promise<Snapshot>;
   saveDraft(
     matchKey: string,

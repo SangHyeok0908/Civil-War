@@ -115,12 +115,25 @@ export function fixtureService(box: Outbox, mode: string) {
       control.historyCalls++;
       if (mode === "failure") throw new ClientError("LCU_UNAVAILABLE");
       return {
-        ids: mode === "pending" ? [] : [match.gameId],
+        ids:
+          mode === "pending"
+            ? []
+            : mode === "mixed"
+              ? [match.gameId, "901", "902", "903"]
+              : [match.gameId],
         warningCode:
           mode === "history-stalled" ? "HISTORY_PAGINATION_STALLED" : null,
       };
     },
-    getMatch: async () => ({ rawMatch: raw, rawJson: JSON.stringify(raw) }),
+    getMatch: async (id: string) => {
+      if (mode !== "mixed" || id === match.gameId)
+        return { rawMatch: raw, rawJson: JSON.stringify(raw) };
+      // 진행 안내를 화면에서 관찰할 수 있도록 실제 조회처럼 잠시 기다린다.
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      if (id === "903") throw new ClientError("LCU_UNAVAILABLE");
+      const other = { ...raw, gameId: Number(id), queueId: 420 };
+      return { rawMatch: other, rawJson: JSON.stringify(other) };
+    },
   };
   const api = {
     progress: async (keys: string[]) =>
