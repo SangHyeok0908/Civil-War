@@ -191,7 +191,7 @@ PublicMatch에는 `matchKey`, `startedAtUtc`, `durationSeconds`, `mapId`, `patch
 | `PATCH /api/admin/matches/:key/roles` | `{rolesByPuuid}`. 등록 경기만 허용, 10명 역할 검사 후 `{matchKey,state,sourceRevision}` |
 | `POST /api/admin/matches/:key/cancel` | registered → canceled, 취소 상태 재요청은 같은 결과. `{matchKey,state,sourceRevision}` |
 
-`rawMatch`를 일반 JSON 숫자로 읽으면 큰 원본 ID가 반올림될 수 있어 읽기 전용 원본 화면은 `rawJson`을 쓴다. 실제 역할 변경은 안정적인 회원 ID를 키로 변경 전후를 감사 기록에 남긴다. 같은 역할 PATCH·반복 취소는 revision·작업을 만들지 않는다. pending 취소는 409 `INVALID_STATE`다. 취소 기록은 내부에 남고 공개 조회에서 빠진다. 원본 통계 수정·복원 경로는 없다. 회원의 선호 역할을 바꿔도 과거 경기의 확정 역할은 바꾸지 않는다.
+`rawMatch`를 일반 JSON 숫자로 읽으면 큰 원본 ID가 반올림될 수 있으므로 원본을 그대로 확인할 때는 `rawJson`을 쓴다. 웹 운영자 화면은 2026-11-27부터 두 값을 표시하지 않으며 응답에는 계속 포함한다. 실제 역할 변경은 안정적인 회원 ID를 키로 변경 전후를 감사 기록에 남긴다. 같은 역할 PATCH·반복 취소는 revision·작업을 만들지 않는다. pending 취소는 409 `INVALID_STATE`다. 취소 기록은 내부에 남고 공개 조회에서 빠진다. 원본 통계 수정·복원 경로는 없다. 회원의 선호 역할을 바꿔도 과거 경기의 확정 역할은 바꾸지 않는다.
 
 ## 점수·순위와 팀 추천
 

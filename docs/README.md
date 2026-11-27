@@ -118,6 +118,8 @@
 - [docs/validation/2026-11-21-admin-login-setting-report.md](validation/2026-11-21-admin-login-setting-report.md) — 2026-11-21, 현재: [docs/status.md](status.md)
 - [docs/validation/2026-11-21-auto-deploy-report.md](validation/2026-11-21-auto-deploy-report.md) — 2026-11-21, 현재: [docs/status.md](status.md)
 - [docs/validation/2026-11-25-team-live-solo-rank-report.md](validation/2026-11-25-team-live-solo-rank-report.md) — 2026-11-25, 현재: [docs/status.md](status.md)
+- [docs/superpowers/decisions/2026-11-27-operator-ux.md](superpowers/decisions/2026-11-27-operator-ux.md) — 2026-11-27, 현재: [docs/spec.md](spec.md)
+- [docs/validation/2026-11-27-operator-ux-report.md](validation/2026-11-27-operator-ux-report.md) — 2026-11-27, 현재: [docs/status.md](status.md)
 
 ## 보존한 과거 기록 구간
 

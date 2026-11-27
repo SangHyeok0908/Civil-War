@@ -348,6 +348,18 @@
       "role": "historical",
       "date": "2026-11-25",
       "current": "docs/status.md"
+    },
+    {
+      "path": "docs/superpowers/decisions/2026-11-27-operator-ux.md",
+      "role": "historical",
+      "date": "2026-11-27",
+      "current": "docs/spec.md"
+    },
+    {
+      "path": "docs/validation/2026-11-27-operator-ux-report.md",
+      "role": "historical",
+      "date": "2026-11-27",
+      "current": "docs/status.md"
     }
   ],
   "topics": [
