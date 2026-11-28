@@ -289,7 +289,7 @@ if ($LASTEXITCODE -ne 0) { throw 'DB 백업 복사 실패. 적용을 멈추세�
 
 ZIP의 `home-server/server.jar`를 기존 배포 폴더의 `server.jar`에 복사한다. 기존 `.env`, `secrets`, `compose.yml`, `Dockerfile`, `.dockerignore`를 사용한다. ZIP의 설정 네 파일은 최초 구성과 대조할 때 쓰는 예제다. 사용자별 프로젝트명·DB·볼륨을 새 이름으로 바꾸지 않는다.
 
-자동 솔로랭크 참고를 사용할 때는 서버 `.env`에 `RIOT_API_KEY`를 넣고, 기존 `compose.yml`의 `server.environment`에 다음 항목을 추가한다. 실제 키는 배포 ZIP·수집기 설정에 넣지 않는다. 키가 없거나 조회가 실패하면 연결·조회 대기와 최근 성공값 또는 공통 시작값을 사용한다.
+자동 솔로랭크 참고를 사용할 때는 서버 `.env`에 `RIOT_API_KEY`를 넣고, 기존 `compose.yml`의 `server.environment`에 다음 항목을 추가한다. 실제 키는 배포 ZIP·수집기 설정에 넣지 않는다. 키가 없거나 조회가 실패하면 연결·조회 대기와 최근 성공값 또는 공통 시작값을 사용한다. 키를 다른 키로 바꾸면 Riot이 같은 계정에도 다른 PUUID를 돌려준다. 서버는 다음 팀 추천 때 참가자마다 저장 값을 새 키 기준으로 바꾸므로 따로 할 일은 없고, 그 추천 한 번은 참가자당 Riot 호출이 한 번 더 생긴다.
 
 ```yaml
 RIOT_API_KEY: ${RIOT_API_KEY:-}

@@ -204,7 +204,7 @@ PublicMatch에는 `matchKey`, `startedAtUtc`, `durationSeconds`, `mapId`, `patch
 | `POST /api/teams/recommend` | [TeamInput](stage3.schema.json#/$defs/TeamInput) `{memberIds:string[10]}` → `{candidates:[{teamA:[{memberId,role}],teamB:[{memberId,role}],skillDifference}],reason:null|string,sourceRevision,rankLookups:RankLookup[10]}` |
 | `GET /api/scoring-versions/:id` | 공개 점수에 쓴 변경 불가능한 전체 [ScoringRuleSet](stage3.schema.json#/$defs/ScoringRuleSet). 알 수 없는 버전은 404 |
 
-팀 추천은 응답 전에 선택한 10명의 솔로랭크를 조회한다. [RankLookup](stage3.schema.json#/$defs/RankLookup)은 `{memberId,source,status,teamSeed,tier,division,observedAt}`이다. `source`는 이번 계산에 쓴 값의 출처로 `live`(이번 조회 성공), `saved`(이번 조회 실패, 마지막 성공값), `default`(성공한 적 없음, 공통 시작값)다. `status`는 이번 조회 결과로 `ranked`·`unranked`·`unavailable`·`not_found`·`conflict`·`timeout`(대기 상한 초과) 중 하나다. 상한 안에 끝난 조회만 응답 전에 한 트랜잭션으로 저장하고, 상한을 넘긴 조회는 저장하지 않는다. 포지션별 실력은 저장하지 않고 요청마다 계산한다. 조회 일부가 실패해도 추천은 200으로 응답한다.
+팀 추천은 응답 전에 선택한 10명의 솔로랭크를 조회한다. [RankLookup](stage3.schema.json#/$defs/RankLookup)은 `{memberId,source,status,teamSeed,tier,division,observedAt}`이다. `source`는 이번 계산에 쓴 값의 출처로 `live`(이번 조회 성공), `saved`(이번 조회 실패, 마지막 성공값), `default`(성공한 적 없음, 공통 시작값)다. `status`는 이번 조회 결과로 `ranked`·`unranked`·`unavailable`·`not_found`·`conflict`·`timeout`(대기 상한 초과) 중 하나다. `conflict`는 Riot ID로 찾은 공식 PUUID가 저장된 값과 다르다는 뜻이며 이때 등급을 저장하지 않는다. 다만 Riot이 저장된 PUUID를 현재 키로 해독하지 못하면(다른 API 키가 발급한 값) 충돌로 보지 않고 저장 값을 새 PUUID로 바꾼 뒤 등급을 반영하며 감사 기록 `official_puuid_replaced`를 남긴다. 저장 값의 확인에 실패했거나 새 PUUID를 다른 계정이 이미 갖고 있으면 `conflict`를 유지한다. 상한 안에 끝난 조회만 응답 전에 한 트랜잭션으로 저장하고, 상한을 넘긴 조회는 저장하지 않는다. 포지션별 실력은 저장하지 않고 요청마다 계산한다. 조회 일부가 실패해도 추천은 200으로 응답한다.
 
 현재 세대가 없으면 순위·회원 통계·팀 추천은 202 `RECALCULATING`을 반환한다. 이때 팀 추천은 Riot 조회를 하지 않는다. 이는 경기 기록을 200으로 읽는 동작과 구분한다.
 

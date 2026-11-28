@@ -372,6 +372,12 @@
       "role": "historical",
       "date": "2026-11-27",
       "current": "docs/status.md"
+    },
+    {
+      "path": "docs/validation/2026-11-27-riot-key-change-report.md",
+      "role": "historical",
+      "date": "2026-11-27",
+      "current": "docs/status.md"
     }
   ],
   "topics": [
