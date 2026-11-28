@@ -218,4 +218,70 @@ class LiveRankLookupIntegrationTest extends DatabaseTestSupport {
             shortDeadline.close();
         }
     }
+
+    private String storedPuuid(String memberId) {
+        return jdbc.queryForObject(
+                "select a.official_puuid from player_accounts a join members m on m.account_id=a.id where m.id=?",
+                String.class,
+                memberId);
+    }
+
+    /** Saves DIAMOND I under the old key, then makes Riot answer with a different PUUID. */
+    private void rankSavedThenPuuidChanges(String newPuuid) {
+        verifiedAccounts();
+        when(gateway.getSoloRank("official-1"))
+                .thenReturn(new SoloRankLookup("ranked", "DIAMOND", "I", 0));
+        ranks.refresh("member-1");
+        when(gateway.resolveAccount("Player1#test"))
+                .thenReturn(new AccountLookup("verified", newPuuid, "Player1#test"));
+        when(gateway.getSoloRank(newPuuid))
+                .thenReturn(new SoloRankLookup("ranked", "GOLD", "IV", 0));
+    }
+
+    @Test
+    void storedPuuidFromAnotherKeyIsReplaced() {
+        rankSavedThenPuuidChanges("newkey-1");
+        when(gateway.puuidState("official-1")).thenReturn("foreign_key");
+        RankLookup value = byMember(live.lookup(TEN)).get("member-1");
+        assertThat(value.source()).isEqualTo("live");
+        assertThat(value.status()).isEqualTo("ranked");
+        assertThat(value.tier()).isEqualTo("GOLD");
+        assertThat(storedPuuid("member-1")).isEqualTo("newkey-1");
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from audit_log where action='official_puuid_replaced' and target_id='member-1'",
+                                Long.class))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void riotIdNowOwnedByAnotherAccountStaysConflict() {
+        rankSavedThenPuuidChanges("someone-else");
+        when(gateway.puuidState("official-1")).thenReturn("valid");
+        RankLookup value = byMember(live.lookup(TEN)).get("member-1");
+        assertThat(value.source()).isEqualTo("saved");
+        assertThat(value.status()).isEqualTo("conflict");
+        assertThat(value.tier()).isEqualTo("DIAMOND");
+        assertThat(storedPuuid("member-1")).isEqualTo("official-1");
+    }
+
+    @Test
+    void uncheckedStoredPuuidStaysConflict() {
+        rankSavedThenPuuidChanges("newkey-1");
+        when(gateway.puuidState("official-1")).thenReturn("unavailable");
+        RankLookup value = byMember(live.lookup(TEN)).get("member-1");
+        assertThat(value.status()).isEqualTo("conflict");
+        assertThat(storedPuuid("member-1")).isEqualTo("official-1");
+    }
+
+    @Test
+    void replacementHeldByAnotherAccountStaysConflict() {
+        rankSavedThenPuuidChanges("official-2");
+        ranks.refresh("member-2");
+        when(gateway.puuidState("official-1")).thenReturn("foreign_key");
+        Map<String, RankLookup> values = byMember(live.lookup(TEN));
+        assertThat(values.get("member-1").status()).isEqualTo("conflict");
+        assertThat(storedPuuid("member-1")).isEqualTo("official-1");
+        assertThat(storedPuuid("member-2")).isEqualTo("official-2");
+    }
 }

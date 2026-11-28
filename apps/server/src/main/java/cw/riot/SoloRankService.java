@@ -68,14 +68,27 @@ public class SoloRankService {
     }
 
     /** The member as read before a lookup; a save is skipped if it changed meanwhile. */
-    public record Target(String memberId, String riotId, String playerId) {}
+    public record Target(String memberId, String riotId, String playerId, String storedPuuid) {}
 
-    /** A finished Riot lookup that has not been saved yet. */
-    public record Fetched(Target target, AccountLookup official, SoloRankLookup lookup) {}
+    /**
+     * A finished Riot lookup that has not been saved yet. {@code storedPuuidForeign} means Riot
+     * could not decrypt the stored PUUID, so it came from a previous API key.
+     */
+    public record Fetched(
+            Target target,
+            AccountLookup official,
+            SoloRankLookup lookup,
+            boolean storedPuuidForeign) {}
 
     public Target target(String memberId) {
         MemberEntity member = members.findById(memberId).orElseThrow();
-        return new Target(memberId, member.riotId, member.accountId);
+        String stored =
+                member.accountId == null
+                        ? null
+                        : accounts.findById(member.accountId)
+                                .map(account -> account.officialPuuid)
+                                .orElse(null);
+        return new Target(memberId, member.riotId, member.accountId, stored);
     }
 
     /** Calls Riot only, so a cancelled caller never interrupts database work. */
@@ -94,7 +107,14 @@ public class SoloRankService {
         if (result == null) {
             result = new SoloRankLookup("unavailable", null, null, 0);
         }
-        return new Fetched(target, official, result);
+        // PUUIDs are encrypted per API key, so a key change makes every stored one differ.
+        boolean foreign =
+                official != null
+                        && "verified".equals(official.status())
+                        && target.storedPuuid() != null
+                        && !target.storedPuuid().equals(official.puuid())
+                        && "foreign_key".equals(gateway.puuidState(target.storedPuuid()));
+        return new Fetched(target, official, result, foreign);
     }
 
     public RankSeedSnapshot refresh(String memberId) {
@@ -142,9 +162,21 @@ public class SoloRankService {
         saved.attemptedAt = now;
         saved.status = lookup.status();
         if (official != null && "verified".equals(official.status())) {
-            if (account.officialPuuid != null && !account.officialPuuid.equals(official.puuid())) {
+            boolean differs =
+                    account.officialPuuid != null
+                            && !account.officialPuuid.equals(official.puuid());
+            // Replace only the exact value Riot refused, and never take one another account holds.
+            boolean replace =
+                    differs
+                            && fetched.storedPuuidForeign()
+                            && account.officialPuuid.equals(fetched.target().storedPuuid())
+                            && accounts.findByOfficialPuuid(official.puuid()).isEmpty();
+            if (differs && !replace) {
                 saved.status = "conflict";
             } else {
+                if (replace) {
+                    mutations.audit("official_puuid_replaced", "server", memberId, "{}");
+                }
                 account.officialPuuid = official.puuid();
                 account.linkStatus = account.lcuPuuid == null ? "official_linked" : "verified";
                 accounts.save(account);

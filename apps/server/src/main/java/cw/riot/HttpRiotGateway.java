@@ -241,4 +241,20 @@ public class HttpRiotGateway implements RiotGateway {
             return new SoloRankLookup("unavailable", null, null, 0);
         }
     }
+
+    @Override
+    public String puuidState(String officialPuuid) {
+        Response response =
+                get(accountOrigin, "/riot/account/v1/accounts/by-puuid/" + encode(officialPuuid));
+        if (response == null) {
+            return "unavailable";
+        }
+        if (response.statusCode() == 200) {
+            return "valid";
+        }
+        // Riot answers 400 "Exception decrypting ..." for a PUUID issued under another API key.
+        return response.statusCode() == 400 && response.body().contains("decrypting")
+                ? "foreign_key"
+                : "unavailable";
+    }
 }

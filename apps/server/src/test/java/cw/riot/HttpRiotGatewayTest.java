@@ -283,4 +283,48 @@ class HttpRiotGatewayTest {
             server.stop(0);
         }
     }
+
+    @Test
+    void puuidStateSeparatesAnotherKeysPuuidFromOtherFailures() throws Exception {
+        AtomicInteger variant = new AtomicInteger();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext(
+                "/",
+                exchange -> {
+                    assertThat(exchange.getRequestURI().getRawPath())
+                            .isEqualTo("/riot/account/v1/accounts/by-puuid/stored%2Fpuuid");
+                    assertThat(exchange.getRequestHeaders().getFirst("X-Riot-Token"))
+                            .isEqualTo("test-secret");
+                    int status = variant.get() == 0 ? 200 : variant.get() == 3 ? 500 : 400;
+                    String body =
+                            switch (variant.get()) {
+                                case 0 ->
+                                        "{\"puuid\":\"stored/puuid\",\"gameName\":\"A\",\"tagLine\":\"B\"}";
+                                case 1 ->
+                                        "{\"status\":{\"message\":\"Bad Request - Exception decrypting stored/puuid\",\"status_code\":400}}";
+                                default ->
+                                        "{\"status\":{\"message\":\"Bad Request\",\"status_code\":400}}";
+                            };
+                    byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(status, bytes.length);
+                    exchange.getResponseBody().write(bytes);
+                    exchange.close();
+                });
+        server.start();
+        try {
+            URI origin = URI.create("http://127.0.0.1:" + server.getAddress().getPort());
+            HttpRiotGateway gateway =
+                    new HttpRiotGateway(
+                            "test-secret", origin, origin, JsonMapper.builder().build());
+            assertThat(gateway.puuidState("stored/puuid")).isEqualTo("valid");
+            variant.set(1);
+            assertThat(gateway.puuidState("stored/puuid")).isEqualTo("foreign_key");
+            variant.set(2);
+            assertThat(gateway.puuidState("stored/puuid")).isEqualTo("unavailable");
+            variant.set(3);
+            assertThat(gateway.puuidState("stored/puuid")).isEqualTo("unavailable");
+        } finally {
+            server.stop(0);
+        }
+    }
 }
